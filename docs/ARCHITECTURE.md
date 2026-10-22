@@ -189,69 +189,72 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 
 ### 5.1 Connecting
 
-1. In Elastic: Settings → Projects → **Connect Boardo**. Elastic creates a PKCE verifier and challenge (S256) and a `state`, then opens:
+1. In Elastic: Settings → Projects → **Connect Boardo**. Elastic creates a PKCE verifier and challenge (S256) and a `state`, keeps them in `sessionStorage`, then opens:
    `https://kaiserkhan.com/boardo/?connect&client_id=elastic&redirect_uri=https://kaiserkhan.com/planner/&code_challenge=…&code_challenge_method=S256&state=…`
-2. Boardo signs the person in if needed, then asks: "Elastic wants to see the cards assigned to you and log your time on them". The options are **Allow** and **Cancel**.
+2. Boardo signs the person in if needed, then asks "Connect Elastic?", listing what Elastic may and may never see. The options are **Allow** and **Cancel**.
 3. **Allow** calls `/oauth/approve`, which:
-   - checks `client_id` and `redirect_uri` against the clients registered in the Worker's config;
-   - stores a one-time code, valid for 5 minutes;
-   - redirects to `redirect_uri?code=…&state=…`.
-4. Elastic checks `state` and calls `/oauth/token {code, verifier}`. It receives a long-lived opaque token with scope `elastic`.
+   - checks `client_id` and `redirect_uri` against the clients registered in the Worker (`worker/src/oauth.ts`: `https://kaiserkhan.com/planner/`, and `http://localhost:5173/planner/` and `:4173` for development);
+   - stores a one-time code, hashed, valid for 5 minutes;
+   - answers with `redirect_uri?code=…&state=…` for the app to go to. **Cancel** answers with `redirect_uri?error=access_denied&state=…`.
+4. Elastic checks `state` and calls `/oauth/token {code, verifier, client_id, redirect_uri}`. It receives `{access_token, token_type: 'Bearer', scope: 'elastic', user: {email, name}}`.
    - The token is stored hashed in `app_tokens`.
-   - It's listed in Boardo → Settings → Connected apps, where it can be revoked.
-5. Elastic keeps the token **on that device only**, in IndexedDB. It's never synced through Elastic's account, so Elastic's server never holds it (R8.5).
+   - It's listed in Boardo → Settings → Connected apps, where it can be removed.
+   - It works on `/elastic/*` only, and a session token never works there.
+5. Elastic keeps the token **on that device only**, in IndexedDB (`meta['boardo']`). It's never synced through Elastic's account, so Elastic's server never holds it (R8.5). `/elastic/disconnect` (with the token) removes it from Boardo's side.
 
 ### 5.2 Reading cards
 
-`POST /elastic/cards` returns the person's cards that have at least one date and aren't archived, from every board they're in. For each card it returns only:
-- `id`, `title`, `start`, `end`, `hasTime`;
+`POST /elastic/cards` returns `{boards, cards}`: the number of boards the person is in, and their cards that have at least one date and aren't archived, from every board they're in. For each card it returns only:
+- `id`, `title`, `start`, `end` (`YYYY-MM-DD`, or ISO 8601 with offset), `hasTime`;
 - `board {id, name, hue}`;
-- `status {label, role}`;
-- `myDone`, `completed`, `completedAt`;
-- `url`, the card's address in Boardo.
+- `status {label, role}` (`role` is `in_progress`, `completed` or null);
+- `myDone` (when the person's part was done, ms, or null), `completed`, `completedAt` (ms, from the log);
+- `url`, the card's own link in Boardo: `https://kaiserkhan.com/boardo/?card=<board>/<card>`.
 
-It also returns `boards`, the number of boards the person is in. Elastic uses it to decide whether to show the Projects section at all (R8.7).
+Elastic uses `boards` to decide whether to show the Projects section at all (R8.7).
 
 Comments, files, custom fields and other people's cards are never returned (R8.3).
 
 ### 5.3 Writing time and done marks
 
-`POST /elastic/ops {ops: [{id, type, cardId, sessionId, at}]}`, where `type` is one of `start`, `stop`, `done` or `undone`.
+`POST /elastic/ops {ops: [{id, type, board, cardId, sessionId, at}]}`, where `type` is one of `start`, `stop`, `done` or `undone`. It answers `{results: [{id, ok, error?}]}`; every op gets an answer, and Elastic drops answered ones, refused ones too (`not-member`, `not-assigned`, `bad`).
 
-- The Worker checks that the person is a member of the card's board **and** assigned to the card, then hands the ops to the board's DO.
-- Ops are idempotent by `id`, so retries and late offline deliveries never count twice.
-- `start` opens a session and sets Status to `in_progress` (R5.6).
+- The Worker checks that the person is a member of the board; the board's DO checks that they're assigned to the card.
+- Ops are idempotent by `id` (the DO keeps the ids it has applied), so retries and late offline deliveries never count twice.
+- `start` opens a `session` record (`sessionId`) and sets Status to the `in_progress` option (R5.6), logged as "started work in Elastic".
 - `stop` closes the session and logs the time worked.
 - `done` and `undone` set or clear the person's part, which triggers the completion rule.
-- Log entries use the op's `at`, so time worked offline is recorded when it really happened (R8.27).
+- Log entries and sessions use the op's `at`, so time worked offline is recorded when it really happened (R8.27). An `at` more than 60 days old, or in the future, is refused.
 
 ## 6. Changes in Elastic
 
 All of these are in Elastic's repository.
 
-- **`src/lib/boardo.ts` (new)** handles:
+- **`src/lib/boardo.svelte.ts` (new)** holds the `Boardo` class the store keeps as `P.boardo`:
   - the connect flow, with PKCE through WebCrypto, and picking up `?code&state` when the page loads;
-  - `fetchCards()`, which runs on start, when the app becomes visible, and every 5 minutes while it's visible; the result is cached so it works offline;
-  - an ops outbox, flushed when the device is online;
-  - disconnect.
+  - `refresh()`, which runs on start, and every 5 minutes while the app is visible; the result is cached in IndexedDB so it works offline;
+  - an ops outbox (`meta['boardoOps']`), flushed when the device is online;
+  - `disconnect()`.
 
-  The API address comes from `VITE_BOARDO_URL`.
-- **`cardsFor(dayKey, cards, now)`** is a pure function that applies R8.12 to R8.18 and builds the deadline labels: Overdue, Due today (with the time if there is one), Due tomorrow, a weekday within the next 6 days, otherwise a short date.
+  Boardo's API address comes from `VITE_BOARDO_URL` and its connect page from `VITE_BOARDO_APP`. Without them, Projects stays off.
+- **`cardsFor(dayKey, cards, today, clock24)`** is a pure function that applies R8.12 to R8.18 and builds the deadline labels, read from the day being looked at: Overdue, Due today (with the time if there is one), Due tomorrow, a weekday within the next 6 days, otherwise a short date. An overdue In progress card shows on every day after its end up to today.
 - **`src/components/Projects.svelte` (new):**
   - built on Elastic's `Collapsible` component (R8.8);
-  - placed in the plan after the Checklist and before the timeline;
+  - placed in the plan after the Checklist and before the timeline (and above the empty-day message);
   - shown only when the person is connected and in at least one board;
-  - each row has the title, the project in its colour, a status chip, the deadline and a Start button;
-  - tapping a row opens a read-only card sheet with **Open in Boardo**.
-- **`Item.card?: { id: string; board: string }`** links a day item to a card, and Elastic's backup import validates it.
+  - each row has the title, the project in its colour, a status chip, the deadline and a Start button (Resume or Running when the card's timer is going);
+  - tapping a row opens a read-only card sheet (`ProjectCard.svelte`) with **Open in Boardo**.
+- **`Item.card?: { id: string; board: string; session?: string | null }`** links a day item to a card, and Elastic's backup import validates it.
   - Starting a card creates a task item with `min: 0`, the card's title and the project's colour. Elastic's existing `startItem` then places it at the current point.
   - Elastic's scheduler already ends a running item at `max(now, start + min + pausedFor)`, so a `min: 0` item counts up and pushes the plan later (R8.20, R8.21).
-- **The running card's row** shows elapsed time counting up, not a countdown, and books no time's-up alert or push. Its controls:
+  - Cards still to work on today count as something to start the day for, so Start my day shows even on a day with no tasks.
+- **Ops come from comparing days.** `Planner.put()` compares each changed day with the one it replaces: a card item that starts running sends `start` (a new session id, kept on `Item.card.session` while it runs), one that stops running for any reason sends `stop`, one that becomes done sends `done`, and one reopened from done sends `undone`. Days synced in from another device don't pass through `put()`, so nothing is sent twice.
+- **The running card's row** shows elapsed time counting up ("so far"), not a countdown, and books no time's-up alert or push. Its controls:
   - **Pause** sends `stop`, and resuming sends `start` with a new session;
-  - **Postpone** sends `stop`;
+  - **Postpone** sets it aside (`stop`), without asking where to;
   - **Done** sends `stop` and then `done`.
-- **Starting another task, or ending the day, while a card runs** sets the card item aside as partly done: the time worked is kept and the session stops. The card is **not** marked done and stays in Projects (R8.24).
-- **Settings → Projects:** Connect, Disconnect, and the Boardo account it's connected to.
+- **Starting another task, or ending the day, while a card runs** sets the card item aside as partly done (`postponed`, "worked … · set aside"): the time worked is kept and the session stops. The card is **not** marked done and stays in Projects (R8.24).
+- **Settings → Projects:** Connect Boardo, or (connected) the Boardo account, Check for new cards and Disconnect.
 
 ## 7. App structure (Boardo)
 

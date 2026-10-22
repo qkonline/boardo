@@ -32,6 +32,7 @@ import {
   type MemberRec,
   newId,
   type Role,
+  type SessionRec,
 } from '../../shared/model';
 import { cardChanges, type LogEntry, optionWithRole, settle } from '../../shared/rules';
 import { type Change, changes } from './checks';
@@ -43,6 +44,32 @@ export interface Rec {
   key: string;
   rev: number;
   data: unknown;
+}
+
+/** A card as Elastic receives it (the contract: ARCHITECTURE.md section 5.2). */
+export interface ElasticCard {
+  id: string;
+  title: string;
+  start: string | null;
+  end: string | null;
+  hasTime: boolean;
+  board: { id: string; name: string; hue: string };
+  status: { label: string | null; role: string | null };
+  /** When this person's part was done (ms), or null. */
+  myDone: number | null;
+  completed: boolean;
+  completedAt: number | null;
+  url: string;
+}
+
+/** A timer or done mark from Elastic. */
+export interface ElasticOp {
+  id: string;
+  type: 'start' | 'stop' | 'done' | 'undone';
+  board: string;
+  cardId: string;
+  sessionId: string;
+  at: number;
 }
 
 /** What each WebSocket remembers across the object sleeping. */
@@ -508,6 +535,128 @@ export class Board extends DurableObject<Env> {
 
   async info(): Promise<{ board: BoardRec | null; members: MemberRec[] }> {
     return { board: this.get('board', 'main'), members: this.all('member') };
+  }
+
+  // ---------- Elastic ----------
+
+  /**
+   * The cards Elastic may see for this person (R8.2, R8.3, R8.12, R8.13, R8.18): assigned to
+   * them, not archived, with at least one date, and only the fields the contract names.
+   */
+  async myCards(userId: string, appUrl: string): Promise<ElasticCard[]> {
+    const board = this.get('board', 'main');
+    const id = this.boardId();
+    if (!board || !id || !this.get('member', userId)) return [];
+    const status = this.get('field', 'status') ?? undefined;
+    const done = optionWithRole(status, 'completed');
+    const out: ElasticCard[] = [];
+    for (const c of this.all('card')) {
+      if (c.archived || !c.assignees.includes(userId)) continue;
+      const start = typeof c.values.start === 'string' ? c.values.start : null;
+      const end = typeof c.values.end === 'string' ? c.values.end : null;
+      if (!start && !end) continue;
+      const opt = status?.options?.find((o) => o.id === c.values.status);
+      const completed = !!done && c.values.status === done.id;
+      out.push({
+        id: c.id,
+        title: c.title,
+        start,
+        end,
+        hasTime: [start, end].some((v) => !!v && v.includes('T')),
+        board: { id, name: board.name, hue: board.hue },
+        status: { label: opt?.label ?? null, role: opt?.role ?? null },
+        myDone: c.done[userId] ?? null,
+        completed,
+        completedAt: completed ? this.completedAt(c.id, done!.label) : null,
+        url: `${appUrl.replace(/\/?$/, '/')}?card=${id}/${c.id}`,
+      });
+    }
+    return out;
+  }
+
+  /** When a card last became Completed, from its log. */
+  private completedAt(cardId: string, label: string): number | null {
+    for (const r of this.sql.exec<{ data: string }>(
+      "SELECT data FROM records WHERE kind = 'log' AND data IS NOT NULL ORDER BY rev DESC",
+    )) {
+      const l = JSON.parse(r.data) as LogRec;
+      if (l.cardId === cardId && l.action === 'status' && l.detail.to === label) return l.at;
+    }
+    return null;
+  }
+
+  /**
+   * Timers and done marks from Elastic (R5.6, R5.7, R8.22 to R8.27). Each op counts once, by
+   * id, and is logged at the time it really happened (`at`), even when it arrives late.
+   */
+  async elasticOps(userId: string, ops: ElasticOp[]): Promise<{ id: string; ok: boolean; error?: string }[]> {
+    const results: { id: string; ok: boolean; error?: string }[] = [];
+    const out: Rec[] = [];
+    this.ctx.storage.transactionSync(() => {
+      for (const op of ops) {
+        if (this.sql.exec('SELECT 1 FROM ops WHERE id = ?', op.id).toArray().length) {
+          results.push({ id: op.id, ok: true });
+          continue;
+        }
+        const card = this.get('card', op.cardId);
+        if (!card || !card.assignees.includes(userId)) {
+          results.push({ id: op.id, ok: false, error: 'not-assigned' });
+          continue;
+        }
+        this.sql.exec('INSERT INTO ops (id, at) VALUES (?, ?)', op.id, Date.now());
+        out.push(...this.applyOp(userId, card, op));
+        results.push({ id: op.id, ok: true });
+      }
+    });
+    this.broadcast(out, null);
+    return results;
+  }
+
+  private applyOp(userId: string, card: CardRec, op: ElasticOp): Rec[] {
+    const out: Rec[] = [];
+    const status = this.get('field', 'status') ?? undefined;
+    const statusName = (id: unknown) => status?.options?.find((o) => o.id === id)?.label ?? null;
+    const save = (next: CardRec, via: string) => {
+      const { card: settled, auto } = settle(card, next, status);
+      out.push(this.write('card', card.id, settled));
+      for (const e of cardChanges(card, { ...settled, values: { ...settled.values, status: card.values.status ?? null } }, new Map(), new Map()))
+        out.push(this.log(card.id, userId, { ...e, detail: { ...e.detail, via } }, op.at));
+      if (auto)
+        out.push(
+          this.log(card.id, null, { action: 'status', detail: { field: 'status', name: status?.name ?? 'Status', from: statusName(card.values.status), to: statusName(settled.values.status), auto: true } }, op.at),
+        );
+    };
+    if (op.type === 'start') {
+      if (!this.get('session', op.sessionId)) {
+        const s: SessionRec = { id: op.sessionId, cardId: card.id, userId, start: op.at, end: null };
+        out.push(this.write('session', s.id, s));
+      }
+      // Starting sets the card to In progress, whatever it was (R5.6).
+      const prog = optionWithRole(status, 'in_progress');
+      if (prog && card.values.status !== prog.id) {
+        const next = { ...card, values: { ...card.values, status: prog.id } };
+        out.push(this.write('card', card.id, next));
+        out.push(
+          this.log(card.id, userId, { action: 'status', detail: { field: 'status', name: status?.name ?? 'Status', from: statusName(card.values.status), to: prog.label, via: 'elastic' } }, op.at),
+        );
+      }
+    } else if (op.type === 'stop') {
+      const s = this.get('session', op.sessionId);
+      if (s && s.end == null && s.userId === userId) {
+        const end = Math.max(s.start, op.at);
+        out.push(this.write('session', s.id, { ...s, end }));
+        out.push(this.log(card.id, userId, { action: 'worked', detail: { ms: end - s.start, from: 'elastic' } }, op.at));
+      }
+    } else if (op.type === 'done') {
+      if (card.done[userId] == null) save({ ...card, done: { ...card.done, [userId]: op.at } }, 'elastic');
+    } else if (op.type === 'undone') {
+      if (card.done[userId] != null) {
+        const done = { ...card.done };
+        delete done[userId];
+        save({ ...card, done }, 'elastic');
+      }
+    }
+    return out;
   }
 
   // ---------- files ----------

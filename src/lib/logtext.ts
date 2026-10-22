@@ -43,7 +43,7 @@ export function logText(l: LogRec, b: BoardState, onCard: boolean): string {
     case 'status':
       return d.auto
         ? `${onCard ? 'This card' : it} became ${q(d.to)} automatically`
-        : `set ${its} status to ${q(d.to)}${d.from ? ` (was ${d.from})` : ''}`;
+        : `${d.via === 'elastic' ? 'started work in Elastic, which set' : 'set'} ${its} status to ${q(d.to)}${d.from ? ` (was ${d.from})` : ''}`;
     case 'changed': {
       const f = q(d.name ?? 'a field');
       if (d.to == null || d.to === '') return `cleared ${f}${onCard ? '' : ` on ${it}`}`;
@@ -54,7 +54,9 @@ export function logText(l: LogRec, b: BoardState, onCard: boolean): string {
     case 'unassigned':
       return d.user === l.userId ? `took themselves off ${it}` : `took ${name(d.user)} off ${it}`;
     case 'part_done':
-      return d.user === l.userId ? `finished their part of ${it}` : `marked ${name(d.user)}'s part done`;
+      return d.user === l.userId
+        ? `finished their part of ${it}${d.via === 'elastic' ? ' in Elastic' : ''}`
+        : `marked ${name(d.user)}'s part done`;
     case 'part_undone':
       return d.user === l.userId ? `marked their part of ${it} not done` : `marked ${name(d.user)}'s part not done`;
     case 'commented':

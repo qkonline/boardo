@@ -118,10 +118,10 @@ export class App {
   async init(): Promise<void> {
     const params = new URLSearchParams(location.search);
     const invite = params.get('invite');
-    if (invite) {
-      this.inviteToken = invite;
-      history.replaceState(null, '', location.pathname);
-    }
+    // A card's own link (`?card=<board>/<card>`), as Elastic opens it.
+    const cardLink = params.get('card')?.split('/');
+    if (invite) this.inviteToken = invite;
+    if (invite || cardLink) history.replaceState(null, '', location.pathname);
     const session = await db.getMeta<{ token: string; user: User }>('session');
     if (session) {
       this.token = session.token;
@@ -130,6 +130,10 @@ export class App {
       this.boards = (await db.getMeta<BoardItem[]>('boards')) ?? [];
       await this.loadLocal();
       this.restoreScreen();
+      if (cardLink?.length === 2 && this.boards.some((b) => b.id === cardLink[0])) {
+        this.go({ name: 'board', id: cardLink[0] });
+        this.open = { board: cardLink[0], id: cardLink[1] };
+      }
       this.sync.start(session.token, this.boards.map((b) => b.id));
       void this.refresh();
       await this.files.load();

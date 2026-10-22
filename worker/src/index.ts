@@ -29,6 +29,8 @@ import { deleteUser, getUser, Refusal, sendCode, sessionUser, signOut, updateMe,
 import type { Env } from './env';
 import { links, remove as removeFile, serve as serveFile, upload } from './files';
 import { devOutbox } from './mail';
+import { elasticCards, elasticOps } from './elastic';
+import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken } from './oauth';
 
 export { Board };
 
@@ -84,6 +86,11 @@ export default {
 
     try {
       const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
+      const mustApp = async () => {
+        const id = await appUser(env, token, 'elastic');
+        if (!id) throw new Refusal(401, 'Disconnected');
+        return id;
+      };
       const mustUser = async () => {
         const id = await sessionUser(env, token);
         if (!id) throw new Refusal(401, 'Signed out');
@@ -154,6 +161,24 @@ export default {
           return reply(200, await links(env, await mustUser(), body, new URL(req.url).origin));
         case '/files/delete':
           await removeFile(env, await mustUser(), body);
+          return reply(204);
+
+        case '/oauth/approve':
+          return reply(200, await approve(env, await mustUser(), body));
+        case '/oauth/token':
+          return reply(200, await oauthToken(env, body));
+        case '/apps':
+          return reply(200, await listApps(env, await mustUser()));
+        case '/apps/revoke':
+          await revokeApp(env, await mustUser(), body);
+          return reply(204);
+
+        case '/elastic/cards':
+          return reply(200, await elasticCards(env, await mustApp()));
+        case '/elastic/ops':
+          return reply(200, await elasticOps(env, await mustApp(), body));
+        case '/elastic/disconnect':
+          await revokeSelf(env, token);
           return reply(204);
 
         case '/dev/mail':
