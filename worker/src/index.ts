@@ -26,7 +26,18 @@ import {
   roleIn,
   setRole,
 } from './boards';
-import { deleteUser, getUser, Refusal, sendCode, sessionUser, signOut, updateMe, verifyCode } from './auth';
+import {
+  deleteUser,
+  getUser,
+  Refusal,
+  sendCode,
+  sendEmailChange,
+  sessionUser,
+  signOut,
+  updateMe,
+  verifyCode,
+  verifyEmailChange,
+} from './auth';
 import type { Env } from './env';
 import { links, putPhoto, remove as removeFile, removePhoto, serve as serveFile, servePhoto, upload } from './files';
 import { devOutbox } from './mail';
@@ -139,6 +150,14 @@ export default {
             return reply(200, { user });
           }
           const user = await updateMe(env, id, body);
+          await refreshMemberships(env, user);
+          return reply(200, { user });
+        }
+        case '/me/email/send':
+          await sendEmailChange(env, await mustUser(), body, req.headers.get('cf-connecting-ip') ?? 'local');
+          return reply(204);
+        case '/me/email/verify': {
+          const user = await verifyEmailChange(env, await mustUser(), body);
           await refreshMemberships(env, user);
           return reply(200, { user });
         }

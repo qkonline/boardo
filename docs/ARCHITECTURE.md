@@ -151,6 +151,7 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - `/auth/code/send {email}`: rate-limited per email and per IP, and silent on unknown emails.
 - `/auth/code/verify {email, code}` → `{token, user}`: creates the account on first use.
 - `/auth/signout`
+- `/me/email/send {email}`, `/me/email/verify {email, code}`: change one's email. A code goes to the new address (refused if another account has it) and only that changes it; every board's member record follows.
 - `/me {name?, hue?}`
 - `/me/delete`: refused while the person is the last admin of a board.
 

@@ -134,6 +134,64 @@ export async function sendCode(env: Env, body: { email?: unknown }, ip: string):
   });
 }
 
+// ---------- changing one's email ----------
+
+/** The code for changing to `email` is kept apart from that address's sign-in code. */
+const changeKey = (email: string) => `change|${email}`;
+
+/** Email a code to a new address, to confirm it before it replaces the account's email. */
+export async function sendEmailChange(env: Env, userId: string, body: { email?: unknown }, ip: string): Promise<void> {
+  const email = cleanEmail(body.email);
+  if (!email) throw new Refusal(400, "That doesn't look like an email address.");
+  const user = await getUser(env, userId);
+  if (!user) throw new Refusal(401, 'Signed out');
+  if (email === user.email) throw new Refusal(400, "That's already your email.");
+  const taken = await env.DB.prepare('SELECT 1 FROM users WHERE email = ?').bind(email).first();
+  if (taken) throw new Refusal(409, 'That email is already used by another Boardo account.');
+  const key = changeKey(email);
+  const now = Date.now();
+  const last = await env.DB.prepare('SELECT sent FROM email_codes WHERE email = ?').bind(key).first<{ sent: number }>();
+  if (last && now - last.sent < CODE_GAP_MS) throw new Refusal(429, 'A code is on its way. Wait a minute before asking for another.');
+  if (!(await withinLimit(env, `email:${email}`, PER_EMAIL, now)) || !(await withinLimit(env, `ip:${ip}`, PER_IP, now)))
+    throw new Refusal(429, 'Too many codes asked for. Try again in an hour.');
+  const code = sixDigits();
+  await env.DB.prepare('INSERT OR REPLACE INTO email_codes (email, hash, tries, sent, expires) VALUES (?, ?, 0, ?, ?)')
+    .bind(key, await sha256(`${key}|${userId}|${code}`), now, now + CODE_MS)
+    .run();
+  await sendMail(env, {
+    to: email,
+    subject: `Your Boardo code is ${code}`,
+    text: `Your Boardo code is ${code}\n\nEnter it to use this address for your Boardo account. It works for 10 minutes. If you didn't ask for it, you can ignore this email.`,
+    html: `<p style="font:16px/1.5 system-ui,sans-serif">Your Boardo code is</p><p style="font:600 28px/1.2 system-ui,sans-serif;letter-spacing:4px">${code}</p><p style="font:14px/1.5 system-ui,sans-serif;color:#5b6170">Enter it to use this address for your Boardo account. It works for 10 minutes. If you didn't ask for it, you can ignore this email.</p>`,
+  });
+}
+
+/** Check the code sent to the new address, then make it the account's email. */
+export async function verifyEmailChange(env: Env, userId: string, body: { email?: unknown; code?: unknown }): Promise<User> {
+  const email = cleanEmail(body.email);
+  const code = typeof body.code === 'string' ? body.code.replace(/\D/g, '') : '';
+  const wrong = new Refusal(400, "That code isn't right, or it has expired.");
+  if (!email || code.length !== 6) throw wrong;
+  const key = changeKey(email);
+  const row = await env.DB.prepare('SELECT hash, expires, tries FROM email_codes WHERE email = ?')
+    .bind(key)
+    .first<{ hash: string; expires: number; tries: number }>();
+  if (!row || row.expires < Date.now() || row.tries >= CODE_TRIES) throw wrong;
+  if ((await sha256(`${key}|${userId}|${code}`)) !== row.hash) {
+    await env.DB.prepare('UPDATE email_codes SET tries = tries + 1 WHERE email = ?').bind(key).run();
+    throw wrong;
+  }
+  await env.DB.prepare('DELETE FROM email_codes WHERE email = ?').bind(key).run();
+  try {
+    await env.DB.prepare('UPDATE users SET email = ? WHERE id = ?').bind(email, userId).run();
+  } catch {
+    throw new Refusal(409, 'That email is already used by another Boardo account.');
+  }
+  const user = await getUser(env, userId);
+  if (!user) throw new Refusal(401, 'Signed out');
+  return user;
+}
+
 /** Check a code: signs in, making the account the first time. */
 export async function verifyCode(
   env: Env,

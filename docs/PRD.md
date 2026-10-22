@@ -43,7 +43,7 @@ Afterwards:
 ### 2.1 Accounts
 
 - **R2.1** Anyone can create an account with their email address and sign in from any device.
-- **R2.2** On first sign-in, a person gives their name. They can change it later, and add a profile photo, which the people in their boards see in place of their initials.
+- **R2.2** On first sign-in, a person gives their name. They can change it later, and their email (confirmed with a code sent to the new address), and add a profile photo, which the people in their boards see in place of their initials.
 
 ### 2.2 Board roles
 

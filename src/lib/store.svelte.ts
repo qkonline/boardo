@@ -308,6 +308,17 @@ export class App {
     await db.putMeta('session', { token: this.token, user: res.user });
   }
 
+  /** Changing one's email: a code goes to the new address first. */
+  async sendEmailChange(email: string): Promise<void> {
+    await call('/me/email/send', { email });
+  }
+
+  async confirmEmailChange(email: string, code: string): Promise<void> {
+    const res = await call<{ user: User }>('/me/email/verify', { email, code });
+    this.user = res.user;
+    await db.putMeta('session', { token: this.token, user: res.user });
+  }
+
   /** A profile photo: made square and small here, then uploaded. */
   async setPhoto(file: File): Promise<void> {
     const res = await putBlob<{ user: User | null }>('/me/photo', await squarePhoto(file));

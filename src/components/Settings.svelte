@@ -15,6 +15,45 @@
   let saving = $state(false);
   const changed = $derived(!!app.user && (name.trim() !== (app.user.name ?? '') || hue !== app.user.hue));
 
+  // Changing the email: a code goes to the new address, and only that changes it.
+  let emailStep = $state<'idle' | 'new' | 'code'>('idle');
+  let newEmail = $state('');
+  let emailCode = $state('');
+  let emailBusy = $state(false);
+  let emailError = $state('');
+  async function sendChange(e: Event) {
+    e.preventDefault();
+    emailBusy = true;
+    emailError = '';
+    try {
+      await app.sendEmailChange(newEmail.trim());
+      emailCode = '';
+      emailStep = 'code';
+    } catch (err) {
+      emailError = (err as Error).message;
+    } finally {
+      emailBusy = false;
+    }
+  }
+  async function confirmChange(e?: Event) {
+    e?.preventDefault();
+    emailBusy = true;
+    emailError = '';
+    try {
+      await app.confirmEmailChange(newEmail.trim(), emailCode);
+      emailStep = 'idle';
+      app.say(`Your email is now ${app.user?.email}.`);
+    } catch (err) {
+      emailError = (err as Error).message;
+    } finally {
+      emailBusy = false;
+    }
+  }
+  // Six digits typed or pasted: confirm straight away.
+  $effect(() => {
+    if (emailStep === 'code' && emailCode.replace(/\D/g, '').length === 6 && !emailBusy && !emailError) void confirmChange();
+  });
+
   // A profile photo: made square and small on the device, shown to the people in your boards.
   let photoPicker: HTMLInputElement | null = $state(null);
   let photoBusy = $state(false);
@@ -149,12 +188,61 @@
         </div>
         <input bind:this={photoPicker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onchange={pickPhoto} />
       </div>
-      <p class="email">Signed in as <b>{app.user?.email}</b></p>
       <label class="label" for="me-name">Name</label>
       <input id="me-name" class="field" maxlength="60" autocomplete="name" bind:value={name} />
       <span class="label">Colour</span>
       <HuePicker bind:value={hue} />
       <div><button class="key ink" disabled={saving || !changed || !name.trim()} onclick={save}>Save</button></div>
+
+      <div class="email-box">
+        <span class="label">Email</span>
+        {#if emailStep === 'idle'}
+          <div class="email-row">
+            <b class="addr">{app.user?.email}</b>
+            <button class="btn" disabled={!app.online} onclick={() => ((emailStep = 'new'), (newEmail = ''), (emailError = ''))}>Change</button>
+          </div>
+        {:else if emailStep === 'new'}
+          <form class="email-form" onsubmit={sendChange}>
+            <input
+              id="me-email"
+              class="field"
+              type="email"
+              inputmode="email"
+              autocomplete="email"
+              placeholder="new@example.com"
+              aria-label="New email"
+              bind:value={newEmail}
+              {@attach (el: HTMLInputElement) => el.focus()}
+            />
+            <div class="row">
+              <button class="key ink" type="submit" disabled={emailBusy || !newEmail.trim()}>Send a code</button>
+              <button class="btn ghost" type="button" onclick={() => (emailStep = 'idle')}>Cancel</button>
+            </div>
+            <p class="hint">We'll send a 6-digit code to the new address. Your email only changes once you enter it.</p>
+          </form>
+        {:else}
+          <form class="email-form" onsubmit={confirmChange}>
+            <p class="hint">We sent a code to <b>{newEmail.trim()}</b>. It works for 10 minutes.</p>
+            <input
+              id="me-email-code"
+              class="field code large-text"
+              inputmode="numeric"
+              autocomplete="one-time-code"
+              maxlength="7"
+              placeholder="123456"
+              aria-label="Code"
+              bind:value={emailCode}
+              oninput={() => (emailError = '')}
+              {@attach (el: HTMLInputElement) => el.focus()}
+            />
+            <div class="row">
+              <button class="key ink" type="submit" disabled={emailBusy || emailCode.replace(/\D/g, '').length !== 6}>Change email</button>
+              <button class="btn ghost" type="button" onclick={() => (emailStep = 'new')}>Back</button>
+            </div>
+          </form>
+        {/if}
+        {#if emailError}<p class="err" role="alert">{emailError}</p>{/if}
+      </div>
     </div>
   </section>
 
@@ -278,13 +366,45 @@
     gap: 8px;
     flex-wrap: wrap;
   }
-  .email {
-    margin: 0 0 4px;
-    color: var(--muted);
+  .email-box {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .email-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .addr {
+    font-weight: 500;
     overflow-wrap: anywhere;
   }
-  .email b {
-    color: var(--text);
+  .email-form {
+    display: grid;
+    gap: 8px;
+  }
+  .email-form .row {
+    display: flex;
+    gap: 8px;
+  }
+  .hint {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .code {
+    font-size: 22px;
+    letter-spacing: 0.3em;
+    font-weight: 600;
+  }
+  .err {
+    margin: 0;
+    color: var(--redT);
+    font-size: 14px;
   }
   .note {
     margin: 0;

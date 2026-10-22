@@ -130,6 +130,27 @@
               >Save</button
             >
           </div>
+          <div class="bg-part">
+            <span class="label">Background</span>
+            <div class="bg-preview" style:background={tileBackground(b.board, b.board?.hue ?? 'indigo', bgId ? app.files.links[bgId]?.url : undefined)}>
+              <span>{!b.board?.background ? 'No background' : bgId ? 'Image' : 'Colour'}</span>
+            </div>
+            <div class="seg" role="group" aria-label="Background">
+              <button aria-pressed={!b.board?.background} onclick={() => app.saveBoard(id, { background: null })}>None</button>
+              <button aria-pressed={!!b.board?.background && !bgId} onclick={() => app.saveBoard(id, { background: { hue: bgHue } })}
+                >Colour</button
+              >
+              <button aria-pressed={!!bgId} disabled={uploadingBg || !app.online} onclick={() => bgPicker?.click()}
+                >{uploadingBg ? 'Uploading…' : bgId ? 'Change image' : 'Image'}</button
+              >
+            </div>
+            <input bind:this={bgPicker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onchange={pickBg} />
+            {#if b.board?.background && !bgId}
+              <span class="label">Colour</span>
+              <HuePicker bind:value={bgHue} label="Background colour" />
+            {/if}
+            <p class="note">Everyone in the board sees it. Images are made smaller before they're uploaded.</p>
+          </div>
         </div>
       {:else}
         <p class="note">Only admins can change the board, its fields and who's in it.</p>
@@ -213,30 +234,6 @@
         <h2>Fields</h2>
         <p class="note">Every card in this board has these. Members fill them in; only admins change them.</p>
         <FieldsEditor {b} />
-      </section>
-
-      <section>
-        <h2>Background</h2>
-        <div class="card form">
-          <div class="bg-preview" style:background={tileBackground(b.board, b.board?.hue ?? 'indigo', bgId ? app.files.links[bgId]?.url : undefined)}>
-            <span>{!b.board?.background ? 'No background' : bgId ? 'Image' : 'Colour'}</span>
-          </div>
-          <div class="seg" role="group" aria-label="Background">
-            <button aria-pressed={!b.board?.background} onclick={() => app.saveBoard(id, { background: null })}>None</button>
-            <button aria-pressed={!!b.board?.background && !bgId} onclick={() => app.saveBoard(id, { background: { hue: bgHue } })}
-              >Colour</button
-            >
-            <button aria-pressed={!!bgId} disabled={uploadingBg || !app.online} onclick={() => bgPicker?.click()}
-              >{uploadingBg ? 'Uploading…' : bgId ? 'Change image' : 'Image'}</button
-            >
-          </div>
-          <input bind:this={bgPicker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onchange={pickBg} />
-          {#if b.board?.background && !bgId}
-            <span class="label">Colour</span>
-            <HuePicker bind:value={bgHue} label="Background colour" />
-          {/if}
-          <p class="note">Everyone in the board sees it. Images are made smaller before they're uploaded.</p>
-        </div>
       </section>
 
       <section>
@@ -397,6 +394,13 @@
   .ask {
     font-size: 13px;
     color: var(--redT);
+  }
+  .bg-part {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
   }
   .bg-preview {
     height: 96px;
