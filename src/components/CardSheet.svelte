@@ -676,8 +676,8 @@
   /* ---------- tabs ---------- */
   .tabs {
     display: flex;
-    gap: 4px;
-    padding: 0 20px;
+    gap: 14px;
+    padding: 6px 20px 0;
     border-bottom: 1px solid var(--border);
     flex: none;
   }
@@ -686,8 +686,8 @@
     background: none;
     color: var(--muted);
     font: 500 13.5px var(--font);
-    min-height: 44px;
-    padding: 0 10px;
+    min-height: 50px;
+    padding: 0 14px;
     margin-bottom: -1px;
     border-bottom: 2px solid transparent;
     display: inline-flex;
