@@ -42,6 +42,10 @@
   --stripe: #818cf8, #a78bfa, #c084fc, #f472b6, #f43f5e;
   /* The five colours as a wheel, for the custom colour swatch. */
   --hue-stops: #f43f5e, #facc15, #84cc16, #22d3ee, #818cf8, #f43f5e;
+  /* The green key (Mark done). */
+  --go: #16a34a;
+  --go-ink: #ffffff;
+  --go-edge: #15803d;
   color-scheme: light;
 
   --px: 16px;
@@ -88,6 +92,9 @@
     --s-yellow: #facc15;
     --t-yellow: #fde047;
     --tint-yellow: #33290b;
+    --go: #22c55e;
+    --go-ink: #0f1115;
+    --go-edge: #15803d;
     color-scheme: dark;
   }
 }
@@ -125,6 +132,9 @@
   --s-yellow: #facc15;
   --t-yellow: #fde047;
   --tint-yellow: #33290b;
+  --go: #22c55e;
+  --go-ink: #0f1115;
+  --go-edge: #15803d;
   color-scheme: dark;
 }
 
@@ -248,6 +258,15 @@ a {
   background: var(--text);
   color: var(--bg);
   border-color: var(--text);
+}
+.key.go {
+  background: var(--go);
+  color: var(--go-ink);
+  border-color: var(--go);
+  box-shadow: 0 3px 0 var(--go-edge);
+}
+.key.go:active:not(:disabled) {
+  box-shadow: 0 0 0 var(--go-edge);
 }
 .key:disabled {
   opacity: 0.5;

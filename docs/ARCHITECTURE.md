@@ -275,7 +275,7 @@ All of these are in Elastic's repository.
   - attachments;
   - comments with an emoji button;
   - the card's log;
-  - "Mark my part done" for assignees.
+  - "Mark done" (a green key) for assignees, to finish their own part.
 - **Activity:** the project log, filterable by person and card, in a panel that slides in from the right over the board (a tap outside closes it). A card opened from it stacks on top.
 - **Board settings** (admin):
   - name and colour;

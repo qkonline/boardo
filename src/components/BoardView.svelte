@@ -315,7 +315,7 @@
     min-height: 0;
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 18px;
     overflow-x: auto;
     overscroll-behavior-x: contain;
     padding: 4px max(var(--px), env(safe-area-inset-right)) 14px max(var(--px), env(safe-area-inset-left));

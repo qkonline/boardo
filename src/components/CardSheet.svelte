@@ -255,7 +255,7 @@
             <span class="ok"><Icon name="check" /> Your part is done</span>
             <button class="btn" onclick={() => app.markPart(board, id, false)}>Not done yet</button>
           {:else}
-            <button class="key ink" onclick={() => app.markPart(board, id, true)}><Icon name="check" plain /> Mark my part done</button>
+            <button class="key go" onclick={() => app.markPart(board, id, true)}><Icon name="check" plain /> Mark done</button>
             {#if card.assignees.length > 1 && !allPartsDone(card)}
               <span class="note">The card completes when everyone's part is done.</span>
             {/if}
