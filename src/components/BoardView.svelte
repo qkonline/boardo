@@ -118,7 +118,13 @@
 
 
     {#if !b.loaded}
-      <p class="wait">{app.online ? 'Loading the board…' : "This board hasn't been opened on this device yet. Connect to load it."}</p>
+      <p class="wait">
+        {!app.online
+          ? "This board hasn't been opened on this device yet. Connect to load it."
+          : b.status === 'offline'
+            ? "Can't reach this board right now. Trying again…"
+            : 'Loading the board…'}
+      </p>
     {:else}
       <div class="lanes" bind:this={scroller} {@attach attachDrag}>
         {#each b.columns as col (col.id)}

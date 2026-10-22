@@ -10,7 +10,9 @@
 // `synced` keeps the version last agreed for each record: the base for those merges.
 //
 // Other tabs follow the leader over a BroadcastChannel: it tells them which records changed,
-// and they tell it when they've saved something to send.
+// and they tell it when they've saved something to send. The tab in front takes the lead: a
+// tab left in the background can be put to sleep by the browser while still holding the lock,
+// and the others would wait on it for ever.
 
 import type { Kind } from '../../shared/model';
 import * as db from './db';
@@ -65,6 +67,9 @@ export class Sync {
   private token: string | null = null;
   private leader = false;
   private release: (() => void) | null = null;
+  /** This tab's queued request for the lock, and a count that tells a stale request apart. */
+  private waiting: AbortController | null = null;
+  private claims = 0;
   private conns = new Map<string, Conn>();
   private wanted = new Set<string>();
   private putId = 0;
@@ -93,23 +98,52 @@ export class Sync {
       this.channel.onmessage = (e) => this.heard(e.data as Msg);
     }
     for (const b of boards) this.hooks.status(b, 'connecting');
+    this.claim(this.visible);
+  }
+
+  /** Ask for the lead: wait for it, or (`steal`, for the tab in front) take it from another tab. */
+  private claim(steal = false): void {
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
     if (!locks) return this.lead();
-    void locks.request('boardo-sync', () => {
-      if (!this.token) return;
-      this.lead();
-      return new Promise<void>((r) => (this.release = r));
-    });
+    this.waiting?.abort();
+    const waiting = steal ? null : new AbortController();
+    this.waiting = waiting;
+    const n = ++this.claims;
+    locks
+      .request('boardo-sync', waiting ? { signal: waiting.signal } : { steal: true }, () => {
+        if (!this.token || n !== this.claims) return;
+        this.waiting = null;
+        this.lead();
+        return new Promise<void>((r) => (this.release = r));
+      })
+      .catch(() => {
+        // Called off here (a newer claim, or signed out), or another tab took the lead: follow
+        // it, and wait to lead again.
+        if (!this.token || n !== this.claims) return;
+        this.follow();
+        this.claim();
+      });
   }
 
   private lead(): void {
+    if (this.leader) return;
     this.leader = true;
     for (const b of this.wanted) this.open(b);
+  }
+
+  private follow(): void {
+    this.leader = false;
+    this.release = null;
+    for (const c of this.conns.values()) this.close(c);
+    this.conns.clear();
   }
 
   stop(): void {
     this.token = null;
     this.leader = false;
+    this.claims++;
+    this.waiting?.abort();
+    this.waiting = null;
     this.release?.();
     this.release = null;
     if (typeof removeEventListener === 'function') removeEventListener('online', this.online);
@@ -394,6 +428,8 @@ export class Sync {
   /** The app came to the front or went into the background. */
   setVisible(v: boolean): void {
     this.visible = v;
-    if (v) this.reconnectAll();
+    if (!v || !this.token) return;
+    if (this.leader) this.reconnectAll();
+    else this.claim(true);
   }
 }
