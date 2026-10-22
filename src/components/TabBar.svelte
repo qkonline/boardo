@@ -55,21 +55,26 @@
     z-index: 5;
     background: var(--raised);
     border-top: 1px solid var(--border);
-    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    padding: 6px max(8px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
     display: flex;
-    align-items: stretch;
+    align-items: flex-start;
   }
   .brand {
     display: none;
   }
   .tabs {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     flex: 1;
   }
   .tab {
-    flex: 1;
-    min-height: var(--bar-h);
+    justify-self: center;
+    width: 84px;
+    height: 52px;
+    padding: 0;
     border: none;
+    border-radius: var(--r-ctl);
     background: none;
     display: grid;
     justify-items: center;
@@ -79,12 +84,19 @@
     color: var(--muted);
     cursor: pointer;
   }
+  /* The screen you're on: an open tab joined to the page above it, as in Elastic. */
   .tab[aria-current='page'] {
+    margin-top: -7px;
+    height: 59px;
+    padding-top: 7px;
+    border-radius: 0 0 10px 10px;
+    background: var(--bg);
+    box-shadow:
+      inset 1px 0 0 var(--tab-in),
+      inset -1px 0 0 var(--tab-in),
+      inset 0 -1px 0 var(--tab-in);
     color: var(--text);
     font-weight: 600;
-  }
-  .tab[aria-current='page'] span {
-    box-shadow: 0 2px 0 var(--text);
   }
   .off {
     position: absolute;
@@ -135,8 +147,13 @@
     .account {
       margin-left: auto;
     }
+    .tabs {
+      display: flex;
+    }
     .tab {
       flex: none;
+      width: auto;
+      height: auto;
       min-height: 40px;
       display: inline-flex;
       align-items: center;
@@ -147,10 +164,12 @@
       font-size: 14px;
     }
     .tab[aria-current='page'] {
-      background: var(--sunk);
-    }
-    .tab[aria-current='page'] span {
+      margin-top: 0;
+      height: auto;
+      padding-top: 0;
+      border-radius: var(--r-ctl);
       box-shadow: none;
+      background: var(--sunk);
     }
     .off {
       position: static;

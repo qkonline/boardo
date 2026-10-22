@@ -46,11 +46,13 @@
   --go: #16a34a;
   --go-ink: #ffffff;
   --go-edge: #15803d;
+  /* The inner edge of the open tab for the screen you're on (the bottom bar, as in Elastic). */
+  --tab-in: #e4e6eb;
   color-scheme: light;
 
   --px: 16px;
   --btn: 44px;
-  --bar-h: 60px;
+  --bar-h: 66px;
   --r-card: 10px;
   --r-ctl: 8px;
   --r-sm: 6px;
@@ -95,6 +97,7 @@
     --go: #22c55e;
     --go-ink: #0f1115;
     --go-edge: #15803d;
+    --tab-in: #08090b;
     color-scheme: dark;
   }
 }
@@ -135,6 +138,7 @@
   --go: #22c55e;
   --go-ink: #0f1115;
   --go-edge: #15803d;
+  --tab-in: #08090b;
   color-scheme: dark;
 }
 
