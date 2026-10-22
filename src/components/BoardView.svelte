@@ -55,7 +55,7 @@
         <span class="sync" title="Connecting">Connecting</span>
       {/if}
       <div class="acts">
-        <button class="btn" onclick={() => app.go({ name: 'activity', id })}><Icon name="log" /><span class="wide">Activity</span></button>
+        <button class="btn" onclick={() => (app.activity = id)}><Icon name="log" /><span class="wide">Activity</span></button>
         <button class="icon-btn" aria-label="Board settings" onclick={() => app.go({ name: 'boardSettings', id })}
           ><Icon name="gear" /></button
         >

@@ -9,6 +9,8 @@
    * full: bottom sheet (88%) on phone, 440px right side panel on desktop.
    * form: bottom sheet sized to content on phone, centred 480px dialog on desktop.
    * small: centred 360px dialog everywhere.
+   * side: a panel in from the right everywhere, over the page; on a phone a strip of the page
+   *   stays in view beside it, so a tap outside closes it there too.
    * A form whose fields come and go as choices change (New habit) can ask for a fixed height
    * through the 'sheet' context, so the sheet doesn't jump with them.
    */
@@ -17,7 +19,7 @@
     label,
     onclose,
     children,
-  }: { variant: 'full' | 'form' | 'small'; label: string; onclose: () => void; children: Snippet } = $props();
+  }: { variant: 'full' | 'form' | 'small' | 'side'; label: string; onclose: () => void; children: Snippet } = $props();
 
   let tall = $state(false);
   setContext('sheet', {
@@ -28,8 +30,10 @@
 
   let panel: HTMLDivElement | null = $state(null);
   const shape = $derived(
-    variant === 'small'
-      ? 'dialog small'
+    variant === 'side'
+      ? 'side'
+      : variant === 'small'
+        ? 'dialog small'
       : desktop.current
         ? variant === 'form'
           ? tall
@@ -179,7 +183,7 @@
   in:motion|global
   out:motion|global={{ leaving: true }}
 >
-  {#if !desktop.current && variant !== 'small'}
+  {#if !desktop.current && variant !== 'small' && variant !== 'side'}
     <div class="handle"><span></span></div>
   {/if}
   {@render children()}
@@ -241,7 +245,8 @@
     top: 0;
     right: 0;
     bottom: 0;
-    width: 440px;
+    width: min(440px, calc(100% - 48px));
+    padding-top: env(safe-area-inset-top);
     border-left: 1px solid var(--border);
     box-shadow: -16px 0 48px rgba(0, 0, 0, 0.16);
   }

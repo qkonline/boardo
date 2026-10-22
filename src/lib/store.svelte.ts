@@ -47,7 +47,6 @@ export interface Invite {
 export type Screen =
   | { name: 'home' }
   | { name: 'board'; id: string }
-  | { name: 'activity'; id: string }
   | { name: 'boardSettings'; id: string }
   | { name: 'mycards' }
   | { name: 'settings' };
@@ -81,6 +80,8 @@ export class App {
   invites = $state.raw<Invite[]>([]);
   data = $state.raw<Record<string, BoardState>>({});
   screen = $state<Screen>({ name: 'home' });
+  /** The board whose Activity panel is open. */
+  activity = $state<string | null>(null);
   /** The card open in the card sheet. */
   open = $state<{ board: string; id: string } | null>(null);
   /** Overlays: New board, invites to show after a link was opened. */
@@ -179,6 +180,8 @@ export class App {
       const s = JSON.parse(readLocal(SCREEN_KEY) ?? 'null') as Screen | null;
       if (!s) return;
       if ('id' in s && !this.boards.some((b) => b.id === s.id)) return;
+      // Activity used to be a screen of its own.
+      if ((s.name as string) === 'activity' && 'id' in s) return void (this.screen = { name: 'board', id: s.id });
       this.screen = s;
     } catch {
       /* ignore */
@@ -217,6 +220,7 @@ export class App {
     const s = this.screen;
     if ('id' in s && !ids.has(s.id)) this.go({ name: 'home' });
     if (this.open && !ids.has(this.open.board)) this.open = null;
+    if (this.activity && !ids.has(this.activity)) this.activity = null;
   }
 
   private boardGone(id: string): void {
@@ -294,6 +298,7 @@ export class App {
     this.invites = [];
     this.data = {};
     this.open = null;
+    this.activity = null;
     this.sheet = null;
     this.screen = { name: 'home' };
     writeLocal(SCREEN_KEY, null);
@@ -304,6 +309,7 @@ export class App {
   go(s: Screen): void {
     this.screen = s;
     this.open = null;
+    this.activity = null;
     writeLocal(SCREEN_KEY, JSON.stringify(s));
     if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
   }

@@ -63,14 +63,15 @@
     <Home />
   {:else if s.name === 'board'}
     {#key s.id}<BoardView id={s.id} />{/key}
-  {:else if s.name === 'activity'}
-    <Activity id={s.id} />
   {:else if s.name === 'boardSettings'}
     {#key s.id}<BoardSettings id={s.id} />{/key}
   {:else if s.name === 'mycards'}
     <MyCards />
   {:else if s.name === 'settings'}
     <Settings />
+  {/if}
+  {#if app.activity}
+    <Activity id={app.activity} />
   {/if}
   {#if app.open}
     {#key app.open.board + app.open.id}<CardSheet board={app.open.board} id={app.open.id} />{/key}

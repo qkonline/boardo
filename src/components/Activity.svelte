@@ -3,8 +3,12 @@
   import { app } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
   import LogList from './LogList.svelte';
+  import Sheet from './Sheet.svelte';
 
-  /** The project log (R6.3): every card's log and the board's own, newest first. */
+  /**
+   * The project log (R6.3): every card's log and the board's own, newest first, in a panel that
+   * slides in from the right over the board. Opening a card from it stacks the card on top.
+   */
   let { id }: { id: string } = $props();
   const b = $derived(app.data[id]);
   let person = $state('all');
@@ -21,17 +25,18 @@
         )
       : [],
   );
+  const close = () => (app.activity = null);
 </script>
 
-{#if b}
-  <main class="page">
-    <header class="head">
-      <button class="icon-btn" aria-label="Back to the board" onclick={() => app.go({ name: 'board', id })}><Icon name="back" /></button>
+<Sheet variant="side" label="Activity" onclose={close}>
+  {#if b}
+    <div class="top">
       <div>
         <p class="crumb"><span class="mark" style:background={hueColor(b.board?.hue)}></span>{b.board?.name}</p>
-        <h1>Activity</h1>
+        <h2>Activity</h2>
       </div>
-    </header>
+      <button class="icon-btn" aria-label="Close" onclick={close}><Icon name="close" /></button>
+    </div>
     <div class="filters">
       <select class="field" aria-label="Person" bind:value={person}>
         <option value="all">Everyone</option>
@@ -43,26 +48,24 @@
         {#each cards as c (c.id)}<option value={c.id}>{c.title || 'Untitled'}</option>{/each}
       </select>
     </div>
-    {#if logs.length}
-      <div class="card"><LogList {b} {logs} limit={200} /></div>
-    {:else}
-      <p class="none">Nothing yet.</p>
-    {/if}
-  </main>
-{/if}
+    <div class="scroll">
+      {#if logs.length}
+        <LogList {b} {logs} limit={200} />
+      {:else}
+        <p class="none">Nothing yet.</p>
+      {/if}
+    </div>
+  {/if}
+</Sheet>
 
 <style>
-  .page {
-    max-width: 760px;
-    margin: 0 auto;
-    padding: max(12px, env(safe-area-inset-top)) max(var(--px), env(safe-area-inset-right))
-      calc(var(--bar-h) + 32px + env(safe-area-inset-bottom)) max(var(--px), env(safe-area-inset-left));
-  }
-  .head {
+  .top {
     display: flex;
-    align-items: center;
-    gap: 6px;
-    margin: 0 0 12px -10px;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 14px 8px 0 20px;
+    flex: none;
   }
   .crumb {
     margin: 0;
@@ -76,26 +79,32 @@
     width: 10px;
     height: 10px;
     border-radius: 2px;
+    flex: none;
   }
-  h1 {
-    margin: 0;
-    font-size: 24px;
+  h2 {
+    margin: 2px 0 0;
+    font-size: 21px;
     font-weight: 600;
   }
   .filters {
     display: flex;
     gap: 8px;
-    margin-bottom: 12px;
+    padding: 12px 20px;
+    flex: none;
+    border-bottom: 1px solid var(--border);
   }
   .filters .field {
     flex: 1;
     min-width: 0;
+    min-height: 40px;
+    padding: 6px 10px;
   }
-  .card {
-    background: var(--raised);
-    border: 1px solid var(--border);
-    border-radius: var(--r-card);
-    padding: 4px 14px;
+  .scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 4px 20px max(24px, env(safe-area-inset-bottom));
   }
   .none {
     color: var(--muted);
