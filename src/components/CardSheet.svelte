@@ -897,6 +897,7 @@
     margin: 12px 0 4px;
   }
   .done-key {
+    justify-self: stretch;
     padding: 0 26px;
     min-height: 44px;
   }
