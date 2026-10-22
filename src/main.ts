@@ -3,6 +3,9 @@ import './app.css';
 import App from './App.svelte';
 import { trackKeyboard } from './lib/viewport';
 
+// A copy opened on www.kaiserkhan.com (kept by its service worker) moves to the one address.
+if (location.hostname.startsWith('www.')) location.replace(location.href.replace('://www.', '://'));
+
 trackKeyboard();
 
 const app = mount(App, { target: document.getElementById('app')! });
