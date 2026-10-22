@@ -38,6 +38,8 @@
   let title = $state('');
   let desc = $state('');
   let picking = $state(false);
+  /** Details (everything about the card) or History (its log). */
+  let tab = $state<'details' | 'history'>('details');
   let armedArchive = $state(false);
   let armedDelete = $state(false);
 
@@ -85,7 +87,7 @@
   };
 </script>
 
-<Sheet variant="full" label="Card" onclose={close}>
+<Sheet variant="modal" label="Card" onclose={close}>
   {#if b && card}
     <div class="top">
       <span class="crumb">
@@ -97,7 +99,8 @@
             class="col"
             aria-label="Column"
             value={card.columnId}
-            onchange={(e) => app.moveCard(board, id, e.currentTarget.value, b.cardsIn(e.currentTarget.value).at(-1)?.id ?? null, null)}
+            onchange={(e) =>
+              app.moveCard(board, id, e.currentTarget.value, b.cardsIn(e.currentTarget.value).at(-1)?.id ?? null, null)}
           >
             {#each b.columns as c (c.id)}<option value={c.id}>{c.name}</option>{/each}
           </select>
@@ -106,198 +109,225 @@
       <button class="icon-btn" aria-label="Close" onclick={close}><Icon name="close" /></button>
     </div>
 
-    <div class="scroll">
-      {#if card.archived}
-        <div class="archived">
-          <span>This card is archived. It's hidden from the board, My cards and Elastic.</span>
-          <div class="acts">
-            <button class="key" onclick={() => app.archiveCard(board, id, false)}>Restore</button>
-            {#if app.canDelete(board, id)}
-              {#if armedDelete}
-                <button class="btn danger" disabled={!app.online} onclick={del}>Delete for good</button>
-                <button class="btn ghost" onclick={() => (armedDelete = false)}>Keep</button>
-              {:else}
-                <button class="btn" onclick={() => (armedDelete = true)}><Icon name="trash" /> Delete</button>
+    <div class="tabs" role="tablist" aria-label="Card">
+      <button
+        role="tab"
+        id="tab-details"
+        aria-selected={tab === 'details'}
+        aria-controls="pane-details"
+        onclick={() => (tab = 'details')}>Details</button
+      >
+      <button
+        role="tab"
+        id="tab-history"
+        aria-selected={tab === 'history'}
+        aria-controls="pane-history"
+        onclick={() => (tab = 'history')}>History <span class="n">{b.logsOn(id).length}</span></button
+      >
+    </div>
+
+    {#if tab === 'history'}
+      <div class="scroll" id="pane-history" role="tabpanel" aria-labelledby="tab-history">
+        <h2 class="hist-title">{card.title || 'Untitled'}</h2>
+        <LogList {b} logs={b.logsOn(id)} onCard />
+      </div>
+    {:else}
+      <div class="scroll" id="pane-details" role="tabpanel" aria-labelledby="tab-details">
+        {#if card.archived}
+          <div class="archived">
+            <span>This card is archived. It's hidden from the board, My cards and Elastic.</span>
+            <div class="acts">
+              <button class="key" onclick={() => app.archiveCard(board, id, false)}>Restore</button>
+              {#if app.canDelete(board, id)}
+                {#if armedDelete}
+                  <button class="btn danger" disabled={!app.online} onclick={del}>Delete for good</button>
+                  <button class="btn ghost" onclick={() => (armedDelete = false)}>Keep</button>
+                {:else}
+                  <button class="btn" onclick={() => (armedDelete = true)}><Icon name="trash" /> Delete</button>
+                {/if}
+              {/if}
+            </div>
+            {#if armedDelete}
+              <span class="warn"
+                >Its comments and files go too, for everyone. Its history stays in Activity.{app.online
+                  ? ''
+                  : " You're offline: connect to delete it."}</span
+              >
+            {/if}
+          </div>
+        {/if}
+
+        <textarea
+          class="title large-text"
+          rows="1"
+          aria-label="Title"
+          maxlength="300"
+          bind:value={title}
+          onfocus={() => (editingTitle = true)}
+          onblur={saveTitle}
+          onkeydown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              (e.currentTarget as HTMLTextAreaElement).blur();
+            }
+          }}
+          {@attach (el: HTMLTextAreaElement) => {
+            const fit = () => ((el.style.height = 'auto'), (el.style.height = el.scrollHeight + 'px'));
+            fit();
+            el.addEventListener('input', fit);
+            return () => el.removeEventListener('input', fit);
+          }}></textarea>
+
+        <dl class="fields">
+          <dt><label for="f-status">Status</label></dt>
+          <dd class="status-dd">
+            {#if status}<StatusChip option={status} />{:else}<span class="no-status">No status</span>{/if}
+            <select
+              id="f-status"
+              class="over"
+              value={card.values.status ?? ''}
+              onchange={(e) => app.setValue(board, id, 'status', e.currentTarget.value || null)}
+            >
+              <option value="">No status</option>
+              {#each statusField?.options ?? [] as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
+            </select>
+            {#if card.assignees.length > 1}<span class="parts-n">{doneCount} of {card.assignees.length} done</span>{/if}
+          </dd>
+
+          <dt><label for="f-start">{start?.name ?? 'Start date'}</label></dt>
+          <dd>
+            <input
+              id="f-start"
+              class="field date"
+              type={start?.type === 'datetime' ? 'datetime-local' : 'date'}
+              value={dateValue('start')}
+              onchange={(e) => dateInput('start', e)}
+            />
+            {#if card.values.start}<button
+                class="icon-btn"
+                aria-label="Clear start date"
+                onclick={() => app.setValue(board, id, 'start', null)}><Icon name="close" size={14} /></button
+              >{/if}
+          </dd>
+
+          <dt><label for="f-end">{end?.name ?? 'End date'}</label></dt>
+          <dd>
+            <input
+              id="f-end"
+              class="field date"
+              type={end?.type === 'datetime' ? 'datetime-local' : 'date'}
+              value={dateValue('end')}
+              onchange={(e) => dateInput('end', e)}
+            />
+            {#if card.values.end}<button
+                class="icon-btn"
+                aria-label="Clear end date"
+                onclick={() => app.setValue(board, id, 'end', null)}><Icon name="close" size={14} /></button
+              >{/if}
+          </dd>
+
+          <dt>Assignees</dt>
+          <dd class="people">
+            {#each card.assignees as u (u)}
+              {@const m = b.member.get(u)}
+              <span class="person" class:done={card.done[u] != null}>
+                <Avatar person={m} size={24} />
+                <span>{m?.name ?? 'Someone who left'}</span>
+                {#if card.done[u] != null}<Icon name="check" size={15} />{/if}
+              </span>
+            {/each}
+            <button class="btn small" aria-expanded={picking} onclick={() => (picking = !picking)}>
+              {#if card.assignees.length}Change{:else}<Icon name="people" /> Assign{/if}
+            </button>
+          </dd>
+          {#if picking}
+            <dd class="pick">
+              {#each b.members as m (m.userId)}
+                <button
+                  class="chip"
+                  aria-pressed={card.assignees.includes(m.userId)}
+                  onclick={() => app.toggleAssignee(board, id, m.userId)}
+                >
+                  <Avatar person={m} size={20} />{m.userId === me ? `${m.name} (me)` : m.name}
+                </button>
+              {/each}
+            </dd>
+          {/if}
+
+          <dt>Time spent</dt>
+          <dd class="time">
+            {#if time && time.total > 0}
+              <b>{duration(time.total)}</b>{#if time.running}<span class="live">running</span>{/if}
+              <span class="by">
+                {#each [...time.by] as [u, ms] (u)}
+                  <span><Avatar person={b.member.get(u)} size={18} /> {duration(ms)}</span>
+                {/each}
+              </span>
+            {:else}
+              <span class="none">None yet. Time comes from timers started in Elastic.</span>
+            {/if}
+          </dd>
+
+          {#each custom as f (f.id)}
+            <dt><label for="f-{f.id}">{f.name}</label></dt>
+            <dd>
+              <FieldInput
+                field={f}
+                id="f-{f.id}"
+                value={card.values[f.id]}
+                members={b.members}
+                onsave={(v) => app.setValue(board, id, f.id, v)}
+              />
+            </dd>
+          {/each}
+        </dl>
+
+        {#if assigned}
+          <div class="part">
+            {#if myDone}
+              <span class="ok"><Icon name="check" /> Your part is done</span>
+              <button class="btn" onclick={() => app.markPart(board, id, false)}>Not done yet</button>
+            {:else}
+              <button class="key go" onclick={() => app.markPart(board, id, true)}
+                ><Icon name="check" plain /> Mark done</button
+              >
+              {#if card.assignees.length > 1 && !allPartsDone(card)}
+                <span class="note">The card completes when everyone's part is done.</span>
               {/if}
             {/if}
           </div>
-          {#if armedDelete}
-            <span class="warn">Its comments and files go too, for everyone. Its history stays in Activity.{app.online ? '' : " You're offline: connect to delete it."}</span>
-          {/if}
-        </div>
-      {/if}
-
-      <textarea
-        class="title large-text"
-        rows="1"
-        aria-label="Title"
-        maxlength="300"
-        bind:value={title}
-        onfocus={() => (editingTitle = true)}
-        onblur={saveTitle}
-        onkeydown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            (e.currentTarget as HTMLTextAreaElement).blur();
-          }
-        }}
-        {@attach (el: HTMLTextAreaElement) => {
-          const fit = () => ((el.style.height = 'auto'), (el.style.height = el.scrollHeight + 'px'));
-          fit();
-          el.addEventListener('input', fit);
-          return () => el.removeEventListener('input', fit);
-        }}
-      ></textarea>
-
-      <dl class="fields">
-        <dt><label for="f-status">Status</label></dt>
-        <dd class="status-dd">
-          {#if status}<StatusChip option={status} />{:else}<span class="no-status">No status</span>{/if}
-          <select
-            id="f-status"
-            class="over"
-            value={card.values.status ?? ''}
-            onchange={(e) => app.setValue(board, id, 'status', e.currentTarget.value || null)}
-          >
-            <option value="">No status</option>
-            {#each statusField?.options ?? [] as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
-          </select>
-          {#if card.assignees.length > 1}<span class="parts-n">{doneCount} of {card.assignees.length} done</span>{/if}
-        </dd>
-
-        <dt><label for="f-start">{start?.name ?? 'Start date'}</label></dt>
-        <dd>
-          <input
-            id="f-start"
-            class="field date"
-            type={start?.type === 'datetime' ? 'datetime-local' : 'date'}
-            value={dateValue('start')}
-            onchange={(e) => dateInput('start', e)}
-          />
-          {#if card.values.start}<button class="icon-btn" aria-label="Clear start date" onclick={() => app.setValue(board, id, 'start', null)}
-              ><Icon name="close" size={14} /></button
-            >{/if}
-        </dd>
-
-        <dt><label for="f-end">{end?.name ?? 'End date'}</label></dt>
-        <dd>
-          <input
-            id="f-end"
-            class="field date"
-            type={end?.type === 'datetime' ? 'datetime-local' : 'date'}
-            value={dateValue('end')}
-            onchange={(e) => dateInput('end', e)}
-          />
-          {#if card.values.end}<button class="icon-btn" aria-label="Clear end date" onclick={() => app.setValue(board, id, 'end', null)}
-              ><Icon name="close" size={14} /></button
-            >{/if}
-        </dd>
-
-        <dt>Assignees</dt>
-        <dd class="people">
-          {#each card.assignees as u (u)}
-            {@const m = b.member.get(u)}
-            <span class="person" class:done={card.done[u] != null}>
-              <Avatar person={m} size={24} />
-              <span>{m?.name ?? 'Someone who left'}</span>
-              {#if card.done[u] != null}<Icon name="check" size={15} />{/if}
-            </span>
-          {/each}
-          <button class="btn small" aria-expanded={picking} onclick={() => (picking = !picking)}>
-            {#if card.assignees.length}Change{:else}<Icon name="people" /> Assign{/if}
-          </button>
-        </dd>
-        {#if picking}
-          <dd class="pick">
-            {#each b.members as m (m.userId)}
-              <button
-                class="chip"
-                aria-pressed={card.assignees.includes(m.userId)}
-                onclick={() => app.toggleAssignee(board, id, m.userId)}
-              >
-                <Avatar person={m} size={20} />{m.userId === me ? `${m.name} (me)` : m.name}
-              </button>
-            {/each}
-          </dd>
         {/if}
 
-        <dt>Time spent</dt>
-        <dd class="time">
-          {#if time && time.total > 0}
-            <b>{duration(time.total)}</b>{#if time.running}<span class="live">running</span>{/if}
-            <span class="by">
-              {#each [...time.by] as [u, ms] (u)}
-                <span><Avatar person={b.member.get(u)} size={18} /> {duration(ms)}</span>
-              {/each}
-            </span>
-          {:else}
-            <span class="none">None yet. Time comes from timers started in Elastic.</span>
-          {/if}
-        </dd>
+        <div class="block">
+          <label class="label" for="f-desc">Description</label>
+          <textarea
+            id="f-desc"
+            class="field"
+            rows="4"
+            maxlength="20000"
+            placeholder="Add more detail"
+            bind:value={desc}
+            onfocus={() => (editingDesc = true)}
+            onblur={saveDesc}></textarea>
+        </div>
 
-        {#each custom as f (f.id)}
-          <dt><label for="f-{f.id}">{f.name}</label></dt>
-          <dd>
-            <FieldInput
-              field={f}
-              id="f-{f.id}"
-              value={card.values[f.id]}
-              members={b.members}
-              onsave={(v) => app.setValue(board, id, f.id, v)}
-            />
-          </dd>
-        {/each}
-      </dl>
+        <Attachments {b} cardId={id} />
 
-      {#if assigned}
-        <div class="part">
-          {#if myDone}
-            <span class="ok"><Icon name="check" /> Your part is done</span>
-            <button class="btn" onclick={() => app.markPart(board, id, false)}>Not done yet</button>
-          {:else}
-            <button class="key go" onclick={() => app.markPart(board, id, true)}><Icon name="check" plain /> Mark done</button>
-            {#if card.assignees.length > 1 && !allPartsDone(card)}
-              <span class="note">The card completes when everyone's part is done.</span>
+        <div class="block"><Comments {b} cardId={id} /></div>
+
+        {#if !card.archived}
+          <div class="foot">
+            {#if armedArchive}
+              <span>Archive this card?</span>
+              <button class="btn danger" onclick={() => app.archiveCard(board, id, true)}>Archive</button>
+              <button class="btn ghost" onclick={() => (armedArchive = false)}>Keep</button>
+            {:else}
+              <button class="btn" onclick={() => (armedArchive = true)}><Icon name="archive" /> Archive card</button>
             {/if}
-          {/if}
-        </div>
-      {/if}
-
-      <div class="block">
-        <label class="label" for="f-desc">Description</label>
-        <textarea
-          id="f-desc"
-          class="field"
-          rows="4"
-          maxlength="20000"
-          placeholder="Add more detail"
-          bind:value={desc}
-          onfocus={() => (editingDesc = true)}
-          onblur={saveDesc}
-        ></textarea>
+          </div>
+        {/if}
       </div>
-
-      <Attachments {b} cardId={id} />
-
-      <div class="block"><Comments {b} cardId={id} /></div>
-
-      <div class="block">
-        <h3 class="label">Log</h3>
-        <LogList {b} logs={b.logsOn(id)} onCard limit={8} />
-      </div>
-
-      {#if !card.archived}
-        <div class="foot">
-          {#if armedArchive}
-            <span>Archive this card?</span>
-            <button class="btn danger" onclick={() => app.archiveCard(board, id, true)}>Archive</button>
-            <button class="btn ghost" onclick={() => (armedArchive = false)}>Keep</button>
-          {:else}
-            <button class="btn" onclick={() => (armedArchive = true)}><Icon name="archive" /> Archive card</button>
-          {/if}
-        </div>
-      {/if}
-    </div>
+    {/if}
   {:else}
     <div class="top">
       <span class="crumb">This card isn't here any more.</span>
@@ -342,10 +372,48 @@
     cursor: pointer;
     padding: 0 4px;
   }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 4px 20px 0;
+    border-bottom: 1px solid var(--border);
+    flex: none;
+  }
+  .tabs button {
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: 500 14px var(--font);
+    min-height: 44px;
+    padding: 0 12px;
+    margin-bottom: -1px;
+    border-bottom: 2px solid transparent;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .tabs button[aria-selected='true'] {
+    color: var(--text);
+    font-weight: 600;
+    border-bottom-color: var(--text);
+  }
+  .tabs .n {
+    font: 600 11.5px/1 var(--font);
+    color: var(--muted);
+    background: var(--sunk);
+    border-radius: var(--r-sm);
+    padding: 3px 6px;
+  }
+  .hist-title {
+    margin: 4px 0 0;
+    font: 600 18px/1.3 var(--font);
+    overflow-wrap: anywhere;
+  }
   .scroll {
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 4px 20px max(28px, env(safe-area-inset-bottom));
+    padding: 16px 20px max(28px, env(safe-area-inset-bottom));
     display: grid;
     gap: 18px;
     align-content: start;
@@ -502,9 +570,6 @@
   .block {
     display: grid;
     gap: 8px;
-  }
-  h3 {
-    margin: 0;
   }
   .foot {
     display: flex;

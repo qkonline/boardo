@@ -281,7 +281,7 @@ All of these are in Elastic's repository.
   - cards show title, assignees, status, dates and comment and attachment counts;
   - drag within and between columns;
   - filters by person and status.
-- **Card sheet:**
+- **Card window** (a large window in the middle of the screen on a computer, as in Trello; a tall sheet from the bottom on a phone), with two tabs, Details and History (the card's log). Details:
   - all fields;
   - Time spent, in total and per person;
   - attachments;

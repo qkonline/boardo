@@ -9,6 +9,8 @@
    * full: bottom sheet (88%) on phone, 440px right side panel on desktop.
    * form: bottom sheet sized to content on phone, centred 480px dialog on desktop.
    * small: centred 360px dialog everywhere.
+   * modal: a large window in the middle of the screen on a computer (an open card, as in
+   *   Trello), a tall bottom sheet on a phone.
    * side: a panel in from the right everywhere, over the page; on a phone a strip of the page
    *   stays in view beside it, so a tap outside closes it there too.
    * A form whose fields come and go as choices change (New habit) can ask for a fixed height
@@ -19,7 +21,7 @@
     label,
     onclose,
     children,
-  }: { variant: 'full' | 'form' | 'small' | 'side'; label: string; onclose: () => void; children: Snippet } = $props();
+  }: { variant: 'full' | 'form' | 'small' | 'side' | 'modal'; label: string; onclose: () => void; children: Snippet } = $props();
 
   let tall = $state(false);
   setContext('sheet', {
@@ -35,7 +37,9 @@
       : variant === 'small'
         ? 'dialog small'
       : desktop.current
-        ? variant === 'form'
+        ? variant === 'modal'
+          ? 'dialog large'
+          : variant === 'form'
           ? tall
             ? 'dialog tall'
             : 'dialog'
@@ -237,6 +241,10 @@
   }
   .dialog.tall {
     height: min(760px, calc(100dvh - 64px));
+  }
+  .dialog.large {
+    width: min(880px, calc(100% - 48px));
+    height: min(900px, calc(100dvh - 64px));
   }
   .dialog.small {
     width: min(360px, calc(100% - 32px));
