@@ -197,11 +197,15 @@
     padding: 6px max(8px, env(safe-area-inset-right)) 12px max(4px, env(safe-area-inset-left));
   }
   @media (min-width: 768px) {
+    /* Even above and below, and the name lined up with the columns and the logo. */
     .head {
-      padding: 12px var(--px) 0 calc(var(--px) - 8px);
+      padding: 10px calc(var(--px) - 8px) 10px var(--px);
     }
     .back {
       display: none;
+    }
+    .head h1 {
+      margin-left: 0;
     }
   }
   h1 {
@@ -343,6 +347,10 @@
   }
   .lanes > :global(*) {
     max-height: 100%;
+  }
+  /* Below the frosted strip, the columns sit as far from it as from the left edge. */
+  .has-image .lanes {
+    padding-top: var(--px);
   }
   .new-col {
     flex: 0 0 min(84vw, 290px);
