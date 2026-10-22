@@ -67,6 +67,13 @@ describe('what a change logs', () => {
       { action: 'unassigned', detail: { user: 'bob' } },
     ]);
   });
+  it('logs the cards a card starts and stops waiting on', () => {
+    const out = cardChanges(card({ deps: ['a', 'b'] }), card({ deps: ['b', 'd'] }), fields, cols);
+    expect(out).toEqual([
+      { action: 'linked', detail: { card: 'd' } },
+      { action: 'unlinked', detail: { card: 'a' } },
+    ]);
+  });
   it('logs a new card once', () => {
     expect(cardChanges(null, card(), fields, cols)).toEqual([
       { action: 'created', detail: { title: 'Write the launch email', column: 'Campaign 1' } },

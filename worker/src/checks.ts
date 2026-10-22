@@ -51,6 +51,7 @@ export const LIMITS = {
   options: 50,
   fields: 40,
   assignees: 50,
+  deps: 50,
   value: 5_000,
   values: 60,
 };
@@ -143,6 +144,11 @@ function card(key: string, d: Record<string, unknown>): CardRec | null {
     }
   }
   if (!isId(d.createdBy) || !num(d.created)) return null;
+  let deps: string[] | undefined;
+  if (d.deps != null) {
+    if (!Array.isArray(d.deps) || d.deps.length > LIMITS.deps || !d.deps.every(isId) || d.deps.includes(key)) return null;
+    deps = [...new Set(d.deps as string[])];
+  }
   return {
     id: key,
     columnId: d.columnId,
@@ -155,6 +161,7 @@ function card(key: string, d: Record<string, unknown>): CardRec | null {
     archived: !!d.archived,
     createdBy: d.createdBy,
     created: d.created,
+    ...(deps?.length ? { deps } : {}),
   };
 }
 

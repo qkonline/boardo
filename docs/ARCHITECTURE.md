@@ -87,7 +87,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
 | `member` | userId, name, hue, role (a mirror of D1, pushed by the Worker) | server |
 | `column` | id, name, order | members |
 | `field` | id, key (`start`, `end`, `status` for built-ins, null for custom), name, type, options `[{id, label, hue, role?}]`, order | admins |
-| `card` | id, columnId, order, title, desc, values `{fieldId: value}`, assignees `[userId]`, done `{userId: ms}`, archived, createdBy, created | members |
+| `card` | id, columnId, order, title, desc, values `{fieldId: value}`, assignees `[userId]`, done `{userId: ms}`, deps `[cardId]` (the cards it waits on; left out when none), archived, createdBy, created | members |
 | `comment` | id, cardId, userId, text, at, editedAt, deleted | members (their own only) |
 | `file` | id, cardId, name, mime, size, r2Key, thumbKey, by, at | server, after an upload |
 | `session` | id, cardId, userId, start ms, end ms or null, source | server, from Elastic ops |

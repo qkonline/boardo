@@ -10,6 +10,7 @@
     label,
     place = 'below',
     align = 'start',
+    onclose,
     trigger,
     children,
   }: {
@@ -17,12 +18,19 @@
     label: string;
     place?: 'below' | 'above';
     align?: 'start' | 'end';
+    onclose?: () => void;
     trigger: Snippet<[{ toggle: () => void; open: boolean }]>;
     children: Snippet<[() => void]>;
   } = $props();
 
   let root: HTMLElement | null = $state(null);
   const close = () => (open = false);
+  // Tell the owner when it closes, however it closed.
+  let was = false;
+  $effect(() => {
+    if (was && !open) onclose?.();
+    was = open;
+  });
   const toggle = () => (open = !open);
 
   $effect(() => {

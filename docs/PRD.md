@@ -143,6 +143,13 @@ Every card has these fields.
 - **R4.20** Cards can be archived and restored. Archived cards are hidden from the board, My cards and Elastic, but kept with their history.
 - **R4.21** An archived card can be deleted for good, by an admin or by whoever made it. Its comments, attachments and time go with it; its history stays in the project log, with an entry saying it was deleted.
 
+### 4.6 Dependencies
+
+- **R4.22** Every card has a Dependencies section: the cards in the same board it waits on. Anyone in the board can add or remove them, and like every other change on a card, they're saved with Save.
+- **R4.23** Each card it waits on shows its title, column and status, and a count of how many are done ("1 of 2 done"). When all are Completed it reads "Ready to start".
+- **R4.24** A card also shows the cards that wait on it ("Holds up"). Tapping any of them opens that card.
+- **R4.25** A card can't wait on itself, or on a card that already waits on it, however far down; those aren't offered. Adding and removing one is logged on the card.
+
 ## 5. Status and completion
 
 ### 5.1 Parts done

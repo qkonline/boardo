@@ -14,6 +14,7 @@
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
   import StatusChip from './StatusChip.svelte';
+  import Dependencies from './Dependencies.svelte';
   import ElasticMark from './ElasticMark.svelte';
 
   const ELASTIC_URL = 'https://kaiserkhan.com/planner/';
@@ -26,7 +27,7 @@
    */
   let { board, id }: { board: string; id: string } = $props();
   type Value = string | number | boolean | null;
-  type Draft = { title?: string; desc?: string; columnId?: string; assignees?: string[]; values?: Record<string, Value> };
+  type Draft = { title?: string; desc?: string; columnId?: string; assignees?: string[]; deps?: string[]; values?: Record<string, Value> };
 
   const b = $derived(app.data[board]);
   const card = $derived(b?.card.get(id));
@@ -54,6 +55,7 @@
     if (draft.desc != null && draft.desc !== card.desc) p.desc = draft.desc;
     if (draft.columnId && draft.columnId !== card.columnId) p.columnId = draft.columnId;
     if (draft.assignees && !same([...draft.assignees].sort(), [...card.assignees].sort())) p.assignees = draft.assignees;
+    if (draft.deps && !same(draft.deps, card.deps ?? [])) p.deps = draft.deps;
     if (draft.values && !same(view.values, card.values)) p.values = view.values;
     return p;
   });
@@ -73,19 +75,28 @@
     draft = {};
     saving = false;
     editing = null;
-    if (asking) app.open = null;
+    if (asking) leave();
     asking = false;
   }
   function discard() {
     draft = {};
     editing = null;
-    if (asking) app.open = null;
+    if (asking) leave();
     asking = false;
   }
-  /** Closing with changes not yet saved asks first. */
+  /** Where to go once the changes are saved or let go: closed, or another card. */
+  let next = $state<string | null>(null);
+  const leave = () => (app.open = next ? { board, id: next } : null);
+  /** Closing (or opening another card) with changes not yet saved asks first. */
   function close() {
+    next = null;
     if (dirty) asking = true;
-    else app.open = null;
+    else leave();
+  }
+  function openCard(other: string) {
+    next = other;
+    if (dirty) asking = true;
+    else leave();
   }
 
   // ---------- what's shown ----------
@@ -517,6 +528,10 @@
 
             <Attachments {b} cardId={id} />
 
+            <section class="sect">
+              <Dependencies {b} cardId={id} deps={view.deps ?? []} onchange={(d) => setDraft('deps', d)} onopen={openCard} />
+            </section>
+
             <section class="sect"><Comments {b} cardId={id} /></section>
           </div>
         </div>
@@ -526,7 +541,7 @@
     {#if dirty || asking}
       <div class="savebar" role="region" aria-label="Unsaved changes">
         <span class="sb-note"
-          ><span class="sb-dot" aria-hidden="true"></span>{asking ? 'Save your changes before closing?' : 'Unsaved changes'}</span
+          ><span class="sb-dot" aria-hidden="true"></span>{asking ? (next ? 'Save your changes before opening that card?' : 'Save your changes before closing?') : 'Unsaved changes'}</span
         >
         {#if asking}<button class="btn ghost" onclick={() => (asking = false)}>Keep editing</button>{/if}
         <button class="btn ghost" onclick={discard}>Discard</button>

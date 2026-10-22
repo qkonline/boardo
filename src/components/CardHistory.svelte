@@ -39,6 +39,8 @@
       case 'part_done':
         return 'var(--s-lime)';
       case 'moved':
+      case 'linked':
+      case 'unlinked':
         return 'var(--s-cyan)';
       case 'assigned':
       case 'unassigned':

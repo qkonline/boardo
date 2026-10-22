@@ -29,12 +29,16 @@ function sets<T>(base: T[] | null, mine: T[], theirs: T[]): T[] {
 
 export function mergeCard(base: CardRec | null, mine: CardRec, theirs: CardRec): CardRec {
   const top = fields(base, mine, theirs);
-  return {
+  const deps = sets(base?.deps ?? null, mine.deps ?? [], theirs.deps ?? []);
+  const out: CardRec = {
     ...top,
     values: fields(base?.values ?? null, mine.values, theirs.values),
     done: fields(base?.done ?? null, mine.done, theirs.done),
     assignees: sets(base?.assignees ?? null, mine.assignees, theirs.assignees),
   };
+  if (deps.length) out.deps = deps;
+  else delete out.deps;
+  return out;
 }
 
 /** Merge a record changed both here and on the board. Mine wins over a deletion. */

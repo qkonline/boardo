@@ -17,6 +17,7 @@
     | 'archive'
     | 'undo'
     | 'status'
+    | 'deps'
     | 'people'
     | 'mail'
     | 'left'
@@ -114,6 +115,11 @@
     <path d="m5 5 10 10M15 5 5 15" stroke={plain ? 'currentColor' : 'var(--text)'} />
   {:else if name === 'trash'}
     <path d="M4 6h12M8 6V4h4v2M5.5 6l.8 10h7.4l.8-10" stroke={plain ? 'currentColor' : 'var(--redT)'} />
+  {:else if name === 'deps'}
+    <rect x="3" y="3" width="6" height="5" rx="1" stroke={a} />
+    <rect x="11" y="12" width="6" height="5" rx="1" stroke={r} />
+    <path d="M6 8v3.5a1 1 0 0 0 1 1h2.5" stroke={a} />
+    <path d="m8.5 11 1.5 1.5L8.5 14" stroke={a} />
   {:else if name === 'status'}
     <circle cx="10" cy="10" r="6.5" stroke={a} />
     <path d="M10 3.5a6.5 6.5 0 0 1 0 13Z" fill={r} stroke="none" />

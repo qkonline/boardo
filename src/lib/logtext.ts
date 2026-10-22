@@ -59,6 +59,12 @@ export function logText(l: LogRec, b: BoardState, onCard: boolean): string {
         : `marked ${name(d.user)}'s part done`;
     case 'part_undone':
       return d.user === l.userId ? `marked their part of ${it} not done` : `marked ${name(d.user)}'s part not done`;
+    case 'linked':
+    case 'unlinked': {
+      const other = typeof d.card === 'string' ? b.card.get(d.card) : null;
+      const what = other ? `"${other.title || 'Untitled'}"` : 'a card that has gone';
+      return l.action === 'linked' ? `made ${it} wait on ${what}` : `stopped ${it} waiting on ${what}`;
+    }
     case 'commented':
       return `commented on ${it}`;
     case 'file_added':

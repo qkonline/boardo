@@ -102,6 +102,10 @@ export function cardChanges(
   }
   for (const u of next.assignees) if (!prev.assignees.includes(u)) out.push({ action: 'assigned', detail: { user: u } });
   for (const u of prev.assignees) if (!next.assignees.includes(u)) out.push({ action: 'unassigned', detail: { user: u } });
+  const before = prev.deps ?? [];
+  const after = next.deps ?? [];
+  for (const c of after) if (!before.includes(c)) out.push({ action: 'linked', detail: { card: c } });
+  for (const c of before) if (!after.includes(c)) out.push({ action: 'unlinked', detail: { card: c } });
   for (const u of next.assignees) {
     const was = prev.done[u] != null;
     const now = next.done[u] != null;

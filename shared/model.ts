@@ -81,6 +81,8 @@ export interface CardRec {
   assignees: string[];
   /** Each assignee whose part is done, and when (ms). */
   done: Record<string, number>;
+  /** Cards in the same board this one waits on (its dependencies). Older cards have none. */
+  deps?: string[];
   archived: boolean;
   createdBy: string;
   created: number;
@@ -130,6 +132,8 @@ export type LogAction =
   | 'unassigned'
   | 'part_done'
   | 'part_undone'
+  | 'linked'
+  | 'unlinked'
   | 'commented'
   | 'file_added'
   | 'file_removed'
