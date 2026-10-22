@@ -14,6 +14,9 @@
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
   import StatusChip from './StatusChip.svelte';
+  import ElasticMark from './ElasticMark.svelte';
+
+  const ELASTIC_URL = 'https://kaiserkhan.com/planner/';
 
   /**
    * A card, opened. It reads as the card itself: its status band across the top, its title, and
@@ -181,36 +184,15 @@
       style:--ink={band?.text ?? 'var(--muted)'}
       style:--bar={band?.bar ?? 'var(--line)'}
     >
-      <div class="band-row">
-        <Balloon label="Status" align="start">
-          {#snippet trigger({ toggle, open })}
-            <button class="status-btn" aria-expanded={open} onclick={toggle}>
-              <span class="dot"></span>{status?.label ?? 'Set a status'}<Icon name="down" size={14} plain />
-            </button>
-          {/snippet}
-          {#snippet children(done)}
-            <div class="menu">
-              {#each statusField?.options ?? [] as o (o.id)}
-                <button
-                  class="opt"
-                  aria-pressed={view.values.status === o.id}
-                  onclick={() => (setValue('status', o.id), done())}><StatusChip option={o} /></button
-                >
-              {/each}
-              <button class="opt quiet" aria-pressed={!view.values.status} onclick={() => (setValue('status', null), done())}
-                >No status</button
-              >
-            </div>
-          {/snippet}
-        </Balloon>
-        {#if parts.length}
+      <button class="icon-btn close" aria-label="Close" onclick={close}><Icon name="close" plain /></button>
+      {#if parts.length}
+        <div class="band-row">
           <span class="parts" title="{parts.filter(Boolean).length} of {parts.length} done">
             {#each parts as p, i (i)}<i class:on={p}></i>{/each}
             <span>{parts.filter(Boolean).length} of {parts.length} done</span>
           </span>
-        {/if}
-        <button class="icon-btn close" aria-label="Close" onclick={close}><Icon name="close" plain /></button>
-      </div>
+        </div>
+      {/if}
 
       {#if editing === 'title'}
         <textarea
@@ -390,9 +372,50 @@
                   <span class="by">
                     {#each [...time.by] as [u, ms] (u)}<span><Avatar person={b.member.get(u)} size={16} /> {duration(ms)}</span>{/each}
                   </span>
-                {:else}
-                  <span class="empty-note">From timers in Elastic</span>
                 {/if}
+                <Balloon label="About Elastic" align="end">
+                  {#snippet trigger({ toggle, open })}
+                    <button class="elastic-btn" class:solo={!(time && time.total > 0)} aria-expanded={open} aria-label="About Elastic" onclick={toggle}>
+                      <ElasticMark size={18} />{#if !(time && time.total > 0)}<span>Tracked in Elastic</span>{/if}
+                    </button>
+                  {/snippet}
+                  {#snippet children()}
+                    <div class="about">
+                      <p class="about-head"><ElasticMark size={22} /> <b>Elastic</b></p>
+                      <p>Elastic is a day planner that works with Boardo. Connect it once and the cards assigned to you show on the days they're due.</p>
+                      <p>Start a card there to run its timer. The time adds up here, and finishing it in Elastic marks your part done.</p>
+                      <p class="muted">To connect, open Elastic and go to Settings, then Projects.</p>
+                      <a class="key ink about-link" href={ELASTIC_URL} target="_blank" rel="noopener">Open Elastic</a>
+                    </div>
+                  {/snippet}
+                </Balloon>
+              </span>
+            </div>
+
+            <div class="prop">
+              <span class="pl"><Icon name="status" size={16} /> Status</span>
+              <span class="pv">
+                <Balloon label="Status" align="start">
+                  {#snippet trigger({ toggle, open })}
+                    <button class="val status-btn" class:empty={!status} aria-expanded={open} onclick={toggle}>
+                      {#if status}<StatusChip option={status} />{:else}Set a status{/if}<Icon name="down" size={14} plain />
+                    </button>
+                  {/snippet}
+                  {#snippet children(done)}
+                    <div class="menu">
+                      {#each statusField?.options ?? [] as o (o.id)}
+                        <button
+                          class="opt"
+                          aria-pressed={view.values.status === o.id}
+                          onclick={() => (setValue('status', o.id), done())}><StatusChip option={o} /></button
+                        >
+                      {/each}
+                      <button class="opt quiet" aria-pressed={!view.values.status} onclick={() => (setValue('status', null), done())}
+                        >No status</button
+                      >
+                    </div>
+                  {/snippet}
+                </Balloon>
               </span>
             </div>
 
@@ -523,7 +546,7 @@
   .band {
     flex: none;
     background: var(--tint);
-    padding: 6px 12px 14px 20px;
+    padding: 16px 60px 14px 20px;
     border-bottom: 1px solid color-mix(in oklab, var(--bar) 30%, transparent);
     position: relative;
   }
@@ -531,35 +554,63 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    min-height: 44px;
+    min-height: 28px;
+    margin-bottom: 4px;
   }
-  .status-btn {
+  .status-btn :global(.status) {
+    font-size: 13px;
+  }
+  .elastic-btn {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    min-height: 34px;
-    padding: 0 10px;
-    margin-left: -10px;
+    min-height: 36px;
+    padding: 0 8px;
     border: none;
-    border-radius: var(--r-ctl);
+    border-radius: var(--r-sm);
     background: transparent;
-    color: var(--ink);
-    font: 600 13px/1 var(--font);
+    color: var(--muted);
+    font: 400 13.5px var(--font);
     cursor: pointer;
   }
-  .status-btn .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--bar);
+  .elastic-btn.solo {
+    margin-left: -8px;
   }
-  .plain .status-btn {
-    color: var(--muted);
+  .elastic-btn span {
+    text-decoration: underline dotted color-mix(in oklab, var(--muted) 60%, transparent);
+    text-underline-offset: 3px;
   }
   @media (hover: hover) {
-    .status-btn:hover {
-      background: color-mix(in oklab, var(--bar) 14%, transparent);
+    .elastic-btn:hover {
+      background: var(--sunk);
+      color: var(--text);
     }
+  }
+  .about {
+    display: grid;
+    gap: 8px;
+    padding: 8px 8px 6px;
+    max-width: 280px;
+    font-size: 13.5px;
+    line-height: 1.45;
+  }
+  .about p {
+    margin: 0;
+  }
+  .about .muted {
+    color: var(--muted);
+    font-size: 12.5px;
+  }
+  .about-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+  }
+  .about-link {
+    margin-top: 4px;
+    min-height: 40px;
+    text-decoration: none;
   }
   .parts {
     display: inline-flex;
@@ -581,7 +632,9 @@
     margin-left: 5px;
   }
   .close {
-    margin-left: auto;
+    position: absolute;
+    top: 8px;
+    right: 10px;
     color: var(--ink);
   }
   .title,
@@ -899,10 +952,6 @@
     background: var(--tint-indigo);
     padding: 3px 6px;
     border-radius: var(--r-sm);
-  }
-  .empty-note {
-    color: var(--faint);
-    font-size: 13px;
   }
   .part {
     display: grid;
