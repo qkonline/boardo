@@ -160,6 +160,18 @@ export async function leaveAll(env: Env, userId: string) {
   }
 }
 
+/** Delete an archived card for good (an admin, or whoever made it), with its files. */
+export async function deleteCard(env: Env, userId: string, body: { board?: unknown; card?: unknown }) {
+  const role = await roleIn(env, body.board, userId);
+  if (!role) throw new Refusal(404, "That board isn't there any more.");
+  if (!isId(body.card)) throw new Refusal(400, 'Pick a card.');
+  const res = await boardStub(env, body.board as string).deleteCard(userId, role, body.card);
+  if (res === 'denied') throw new Refusal(403, 'Only admins, or whoever made the card, can delete it.');
+  if (res === 'live') throw new Refusal(409, 'Archive the card before deleting it.');
+  if (res === 'gone') return;
+  for (let i = 0; i < res.keys.length; i += 1000) await env.FILES.delete(res.keys.slice(i, i + 1000));
+}
+
 // ---------- invites ----------
 
 function inviteLink(env: Env, token: string): string {

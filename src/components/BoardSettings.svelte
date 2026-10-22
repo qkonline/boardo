@@ -210,13 +210,29 @@
           {#each b.archived as c (c.id)}
             <li>
               <span class="who"><b>{c.title || 'Untitled'}</b></span>
-              <button class="btn small" onclick={() => app.openCard(id, c.id)}>Open</button>
-              <button class="btn small" onclick={() => app.archiveCard(id, c.id, false)}>Restore</button>
+              {#if armed === `del-${c.id}`}
+                <span class="ask">Delete for good?</span>
+                <button class="btn small danger" disabled={busy || !app.online} onclick={() => act(() => app.deleteCard(id, c.id), 'Card deleted.')}
+                  >Delete</button
+                >
+                <button class="btn small ghost" onclick={() => (armed = null)}>Keep</button>
+              {:else}
+                <button class="btn small" onclick={() => app.openCard(id, c.id)}>Open</button>
+                <button class="btn small" onclick={() => app.archiveCard(id, c.id, false)}>Restore</button>
+                {#if app.canDelete(id, c.id)}
+                  <button class="icon-btn" aria-label="Delete {c.title || 'Untitled'}" onclick={() => (armed = `del-${c.id}`)}
+                    ><Icon name="trash" /></button
+                  >
+                {/if}
+              {/if}
             </li>
           {/each}
         </ul>
       {:else}
         <p class="note">None.</p>
+      {/if}
+      {#if b.archived.length}
+        <p class="note">Deleting a card removes it, its comments and its files for everyone. Its history stays in Activity.</p>
       {/if}
     </section>
 
@@ -324,6 +340,10 @@
     width: auto;
     min-height: 40px;
     padding: 6px 8px;
+  }
+  .ask {
+    font-size: 13px;
+    color: var(--redT);
   }
   .badge {
     font-size: 12px;

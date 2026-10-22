@@ -485,6 +485,18 @@ export class App {
     if (archived && this.open?.id === id) this.open = null;
   }
 
+  /** Delete an archived card for good. Done by the board itself, so it needs a connection. */
+  async deleteCard(board: string, id: string): Promise<void> {
+    await call('/cards/delete', { board, card: id });
+    if (this.open?.board === board && this.open.id === id) this.open = null;
+  }
+
+  /** Whether I may delete this card: an admin, or whoever made it. */
+  canDelete(board: string, id: string): boolean {
+    const c = this.data[board]?.card.get(id);
+    return !!c && (this.isAdmin(board) || c.createdBy === this.user?.id);
+  }
+
   // ---------- columns ----------
 
   async addColumn(board: string, name: string): Promise<void> {

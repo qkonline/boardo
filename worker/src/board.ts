@@ -352,7 +352,7 @@ export class Board extends DurableObject<Env> {
       case 'card': {
         const before = prev as CardRec | null;
         let next = c.data as CardRec | null;
-        if (!next) return undefined; // cards are archived, not deleted
+        if (!next) return undefined; // deleted only through deleteCard(), once archived
         if (!before && next.createdBy !== who.userId) next = { ...next, createdBy: who.userId };
         if (!before && Math.abs(next.created - now) > 7 * 24 * 3600_000) next = { ...next, created: now };
         if (before) next = { ...next, createdBy: before.createdBy, created: before.created };
@@ -702,6 +702,34 @@ export class Board extends DurableObject<Env> {
     this.ctx.storage.transactionSync(() => (rec = this.write('file', id, next)));
     if (rec) this.broadcast([rec], null);
     return next;
+  }
+
+  /**
+   * Delete an archived card for good (an admin, or whoever made it): the card, its comments,
+   * files and time go; its log stays, with an entry saying it was deleted. Returns the R2 keys
+   * of its files so their bytes can go too.
+   */
+  async deleteCard(userId: string, role: Role, cardId: string): Promise<{ keys: string[] } | 'gone' | 'denied' | 'live'> {
+    const card = this.get('card', cardId);
+    if (!card) return 'gone';
+    if (role !== 'admin' && card.createdBy !== userId) return 'denied';
+    if (!card.archived) return 'live';
+    const board = this.boardId();
+    const keys: string[] = [];
+    const out: Rec[] = [];
+    this.ctx.storage.transactionSync(() => {
+      for (const c of this.all('comment')) if (c.cardId === cardId) out.push(this.write('comment', c.id, null));
+      for (const s of this.all('session')) if (s.cardId === cardId) out.push(this.write('session', s.id, null));
+      for (const f of this.all('file'))
+        if (f.cardId === cardId) {
+          keys.push(`${board}/${f.id}`, `${board}/${f.id}.thumb`);
+          out.push(this.write('file', f.id, null));
+        }
+      out.push(this.write('card', cardId, null));
+      out.push(this.log(cardId, userId, { action: 'deleted', detail: { title: card.title } }, Date.now()));
+    });
+    this.broadcast(out, null);
+    return { keys };
   }
 
   /** Remove a file's record (whoever added it, or an admin). Returns it, so its bytes can go too. */

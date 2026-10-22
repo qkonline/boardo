@@ -39,6 +39,16 @@
   let desc = $state('');
   let picking = $state(false);
   let armedArchive = $state(false);
+  let armedDelete = $state(false);
+
+  async function del() {
+    try {
+      await app.deleteCard(board, id);
+      app.say('Card deleted.');
+    } catch (e) {
+      app.say((e as Error).message);
+    }
+  }
   // Keep the text boxes in step with the card, except while someone is typing in them.
   let editingTitle = false;
   let editingDesc = false;
@@ -100,7 +110,20 @@
       {#if card.archived}
         <div class="archived">
           <span>This card is archived. It's hidden from the board, My cards and Elastic.</span>
-          <button class="key" onclick={() => app.archiveCard(board, id, false)}>Restore</button>
+          <div class="acts">
+            <button class="key" onclick={() => app.archiveCard(board, id, false)}>Restore</button>
+            {#if app.canDelete(board, id)}
+              {#if armedDelete}
+                <button class="btn danger" disabled={!app.online} onclick={del}>Delete for good</button>
+                <button class="btn ghost" onclick={() => (armedDelete = false)}>Keep</button>
+              {:else}
+                <button class="btn" onclick={() => (armedDelete = true)}><Icon name="trash" /> Delete</button>
+              {/if}
+            {/if}
+          </div>
+          {#if armedDelete}
+            <span class="warn">Its comments and files go too, for everyone. Its history stays in Activity.{app.online ? '' : " You're offline: connect to delete it."}</span>
+          {/if}
         </div>
       {/if}
 
@@ -337,6 +360,16 @@
     border-radius: var(--r-ctl);
     font-size: 14px;
     flex-wrap: wrap;
+  }
+  .archived .acts {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .warn {
+    width: 100%;
+    font-size: 13px;
+    color: var(--redT);
   }
   .title {
     width: 100%;

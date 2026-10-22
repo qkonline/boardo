@@ -141,6 +141,7 @@ Every card has these fields.
 ### 4.5 Archiving
 
 - **R4.20** Cards can be archived and restored. Archived cards are hidden from the board, My cards and Elastic, but kept with their history.
+- **R4.21** An archived card can be deleted for good, by an admin or by whoever made it. Its comments, attachments and time go with it; its history stays in the project log, with an entry saying it was deleted.
 
 ## 5. Status and completion
 

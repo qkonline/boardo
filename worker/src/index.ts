@@ -16,6 +16,7 @@ import {
   createInvite,
   declineInvite,
   deleteBoard,
+  deleteCard,
   leaveAll,
   listBoards,
   refreshMemberships,
@@ -131,6 +132,10 @@ export default {
           return reply(200, { board: await createBoard(env, await mustUser(), body) });
         case '/boards/delete':
           await deleteBoard(env, await mustUser(), body);
+          return reply(204);
+
+        case '/cards/delete':
+          await deleteCard(env, await mustUser(), body);
           return reply(204);
 
         case '/members/role':

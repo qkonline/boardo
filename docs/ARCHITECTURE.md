@@ -152,6 +152,9 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - `/me {name?, hue?}`
 - `/me/delete`: refused while the person is the last admin of a board.
 
+**Cards**
+- `/cards/delete {board, card}`: deletes an archived card for good (an admin, or whoever made it), through the DO's `deleteCard()`: the card, its comments, files and sessions go, the files' bytes are removed from R2, and the log keeps its entries plus a `deleted` one. Devices never delete a card record themselves.
+
 **Boards and members**
 - `/boards`, `/boards/create`, `/boards/delete` (admin)
 - `/members/role`, `/members/remove` (admin; at least one admin always remains)
