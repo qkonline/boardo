@@ -15,6 +15,7 @@
   import { app } from './lib/store.svelte';
   import { freshness } from './lib/freshness.svelte';
   import PullIndicator from './components/PullIndicator.svelte';
+  import Icon from './components/Icon.svelte';
 
   // Another app asking to connect (`?connect&client_id=...`): kept until answered.
   let connect = $state<Record<string, string> | null>(null);
@@ -72,7 +73,13 @@
 
 {#if app.toast}
   {#key app.toast.id}
-    <div class="toast" role="status">{app.toast.text}</div>
+    {@const t = app.toast}
+    <div class="toast" class:has-undo={!!t.undo} role="status">
+      {t.text}
+      {#if t.undo}
+        <button class="undo" onclick={() => (t.undo?.(), (app.toast = null))}><Icon name="undo" plain /> Undo</button>
+      {/if}
+    </div>
   {/key}
 {/if}
 
@@ -96,6 +103,27 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     /* A message, never in the way: taps go through to what's under it. */
     pointer-events: none;
+  }
+  .toast.has-undo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 4px 4px 4px 16px;
+  }
+  /* Only the Undo button takes taps; the rest of the toast still lets them through. */
+  .undo {
+    pointer-events: auto;
+    min-height: 40px;
+    padding: 0 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: color-mix(in oklab, var(--bg) 14%, transparent);
+    color: var(--bg);
+    font: 600 14px var(--font);
+    cursor: pointer;
   }
   @media (min-width: 768px) {
     .toast {

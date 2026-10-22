@@ -15,6 +15,7 @@
     | 'close'
     | 'trash'
     | 'archive'
+    | 'undo'
     | 'people'
     | 'mail'
     | 'left'
@@ -112,6 +113,9 @@
     <path d="m5 5 10 10M15 5 5 15" stroke={plain ? 'currentColor' : 'var(--text)'} />
   {:else if name === 'trash'}
     <path d="M4 6h12M8 6V4h4v2M5.5 6l.8 10h7.4l.8-10" stroke={plain ? 'currentColor' : 'var(--redT)'} />
+  {:else if name === 'undo'}
+    <path d="M7.5 5 4 8.5 7.5 12" stroke={plain ? 'currentColor' : r} />
+    <path d="M4.5 8.5h7a4 4 0 0 1 0 8H9" stroke={plain ? 'currentColor' : a} />
   {:else if name === 'archive'}
     <rect x="3" y="4" width="14" height="4" rx="1" stroke={a} />
     <path d="M4.5 8v8h11V8" stroke={a} />

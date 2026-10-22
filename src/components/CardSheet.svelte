@@ -433,7 +433,7 @@
               <div class="part">
                 {#if myDone}
                   <span class="ok"><Icon name="check" /> Your part is done</span>
-                  <button class="btn ghost sm" onclick={() => app.markPart(board, id, false)}>Not done yet</button>
+                  <button class="key undo-key" onclick={() => app.markPart(board, id, false)}><Icon name="undo" plain /> Mark not done</button>
                 {:else}
                   <button class="key go done-key" onclick={() => app.markPart(board, id, true)}><Icon name="check" plain /> Mark done</button>
                   {#if card.assignees.length > 1 && !allPartsDone(card)}
@@ -516,15 +516,6 @@
     padding: 6px 12px 14px 20px;
     border-bottom: 1px solid color-mix(in oklab, var(--bar) 30%, transparent);
     position: relative;
-  }
-  .band::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 4px;
-    background: var(--bar);
   }
   .band-row {
     display: flex;
@@ -900,6 +891,19 @@
     justify-self: stretch;
     padding: 0 26px;
     min-height: 44px;
+  }
+  /* Smaller than Mark done, in a soft rose: taking your part back. */
+  .undo-key {
+    justify-self: stretch;
+    min-height: 38px;
+    font-size: 13.5px;
+    color: var(--t-rose);
+    background: color-mix(in oklab, var(--s-rose) 9%, var(--raised));
+    border-color: color-mix(in oklab, var(--s-rose) 28%, transparent);
+    box-shadow: 0 3px 0 color-mix(in oklab, var(--s-rose) 30%, var(--edge));
+  }
+  .undo-key:active {
+    box-shadow: 0 0 0 transparent;
   }
   .ok {
     display: inline-flex;

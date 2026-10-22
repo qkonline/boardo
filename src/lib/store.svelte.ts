@@ -90,7 +90,7 @@ export class App {
   open = $state<{ board: string; id: string } | null>(null);
   /** Overlays: New board, invites to show after a link was opened. */
   sheet = $state<'newBoard' | null>(null);
-  toast = $state<{ text: string; id: number } | null>(null);
+  toast = $state<{ text: string; id: number; undo?: () => void } | null>(null);
   theme = $state<Theme>('auto');
   online = $state(typeof navigator === 'undefined' ? true : navigator.onLine);
   /** An invite link was opened (`?invite=`): accepted once signed in. */
@@ -379,10 +379,11 @@ export class App {
     this.open = { board, id };
   }
 
-  say(text: string): void {
-    this.toast = { text, id: Date.now() };
+  /** A short message; with `undo`, it stays a little longer and carries an Undo button. */
+  say(text: string, undo?: () => void): void {
+    this.toast = { text, id: Date.now(), undo };
     if (this.toastTimer) clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => (this.toast = null), 4000);
+    this.toastTimer = setTimeout(() => (this.toast = null), undo ? 6000 : 4000);
   }
 
   setTheme(t: Theme): void {
@@ -521,6 +522,7 @@ export class App {
     if (done) parts[this.user.id] = Date.now();
     else delete parts[this.user.id];
     await this.updateCard(board, id, { done: parts });
+    if (done) this.say('Marked done', () => void this.markPart(board, id, false));
   }
 
   /** Move a card into a column, between two neighbours (ids, or null at either end). */
