@@ -10,6 +10,8 @@
   let busy = $state(false);
   let error = $state('');
   let resent = $state(false);
+  // Came straight to the code, with one already sent (asked for on another device, say).
+  let had = $state(false);
   const invited = app.inviteToken != null;
   const canPasskey = passkeysAvailable();
 
@@ -41,6 +43,7 @@
     busy = true;
     try {
       await app.sendCode(email.trim());
+      had = false;
       step = 'code';
       code = '';
     } catch (err) {
@@ -60,6 +63,17 @@
       error = (err as Error).message;
       busy = false;
     }
+  }
+
+  /** Skip sending: the code was asked for earlier, perhaps on another device, and still works. */
+  function haveCode() {
+    const field = document.getElementById('email') as HTMLInputElement;
+    if (!field.reportValidity()) return;
+    error = '';
+    resent = false;
+    had = true;
+    step = 'code';
+    code = '';
   }
 
   async function again() {
@@ -100,6 +114,7 @@
         <button class="key ink" type="submit" disabled={busy || !email.trim()}>
           <Icon name="mail" plain /> Send me a code
         </button>
+        <button class="btn ghost have" type="button" disabled={busy} onclick={haveCode}>I already have a code</button>
         {#if canPasskey}
           <div class="or"><span>or</span></div>
           <button class="key" type="button" disabled={busy} onclick={withPasskey}><Icon name="lock" /> Sign in with a passkey</button>
@@ -108,7 +123,11 @@
       </form>
     {:else}
       <form onsubmit={verify}>
-        <p class="sent">We sent a 6-digit code to <b>{email}</b>. It works for 10 minutes.</p>
+        {#if had}
+          <p class="sent">Type the 6-digit code we sent to <b>{email}</b>. Each code works for 10 minutes.</p>
+        {:else}
+          <p class="sent">We sent a 6-digit code to <b>{email}</b>. It works for 10 minutes.</p>
+        {/if}
         <label class="label" for="code">Code</label>
         <input
           id="code"
@@ -168,6 +187,13 @@
   }
   .key {
     margin-top: 6px;
+  }
+  .have {
+    justify-self: center;
+    min-height: 44px;
+    padding: 0 10px;
+    color: var(--muted);
+    font-size: 14px;
   }
   .row {
     display: flex;
