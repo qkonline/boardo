@@ -40,6 +40,8 @@
   --tint-yellow: #fdf8e1;
   /* The soft stripe (under lane names, along the top of keys). */
   --stripe: #818cf8, #a78bfa, #c084fc, #f472b6, #f43f5e;
+  /* The five colours as a wheel, for the custom colour swatch. */
+  --hue-stops: #f43f5e, #facc15, #84cc16, #22d3ee, #818cf8, #f43f5e;
   color-scheme: light;
 
   --px: 16px;
