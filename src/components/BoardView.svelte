@@ -20,7 +20,7 @@
   function keep(c: CardRec): boolean {
     if (f.person === 'none' && c.assignees.length) return false;
     if (f.person !== 'all' && f.person !== 'none' && !c.assignees.includes(f.person)) return false;
-    if (f.status !== 'all' && (c.values.status ?? null) !== f.status) return false;
+    if (f.status !== 'all' && (c.values.status ?? 'none') !== f.status) return false;
     return true;
   }
 
@@ -81,6 +81,7 @@
         <select value={f.status} onchange={(e) => setFilter('status', e.currentTarget.value)}>
           <option value="all">All statuses</option>
           {#each b.statusField?.options ?? [] as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
+          <option value="none">No status</option>
         </select>
         <Icon name="down" size={14} />
       </label>

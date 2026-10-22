@@ -129,14 +129,14 @@
       <dl class="fields">
         <dt><label for="f-status">Status</label></dt>
         <dd class="status-dd">
-          <StatusChip option={status} />
+          {#if status}<StatusChip option={status} />{:else}<span class="no-status">No status</span>{/if}
           <select
             id="f-status"
             class="over"
             value={card.values.status ?? ''}
             onchange={(e) => app.setValue(board, id, 'status', e.currentTarget.value || null)}
           >
-            {#if !status}<option value="">Not set</option>{/if}
+            <option value="">No status</option>
             {#each statusField?.options ?? [] as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
           </select>
           {#if card.assignees.length > 1}<span class="parts-n">{doneCount} of {card.assignees.length} done</span>{/if}
@@ -381,6 +381,13 @@
     width: 100%;
     opacity: 0;
     cursor: pointer;
+  }
+  .no-status {
+    font: 500 12.5px/1 var(--font);
+    color: var(--muted);
+    padding: 5px 8px;
+    border-radius: var(--r-sm);
+    border: 1px dashed var(--line);
   }
   .parts-n {
     color: var(--muted);

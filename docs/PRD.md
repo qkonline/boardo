@@ -94,7 +94,7 @@ Every card has these fields.
 | Description | longer text | optional |
 | Start date | date | an admin can switch it to date and time |
 | End date | date | an admin can switch it to date and time |
-| Status | dropdown | Not Started, In Progress, Completed, Blocked; an admin can add more values |
+| Status | dropdown | Not Started, In Progress, Completed, Blocked; an admin can add more values. Optional: a new card has no status until someone picks one |
 | Assignees | people | one or more members of the board |
 | Time spent | read-only | total timer time from everyone, through Elastic, with a breakdown per person |
 

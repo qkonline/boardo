@@ -408,14 +408,14 @@ export class App {
     const b = this.data[board];
     const list = b.cardsIn(columnId);
     const order = at === 'top' ? between(null, list[0]?.order) : between(list.at(-1)?.order, null);
-    const status = b.statusField?.options?.[0]?.id;
     const card: CardRec = {
       id: newId(),
       columnId,
       order,
       title: title.trim(),
       desc: '',
-      values: status ? { status } : {},
+      // A new card has no status until someone picks one.
+      values: {},
       assignees: [],
       done: {},
       archived: false,
