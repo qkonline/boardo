@@ -696,9 +696,9 @@
     background: none;
     color: var(--muted);
     font: 500 13.5px var(--font);
-    min-height: 50px;
+    min-height: 40px;
     padding: 0 14px;
-    margin-bottom: -1px;
+    margin: 6px 0 -1px;
     border-bottom: 2px solid transparent;
     display: inline-flex;
     align-items: center;
