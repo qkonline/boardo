@@ -6,7 +6,7 @@
   import CardTile from './CardTile.svelte';
   import Icon from './Icon.svelte';
 
-  /** One column: a sunk lane with a soft stripe under its name, its cards, and Add a card. */
+  /** One column: a sunk lane with its name, its cards, and Add a card. */
   let {
     col,
     b,
@@ -53,7 +53,7 @@
 </script>
 
 <section class="lane" data-lane={col.id} aria-label={col.name}>
-  <header class="lane-h striped">
+  <header class="lane-h">
     <h2>{col.name || 'Untitled column'}</h2>
     <span class="n">{cards.length}</span>
     <button class="icon-btn" aria-label="Column options for {col.name}" onclick={onmenu}><Icon name="more" /></button>
@@ -121,10 +121,6 @@
     margin: 4px 8px 0 14px;
     padding-bottom: 4px;
     min-height: 48px;
-  }
-  .lane-h.striped::after {
-    left: 0;
-    right: 6px;
   }
   h2 {
     flex: 1;

@@ -16,6 +16,23 @@
   const f = $derived(filters[id] ?? { person: 'all', status: 'all' });
   const setFilter = (k: 'person' | 'status', v: string) => (filters[id] = { ...f, [k]: v });
   const filtered = $derived(f.person !== 'all' || f.status !== 'all');
+  // What each filter shows: the chosen option's text, so the control is as wide as that.
+  const personLabel = $derived(
+    f.person === 'all'
+      ? 'Everyone'
+      : f.person === 'none'
+        ? 'Nobody yet'
+        : f.person === app.user?.id
+          ? 'Me'
+          : (b?.member.get(f.person)?.name ?? 'Everyone'),
+  );
+  const statusLabel = $derived(
+    f.status === 'all'
+      ? 'All statuses'
+      : f.status === 'none'
+        ? 'No status'
+        : (b?.statusField?.options?.find((o) => o.id === f.status)?.label ?? 'All statuses'),
+  );
 
   function keep(c: CardRec): boolean {
     if (f.person === 'none' && c.assignees.length) return false;
@@ -50,7 +67,36 @@
   <div class="screen">
     <header class="head">
       <button class="icon-btn back" aria-label="Boards" onclick={() => app.go({ name: 'home' })}><Icon name="back" /></button>
-      <h1><span class="mark" style:background={hueColor(b.board?.hue ?? item.hue)}></span>{b.board?.name ?? item.name}</h1>
+      <h1><span class="mark" style:background={hueColor(b.board?.hue ?? item.hue)}></span><span class="name">{b.board?.name ?? item.name}</span></h1>
+      <div class="filters">
+        <Icon name="filter" />
+        <label class="sel" class:on={f.person !== 'all'}>
+          <span class="sr-only">Person</span>
+          <span class="val">{personLabel}</span>
+          <select value={f.person} onchange={(e) => setFilter('person', e.currentTarget.value)}>
+            <option value="all">Everyone</option>
+            {#if app.user}<option value={app.user.id}>Me</option>{/if}
+            {#each b.members.filter((m) => m.userId !== app.user?.id) as m (m.userId)}
+              <option value={m.userId}>{m.name}</option>
+            {/each}
+            <option value="none">Nobody yet</option>
+          </select>
+          <Icon name="down" size={14} />
+        </label>
+        <label class="sel" class:on={f.status !== 'all'}>
+          <span class="sr-only">Status</span>
+          <span class="val">{statusLabel}</span>
+          <select value={f.status} onchange={(e) => setFilter('status', e.currentTarget.value)}>
+            <option value="all">All statuses</option>
+            {#each b.statusField?.options ?? [] as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
+            <option value="none">No status</option>
+          </select>
+          <Icon name="down" size={14} />
+        </label>
+        {#if filtered}
+          <button class="btn ghost clear" onclick={() => (filters[id] = { person: 'all', status: 'all' })}>Clear</button>
+        {/if}
+      </div>
       {#if b.status !== 'live' && app.online && b.loaded}
         <span class="sync" title="Connecting">Connecting</span>
       {/if}
@@ -62,33 +108,6 @@
       </div>
     </header>
 
-    <div class="filters">
-      <Icon name="filter" />
-      <label class="sel" class:on={f.person !== 'all'}>
-        <span class="sr-only">Person</span>
-        <select value={f.person} onchange={(e) => setFilter('person', e.currentTarget.value)}>
-          <option value="all">Everyone</option>
-          {#if app.user}<option value={app.user.id}>Me</option>{/if}
-          {#each b.members.filter((m) => m.userId !== app.user?.id) as m (m.userId)}
-            <option value={m.userId}>{m.name}</option>
-          {/each}
-          <option value="none">Nobody yet</option>
-        </select>
-        <Icon name="down" size={14} />
-      </label>
-      <label class="sel" class:on={f.status !== 'all'}>
-        <span class="sr-only">Status</span>
-        <select value={f.status} onchange={(e) => setFilter('status', e.currentTarget.value)}>
-          <option value="all">All statuses</option>
-          {#each b.statusField?.options ?? [] as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
-          <option value="none">No status</option>
-        </select>
-        <Icon name="down" size={14} />
-      </label>
-      {#if filtered}
-        <button class="btn ghost clear" onclick={() => (filters[id] = { person: 'all', status: 'all' })}>Clear</button>
-      {/if}
-    </div>
 
     {#if !b.loaded}
       <p class="wait">{app.online ? 'Loading the board…' : "This board hasn't been opened on this device yet. Connect to load it."}</p>
@@ -156,7 +175,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 6px max(8px, env(safe-area-inset-right)) 0 max(4px, env(safe-area-inset-left));
+    padding: 6px max(8px, env(safe-area-inset-right)) 8px max(4px, env(safe-area-inset-left));
   }
   @media (min-width: 768px) {
     .head {
@@ -167,7 +186,7 @@
     }
   }
   h1 {
-    flex: 1;
+    flex: 0 1 auto;
     min-width: 0;
     margin: 0 0 0 4px;
     font-size: 20px;
@@ -187,6 +206,7 @@
     color: var(--faint);
   }
   .acts {
+    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -201,51 +221,90 @@
       display: none;
     }
   }
+  /* The filters sit in the header beside the board's name, quiet until one is on. */
   .filters {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px max(var(--px), env(safe-area-inset-right)) 8px max(var(--px), env(safe-area-inset-left));
-    overflow-x: auto;
-    flex: none;
+    gap: 2px;
+    margin-left: 10px;
+    min-width: 0;
+    flex: 0 1 auto;
+  }
+  .filters > :global(svg) {
+    margin-right: 2px;
   }
   .sel {
     position: relative;
     display: inline-flex;
     align-items: center;
-    border: 1px solid var(--line);
     border-radius: var(--r-ctl);
-    background: var(--raised);
     color: var(--muted);
     flex: none;
   }
-  .sel.on {
-    background: var(--text);
-    border-color: var(--text);
-    color: var(--bg);
+  @media (hover: hover) {
+    .sel:hover {
+      background: var(--sunk);
+    }
   }
+  .sel.on {
+    color: var(--accent);
+  }
+  .val {
+    font: 500 14px var(--font);
+    min-height: var(--btn);
+    display: inline-flex;
+    align-items: center;
+    padding: 0 24px 0 8px;
+    white-space: nowrap;
+  }
+  .sel.on .val {
+    font-weight: 600;
+  }
+  /* The real select lies over the text, invisible: a tap opens the system menu. */
   .sel select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    opacity: 0;
     appearance: none;
     -webkit-appearance: none;
     border: none;
-    background: transparent;
-    color: inherit;
-    font: 500 13px var(--font);
-    min-height: 36px;
-    padding: 0 28px 0 12px;
     cursor: pointer;
+  }
+  .sel:has(select:focus-visible) {
+    outline: 2px solid var(--text);
+    outline-offset: 1px;
   }
   .sel :global(svg) {
     position: absolute;
-    right: 8px;
+    right: 6px;
     pointer-events: none;
   }
-  .sel.on :global(svg path) {
-    stroke: currentColor;
-  }
   .clear {
-    min-height: 36px;
+    min-height: var(--btn);
+    padding: 0 8px;
     color: var(--muted);
+    font-size: 13px;
+  }
+  /* On a phone the filters drop below the name. */
+  @media (max-width: 640px) {
+    .head {
+      flex-wrap: wrap;
+    }
+    h1 {
+      flex: 1 1 0;
+    }
+    h1 .name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .filters {
+      order: 5;
+      flex-basis: 100%;
+      margin: 0 0 0 calc(var(--px) - 4px);
+      overflow-x: auto;
+    }
   }
   .wait {
     padding: 20px var(--px);
