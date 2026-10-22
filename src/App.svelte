@@ -13,7 +13,8 @@
   import TabBar from './components/TabBar.svelte';
   import Welcome from './components/Welcome.svelte';
   import { app } from './lib/store.svelte';
-  import { newBuildOut, reloadToUpdate } from './lib/update';
+  import { freshness } from './lib/freshness.svelte';
+  import PullIndicator from './components/PullIndicator.svelte';
 
   // Another app asking to connect (`?connect&client_id=...`): kept until answered.
   let connect = $state<Record<string, string> | null>(null);
@@ -28,22 +29,8 @@
     }
     void app.init();
 
-    // An installed app can stay open for days: pick up new builds when nothing is in progress.
-    let last = Date.now();
-    const check = async () => {
-      if (Date.now() - last < 3600_000) return;
-      last = Date.now();
-      if (!(await newBuildOut())) return;
-      const busy = app.open || app.sheet || document.activeElement?.matches('input, textarea, select');
-      if (!busy) void reloadToUpdate();
-    };
-    const vis = () => !document.hidden && void check();
-    document.addEventListener('visibilitychange', vis);
-    const t = setInterval(check, 3600_000);
-    return () => {
-      document.removeEventListener('visibilitychange', vis);
-      clearInterval(t);
-    };
+    // Pick up new builds at quiet moments, and pull down to refresh (freshness.svelte.ts).
+    return freshness.start();
   });
 
   const s = $derived(app.screen);
@@ -80,6 +67,8 @@
     <NewBoard />
   {/if}
 {/if}
+
+<PullIndicator />
 
 {#if app.toast}
   {#key app.toast.id}
