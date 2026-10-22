@@ -71,6 +71,8 @@ Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](
 | `invites` | id, board_id, email, role, token_hash, invited_by, created, expires, accepted_by |
 | `oauth_codes` | code_hash, user_id, client_id, redirect_uri, challenge, scope, expires |
 | `app_tokens` | hash PK, id (for listing and revoking), user_id, client_id, scope, label, created, used |
+| `passkeys` | id PK (the credential id), user_id, public_key, counter, transports, label (the device), created, used (`0002_passkeys.sql`) |
+| `challenges` | id, challenge, user_id, purpose (`add` or `login`), expires: each answered once, within 5 minutes |
 | `limits` | key PK, count, start (an hour-long window; rate limiting per email and per IP) |
 
 Sessions, codes, invite tokens, OAuth codes and app tokens are only ever stored as SHA-256 hashes.
@@ -154,6 +156,11 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 
 **Cards**
 - `/cards/delete {board, card}`: deletes an archived card for good (an admin, or whoever made it), through the DO's `deleteCard()`: the card, its comments, files and sessions go, the files' bytes are removed from R2, and the log keeps its entries plus a `deleted` one. Devices never delete a card record themselves.
+
+**Passkeys** (`worker/src/passkeys.ts`, `@simplewebauthn/server`, as in Elastic)
+- `/auth/passkey/add/start`, `/auth/passkey/add/finish` (signed in): a passkey for this account on this device. The relying party is the page's host (`kaiserkhan.com`), which Elastic shares, so Boardo's passkeys are named `Boardo: <email>` to tell them apart in the device's list.
+- `/auth/passkey/login/start`, `/auth/passkey/login/finish` → `{token, user}`: any passkey for the site may answer (discoverable credentials, also offered in the email field's suggestions); one Boardo doesn't know (Elastic's, or removed) gets a message saying so.
+- `/me/passkeys`, `/me/passkeys/remove`.
 
 **Boards and members**
 - `/boards`, `/boards/create`, `/boards/delete` (admin)

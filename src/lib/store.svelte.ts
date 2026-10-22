@@ -20,6 +20,7 @@ import { BoardState } from './board.svelte';
 import * as db from './db';
 import { splitRid } from './db';
 import { Files } from './files.svelte';
+import { addPasskey, passkeySignIn, passkeysAvailable } from './passkeys';
 import { Sync } from './sync';
 
 export interface User {
@@ -55,6 +56,7 @@ export type Theme = 'auto' | 'light' | 'dark';
 
 const THEME_KEY = 'boardo:theme';
 const SCREEN_KEY = 'boardo:screen';
+const PASSKEY_ASK_KEY = 'boardo:passkey-ask';
 
 function readLocal(key: string): string | null {
   try {
@@ -91,6 +93,8 @@ export class App {
   online = $state(typeof navigator === 'undefined' ? true : navigator.onLine);
   /** An invite link was opened (`?invite=`): accepted once signed in. */
   inviteToken: string | null = null;
+  /** Just signed in with a code on a device that can hold a passkey, and none is set up yet. */
+  offerPasskey = $state(false);
   /** My cards: group by deadline or by project. */
   myCardsBy = $state<'deadline' | 'project'>('deadline');
 
@@ -254,6 +258,37 @@ export class App {
 
   async verifyCode(email: string, code: string): Promise<void> {
     const res = await call<{ token: string; user: User; fresh: boolean }>('/auth/code/verify', { email, code });
+    await this.signedIn(res);
+    void this.maybeOfferPasskey();
+  }
+
+  /** Sign in with a passkey (`autofill`: picked from the email field's suggestions). */
+  async signInWithPasskey(autofill = false): Promise<void> {
+    await this.signedIn(await passkeySignIn<{ token: string; user: User; fresh: boolean }>(autofill));
+  }
+
+  private async maybeOfferPasskey(): Promise<void> {
+    if (!passkeysAvailable() || readLocal(PASSKEY_ASK_KEY) === 'no') return;
+    try {
+      const { passkeys } = await call<{ passkeys: unknown[] }>('/me/passkeys');
+      this.offerPasskey = !passkeys.length;
+    } catch {
+      /* offline: ask another time */
+    }
+  }
+
+  async addPasskey(): Promise<void> {
+    await addPasskey();
+    this.offerPasskey = false;
+  }
+
+  /** Not now: the offer comes back after the next sign-in with a code; Don't ask stops it. */
+  dismissPasskey(forGood: boolean): void {
+    this.offerPasskey = false;
+    if (forGood) writeLocal(PASSKEY_ASK_KEY, 'no');
+  }
+
+  private async signedIn(res: { token: string; user: User }): Promise<void> {
     this.token = res.token;
     this.user = res.user;
     setToken(res.token);

@@ -2,9 +2,23 @@
   import { allPartsDone, statusOption } from '../../shared/rules';
   import { hueColor } from '../lib/hue';
   import { app } from '../lib/store.svelte';
+  import { cancelled } from '../lib/passkeys';
   import Icon from './Icon.svelte';
 
   let busy = $state<string | null>(null);
+  let adding = $state(false);
+
+  async function addKey() {
+    adding = true;
+    try {
+      await app.addPasskey();
+      app.say('Passkey added. Next time, sign in with it.');
+    } catch (e) {
+      if (!cancelled(e)) app.say((e as Error).message);
+    } finally {
+      adding = false;
+    }
+  }
 
   function counts(id: string) {
     const b = app.data[id];
@@ -42,6 +56,20 @@
     <h1>Boards</h1>
     <button class="key ink" onclick={() => (app.sheet = 'newBoard')}><Icon name="plus" plain /> New board</button>
   </header>
+
+  {#if app.offerPasskey}
+    <section class="offer" aria-label="Passkey">
+      <Icon name="lock" size={22} />
+      <div class="what">
+        <b>Sign in faster next time</b>
+        <span class="label">Add a passkey and use Face ID, Touch ID or your screen lock instead of an emailed code.</span>
+      </div>
+      <div class="acts">
+        <button class="btn ghost" onclick={() => app.dismissPasskey(false)}>Not now</button>
+        <button class="key ink" disabled={adding} onclick={addKey}>Add a passkey</button>
+      </div>
+    </section>
+  {/if}
 
   {#if app.invites.length}
     <section class="invites" aria-label="Invites">
@@ -113,6 +141,16 @@
     height: 14px;
     border-radius: 3px;
     flex: none;
+  }
+  .offer {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    margin-bottom: 18px;
+    border-radius: var(--r-card);
+    background: var(--tint-indigo);
+    flex-wrap: wrap;
   }
   .invites {
     display: grid;

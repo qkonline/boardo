@@ -2,6 +2,7 @@
   import type { Hue } from '../../shared/model';
   import { call } from '../lib/api';
   import { when } from '../lib/dates';
+  import { cancelled, passkeysAvailable } from '../lib/passkeys';
   import { app, type Theme } from '../lib/store.svelte';
   import HuePicker from './HuePicker.svelte';
   import Icon from './Icon.svelte';
@@ -12,6 +13,42 @@
   let hue = $state<Hue>((app.user?.hue as Hue) ?? 'indigo');
   let saving = $state(false);
   const changed = $derived(!!app.user && (name.trim() !== (app.user.name ?? '') || hue !== app.user.hue));
+
+  let keys = $state<{ id: string; label: string; created: number; used: number | null }[] | null>(null);
+  let addingKey = $state(false);
+
+  async function loadKeys() {
+    try {
+      keys = (await call<{ passkeys: NonNullable<typeof keys> }>('/me/passkeys')).passkeys;
+    } catch {
+      keys = null;
+    }
+  }
+  $effect(() => {
+    if (app.online) void loadKeys();
+  });
+  async function addKey() {
+    addingKey = true;
+    try {
+      await app.addPasskey();
+      app.say('Passkey added.');
+      await loadKeys();
+    } catch (e) {
+      if (!cancelled(e)) app.say((e as Error).message);
+    } finally {
+      addingKey = false;
+    }
+  }
+  async function removeKey(id: string) {
+    armed = null;
+    try {
+      await call('/me/passkeys/remove', { id });
+      await loadKeys();
+      app.say("Passkey removed from Boardo. You can also delete it from your device's passwords.");
+    } catch (e) {
+      app.say((e as Error).message);
+    }
+  }
 
   let apps = $state<{ id: string; label: string; client: string; created: number; used: number }[] | null>(null);
   let armed = $state<string | null>(null);
@@ -66,7 +103,7 @@
 </script>
 
 <main class="page">
-  <h1>Settings</h1>
+  <h1>Account</h1>
 
   <section>
     <h2>You</h2>
@@ -79,6 +116,31 @@
       <div><button class="key ink" disabled={saving || !changed || !name.trim()} onclick={save}>Save</button></div>
     </div>
   </section>
+
+  {#if passkeysAvailable() || keys?.length}
+    <section>
+      <h2>Passkeys</h2>
+      <p class="note">Sign in with Face ID, Touch ID or your device's screen lock instead of an emailed code. Add one on each device you use.</p>
+      {#if keys?.length}
+        <ul class="card list">
+          {#each keys as k (k.id)}
+            <li>
+              <span class="who"><b>{k.label}</b><small>Added {when(k.created)}{k.used ? `, last used ${when(k.used)}` : ''}</small></span>
+              {#if armed === `key-${k.id}`}
+                <button class="btn danger" onclick={() => removeKey(k.id)}>Remove</button>
+                <button class="btn ghost" onclick={() => (armed = null)}>Keep</button>
+              {:else}
+                <button class="btn" onclick={() => (armed = `key-${k.id}`)}>Remove</button>
+              {/if}
+            </li>
+          {/each}
+        </ul>
+      {/if}
+      {#if passkeysAvailable()}
+        <div><button class="key" disabled={addingKey || !app.online} onclick={addKey}><Icon name="lock" /> Add a passkey on this device</button></div>
+      {/if}
+    </section>
+  {/if}
 
   <section>
     <h2>Theme</h2>

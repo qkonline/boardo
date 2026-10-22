@@ -2,7 +2,7 @@
   import { app } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
 
-  /** Boards, My cards and Settings: along the bottom on a phone, along the top on a computer. */
+  /** Boards, My cards and Account: along the bottom on a phone, along the top on a computer. */
   const at = $derived(
     app.screen.name === 'mycards' ? 'mycards' : app.screen.name === 'settings' ? 'settings' : 'boards',
   );
@@ -31,19 +31,19 @@
     >
       <Icon name="mine" size={22} /><span>My cards</span>
     </button>
+    {#if offline}
+      <span class="off" title="Changes are saved here and sent once you're back online."
+        ><Icon name="offline" size={16} /> Offline</span
+      >
+    {/if}
     <button
-      class="tab"
+      class="tab account"
       aria-current={at === 'settings' ? 'page' : undefined}
       onclick={() => app.go({ name: 'settings' })}
     >
-      <Icon name="gear" size={22} /><span>Settings</span>
+      <Icon name="account" size={22} /><span>Account</span>
     </button>
   </div>
-  {#if offline}
-    <span class="off" title="Changes are saved here and sent once you're back online."
-      ><Icon name="offline" size={16} /> Offline</span
-    >
-  {/if}
 </nav>
 
 <style>
@@ -126,11 +126,17 @@
     .brand img {
       border-radius: 6px;
     }
+    /* Account sits at the far right, apart from the screens. */
     .tabs {
-      flex: none;
+      flex: 1;
       gap: 4px;
+      align-items: center;
+    }
+    .account {
+      margin-left: auto;
     }
     .tab {
+      flex: none;
       min-height: 40px;
       display: inline-flex;
       align-items: center;
@@ -150,6 +156,9 @@
       position: static;
       transform: none;
       margin-left: auto;
+    }
+    .off + .account {
+      margin-left: 8px;
     }
   }
 </style>

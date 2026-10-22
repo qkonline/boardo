@@ -233,6 +233,7 @@ Every card has these fields.
 ## 9. Accounts, sync and offline
 
 - **R9.1** Sign-in is by email. The person enters their address and gets a 6-digit code by email, which they type in. No passwords.
+- **R9.1a** Once signed in, a person can add a passkey on each device (Face ID, Touch ID or the device's screen lock), and then sign in with it instead of a code. Boardo offers this after a sign-in with a code. Passkeys are listed in Account, where they can be removed.
 - **R9.2** A person stays signed in on a device until they sign out.
 - **R9.3** **Offline first:** every board a person belongs to is kept on their device. They can open boards, read cards and make changes without a connection.
 - **R9.4** Changes sync when the device is back online, and show up live on everyone else's devices while they're online.
@@ -306,7 +307,6 @@ These are reasonable defaults, used unless the owner says otherwise.
 - Views other than columns, such as calendar, timeline or table, in Boardo.
 - Card templates, board templates, checklists inside cards.
 - Guests or public boards.
-- Passkey sign-in (email codes only to start).
 - Importing from Trello.
 
 ## 14. Phases

@@ -74,7 +74,7 @@ export async function withinLimit(env: Env, key: string, max: number, now = Date
 
 // ---------- sessions ----------
 
-async function newSession(env: Env, userId: string): Promise<string> {
+export async function newSession(env: Env, userId: string): Promise<string> {
   const token = randomToken();
   const now = Date.now();
   await env.DB.prepare('INSERT INTO sessions (hash, user_id, created, used) VALUES (?, ?, ?, ?)')
@@ -185,7 +185,7 @@ export async function updateMe(env: Env, userId: string, body: { name?: unknown;
 
 export async function deleteUser(env: Env, userId: string): Promise<void> {
   await env.DB.batch(
-    ['users WHERE id', 'sessions WHERE user_id', 'app_tokens WHERE user_id', 'oauth_codes WHERE user_id'].map((w) =>
+    ['users WHERE id', 'sessions WHERE user_id', 'app_tokens WHERE user_id', 'oauth_codes WHERE user_id', 'passkeys WHERE user_id'].map((w) =>
       env.DB.prepare(`DELETE FROM ${w} = ?`).bind(userId),
     ),
   );

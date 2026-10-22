@@ -31,6 +31,7 @@ import type { Env } from './env';
 import { links, remove as removeFile, serve as serveFile, upload } from './files';
 import { devOutbox } from './mail';
 import { elasticCards, elasticOps } from './elastic';
+import { listPasskeys, loginFinish, loginStart, registerFinish, registerStart, removePasskey } from './passkeys';
 import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken } from './oauth';
 
 export { Board };
@@ -104,6 +105,20 @@ export default {
           return reply(204);
         case '/auth/code/verify':
           return reply(200, await verifyCode(env, body));
+        case '/auth/passkey/login/start':
+          return reply(200, await loginStart(env, origin));
+        case '/auth/passkey/login/finish':
+          return reply(200, await loginFinish(env, origin, body));
+        case '/auth/passkey/add/start':
+          return reply(200, await registerStart(env, origin, await mustUser()));
+        case '/auth/passkey/add/finish':
+          await registerFinish(env, origin, await mustUser(), body, req.headers.get('user-agent') ?? '');
+          return reply(204);
+        case '/me/passkeys':
+          return reply(200, await listPasskeys(env, await mustUser()));
+        case '/me/passkeys/remove':
+          await removePasskey(env, await mustUser(), body);
+          return reply(204);
         case '/auth/signout':
           if (token) await signOut(env, token);
           return reply(204);

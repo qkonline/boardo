@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
+  import { cancelled, passkeyAutofill, passkeysAvailable } from '../lib/passkeys';
   import { app } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
 
@@ -9,6 +11,29 @@
   let error = $state('');
   let resent = $state(false);
   const invited = app.inviteToken != null;
+  const canPasskey = passkeysAvailable();
+
+  // Passkeys made for Boardo are offered in the email field's suggestions too, where the
+  // browser can: picking one signs in straight away.
+  onMount(() => {
+    void passkeyAutofill().then((ok) => {
+      if (!ok) return;
+      app.signInWithPasskey(true).catch((e) => {
+        if (!cancelled(e)) error = (e as Error).message;
+      });
+    });
+  });
+
+  async function withPasskey() {
+    error = '';
+    busy = true;
+    try {
+      await app.signInWithPasskey();
+    } catch (e) {
+      if (!cancelled(e)) error = (e as Error).message;
+      busy = false;
+    }
+  }
 
   async function send(e?: Event) {
     e?.preventDefault();
@@ -66,7 +91,7 @@
           id="email"
           class="field"
           type="email"
-          autocomplete="email"
+          autocomplete="email webauthn"
           inputmode="email"
           placeholder="you@example.com"
           bind:value={email}
@@ -75,6 +100,11 @@
         <button class="key ink" type="submit" disabled={busy || !email.trim()}>
           <Icon name="mail" plain /> Send me a code
         </button>
+        {#if canPasskey}
+          <div class="or"><span>or</span></div>
+          <button class="key" type="button" disabled={busy} onclick={withPasskey}><Icon name="lock" /> Sign in with a passkey</button>
+          <p class="note">Face ID, Touch ID or your device's screen lock, once you've added a passkey in Account.</p>
+        {/if}
       </form>
     {:else}
       <form onsubmit={verify}>
@@ -152,6 +182,26 @@
   .sent {
     margin: 0;
     color: var(--muted);
+  }
+  .or {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--faint);
+    font-size: 13px;
+    margin: 4px 0;
+  }
+  .or::before,
+  .or::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .note {
+    margin: 0;
+    color: var(--muted);
+    font-size: 13px;
   }
   .err {
     margin: 0;

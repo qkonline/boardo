@@ -38,7 +38,7 @@
       <li><Icon name="check" /> Start and stop timers on them, and mark your part done</li>
       <li><Icon name="close" /> Never comments, files, other fields or other people's cards</li>
     </ul>
-    <p class="small">Signed in as {app.user?.email}. You can disconnect it any time in Settings.</p>
+    <p class="small">Signed in as {app.user?.email}. You can disconnect it any time in Account.</p>
     {#if error}<p class="err" role="alert">{error}</p>{/if}
     <div class="row">
       <button class="btn" disabled={busy} onclick={() => answer(false)}>Cancel</button>

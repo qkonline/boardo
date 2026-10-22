@@ -31,6 +31,7 @@
     | 'down'
     | 'up'
     | 'lock'
+    | 'account'
     | 'file'
     | 'image';
 </script>
@@ -65,6 +66,10 @@
     <path d="m5 8 5 5 5-5" stroke={a} />
   {:else if name === 'up'}
     <path d="m5 12 5-5 5 5" stroke={a} />
+  {:else if name === 'account'}
+    <circle cx="10" cy="7.2" r="3.2" stroke={a} />
+    <path d="M3.8 17c.8-3.3 3.3-5 6.2-5s5.4 1.7 6.2 5" stroke={a} />
+    <circle cx="10" cy="7.2" r="1" fill={r} stroke="none" />
   {:else if name === 'lock'}
     <rect x="4.5" y="9" width="11" height="8" rx="1.5" stroke={a} />
     <path d="M7 9V6.5a3 3 0 0 1 6 0V9" stroke={a} />
