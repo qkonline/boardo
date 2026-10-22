@@ -88,13 +88,13 @@
         <Icon name="field" />
         <span class="name">{f.name}<small>{TYPE_NAMES[f.type]}{f.builtin ? ', built in' : ''}</small></span>
         <button class="icon-btn" aria-label="Move {f.name} up" disabled={i === 0} onclick={() => app.moveField(b.id, f.id, -1)}
-          ><Icon name="left" /></button
+          ><Icon name="up" /></button
         >
         <button
           class="icon-btn"
           aria-label="Move {f.name} down"
           disabled={i === b.fields.length - 1}
-          onclick={() => app.moveField(b.id, f.id, 1)}><Icon name="right" /></button
+          onclick={() => app.moveField(b.id, f.id, 1)}><Icon name="down" /></button
         >
         <button class="btn small" aria-expanded={open === f.id} onclick={() => (open === f.id ? (open = null) : edit(f))}
           >{open === f.id ? 'Close' : 'Edit'}</button
@@ -121,10 +121,18 @@
                 <div class="opt-row">
                   <StatusChip option={o} />
                   <input class="field" maxlength="60" aria-label="Value name" bind:value={o.label} />
-                  <button class="icon-btn" aria-label="Move up" disabled={j === 0} onclick={() => moveOption(j, -1)}><Icon name="left" /></button>
+                  <button class="icon-btn" aria-label="Move {o.label} up" disabled={j === 0} onclick={() => moveOption(j, -1)}
+                    ><Icon name="up" /></button
+                  >
+                  <button
+                    class="icon-btn"
+                    aria-label="Move {o.label} down"
+                    disabled={j === (draft.options?.length ?? 0) - 1}
+                    onclick={() => moveOption(j, 1)}><Icon name="down" /></button
+                  >
                   {#if o.role}
-                    <span class="role" title="Elastic and the completion rule rely on this value, so it can be renamed but not removed."
-                      >{o.role === 'completed' ? 'Completed' : 'In progress'}</span
+                    <span class="icon-btn locked" role="img" aria-label="{o.label} can't be removed" title="Can be renamed, not removed"
+                      ><Icon name="lock" /></span
                     >
                   {:else}
                     <button class="icon-btn" aria-label="Remove {o.label}" onclick={() => removeOption(j)}><Icon name="trash" /></button>
@@ -133,6 +141,12 @@
                 <HuePicker bind:value={o.hue} slate label="Colour of {o.label}" />
               </div>
             {/each}
+            {#if f.builtin === 'status'}
+              <p class="hint">
+                <Icon name="lock" size={14} /> The values for in progress and completed can be renamed but not removed: Boardo
+                completes cards with them, and Elastic sets them when you start or finish a card.
+              </p>
+            {/if}
             <button class="btn" onclick={addOption}><Icon name="plus" /> Add a value</button>
           {/if}
           <div class="acts">
@@ -189,9 +203,6 @@
   .row :global(.icon-btn:disabled) {
     opacity: 0.3;
   }
-  .row .icon-btn :global(svg) {
-    rotate: 90deg;
-  }
   .name {
     flex: 1;
     min-width: 0;
@@ -239,19 +250,25 @@
     flex: 1;
     min-width: 0;
   }
-  .opt-row .icon-btn :global(svg) {
-    rotate: 90deg;
+  .opt-row :global(.icon-btn:disabled) {
+    opacity: 0.3;
+  }
+  .locked {
+    cursor: default;
+  }
+  .hint {
+    margin: 0;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .hint :global(svg) {
+    margin-top: 2px;
   }
   .opt-row :global(.status) {
     display: none;
-  }
-  .role {
-    font-size: 11.5px;
-    color: var(--muted);
-    background: var(--sunk);
-    border-radius: var(--r-sm);
-    padding: 4px 6px;
-    white-space: nowrap;
   }
   .acts {
     display: flex;

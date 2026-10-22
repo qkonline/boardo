@@ -29,6 +29,8 @@
     | 'smile'
     | 'send'
     | 'down'
+    | 'up'
+    | 'lock'
     | 'file'
     | 'image';
 </script>
@@ -61,6 +63,12 @@
     <path d="m8 5 5 5-5 5" stroke={a} />
   {:else if name === 'down'}
     <path d="m5 8 5 5 5-5" stroke={a} />
+  {:else if name === 'up'}
+    <path d="m5 12 5-5 5 5" stroke={a} />
+  {:else if name === 'lock'}
+    <rect x="4.5" y="9" width="11" height="8" rx="1.5" stroke={a} />
+    <path d="M7 9V6.5a3 3 0 0 1 6 0V9" stroke={a} />
+    <circle cx="10" cy="13" r="1.2" fill={r} stroke="none" />
   {:else if name === 'plus'}
     <path d="M10 4v12M4 10h12" stroke={a} stroke-width="1.8" />
   {:else if name === 'filter'}
