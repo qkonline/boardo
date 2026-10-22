@@ -315,7 +315,7 @@ export class Board extends DurableObject<Env> {
         }
         if (c.kind === 'board' && data) {
           this.mirrorBoard(data as BoardRec);
-          for (const r of this.dropBackground(prev as BoardRec | null, data as BoardRec)) {
+          for (const r of this.sweepBackgrounds(data as BoardRec)) {
             res.changed.push(r);
             res.extra.push(r);
           }
@@ -334,14 +334,14 @@ export class Board extends DurableObject<Env> {
     if (ADMIN_KINDS.includes(c.kind) && !admin) return undefined;
     switch (c.kind) {
       case 'board': {
-        // A board is deleted through the Worker, never as a record. A background image is only
-        // ever set by an upload (setBackground); a device can keep it, or change it to a colour or none.
+        // A board is deleted through the Worker, never as a record. A new background image must be
+        // one uploaded to this board first (addBackground); anything else keeps the old background.
         const next = c.data as BoardRec | null;
         if (!next) return undefined;
         const before = prev as BoardRec | null;
         const img = next.background && 'image' in next.background ? next.background.image : null;
         const had = before?.background && 'image' in before.background ? before.background.image : null;
-        if (img && img !== had) return { ...next, background: before?.background ?? null };
+        if (img && img !== had && this.get('file', img)?.cardId !== BOARD_FILE) return { ...next, background: before?.background ?? null };
         return next;
       }
       case 'column':
@@ -472,33 +472,35 @@ export class Board extends DurableObject<Env> {
   }
 
   /**
-   * A background image that's been replaced or taken away: its file record goes, and its bytes.
-   * Call inside a transaction.
+   * Background images no longer in use (replaced, taken away, or uploaded and never saved): their
+   * file records go, and their bytes. `keep` is one just uploaded, waiting for Save. Call inside
+   * a transaction.
    */
-  private dropBackground(before: BoardRec | null, after: BoardRec | null): Rec[] {
-    const had = before?.background && 'image' in before.background ? before.background.image : null;
+  private sweepBackgrounds(after: BoardRec | null, keep?: string): Rec[] {
     const now = after?.background && 'image' in after.background ? after.background.image : null;
-    if (!had || had === now || !this.get('file', had)) return [];
     const board = this.boardId();
-    this.ctx.waitUntil(this.env.FILES.delete([`${board}/${had}`, `${board}/${had}.thumb`]));
-    return [this.write('file', had, null)];
+    const out: Rec[] = [];
+    for (const f of this.all('file')) {
+      if (f.cardId !== BOARD_FILE || f.id === now || f.id === keep) continue;
+      this.ctx.waitUntil(this.env.FILES.delete([`${board}/${f.id}`, `${board}/${f.id}.thumb`]));
+      out.push(this.write('file', f.id, null));
+    }
+    return out;
   }
 
-  /** A new background image was stored (admins): it replaces whatever background there was. */
-  async setBackground(userId: string, f: FileRec): Promise<BoardRec | null> {
+  /**
+   * A background image was uploaded (admins). It waits as a file of the board until an admin
+   * saves the board with it; only then does it show behind the columns.
+   */
+  async addBackground(f: FileRec): Promise<FileRec> {
     const out: Rec[] = [];
-    let next: BoardRec | null = null;
+    const file = { ...f, cardId: BOARD_FILE };
     this.ctx.storage.transactionSync(() => {
-      const before = this.get('board', 'main');
-      if (!before) return;
-      next = { ...before, background: { image: f.id } };
-      out.push(this.write('file', f.id, { ...f, cardId: BOARD_FILE }));
-      out.push(this.write('board', 'main', next));
-      out.push(...this.dropBackground(before, next));
-      out.push(this.log(null, userId, { action: 'background_changed', detail: { to: 'image' } }, Date.now()));
+      out.push(this.write('file', f.id, file));
+      out.push(...this.sweepBackgrounds(this.get('board', 'main'), f.id));
     });
     this.broadcast(out, null);
-    return next;
+    return file;
   }
 
   /** Keep the directory's copy of the board's name and colour (the board list reads it). */

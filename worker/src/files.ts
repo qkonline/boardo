@@ -130,7 +130,7 @@ export async function upload(req: Request, env: Env): Promise<unknown> {
     const id = newId();
     await env.FILES.put(`${board}/${id}`, stream.pipeThrough(new FixedLengthStream(size)), { httpMetadata: { contentType: mime } });
     const file = { id, cardId: BOARD_FILE, name: `background.${k}`, mime, size, by: userId, at: Date.now(), thumb: false };
-    return { board: await stub.setBackground(userId, file), file };
+    return { file: await stub.addBackground(file) };
   }
 
   const thumbOf = url.searchParams.get('thumb');

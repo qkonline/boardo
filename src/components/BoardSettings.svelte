@@ -45,16 +45,30 @@
       bgHue = hueOf(b.board);
     }
   });
-  const bgChanged = $derived(
-    !!b?.board && bgKind !== 'image' && (bgKind !== kindOf(b.board) || (bgKind === 'colour' && bgHue !== hueOf(b.board))),
+  /** An image uploaded here and not saved yet, with a preview made from it on this device. */
+  let newImage = $state<{ id: string; url: string } | null>(null);
+  const dropNew = () => {
+    if (newImage) URL.revokeObjectURL(newImage.url);
+    newImage = null;
+  };
+  $effect(() => dropNew);
+  const imageId = $derived(newImage?.id ?? bgId);
+  const draftBg = $derived<BoardRec['background']>(
+    bgKind === 'none' ? null : bgKind === 'colour' ? { hue: bgHue } : imageId ? { image: imageId } : (b?.board?.background ?? null),
   );
+  const bgChanged = $derived(!!b?.board && JSON.stringify(draftBg ?? null) !== JSON.stringify(b.board.background ?? null));
   const changed = $derived(!!b?.board && (name.trim() !== b.board.name || hue !== b.board.hue || bgChanged));
-  const draftBg = $derived<BoardRec['background']>(bgKind === 'none' ? null : bgKind === 'colour' ? { hue: bgHue } : b?.board?.background);
+  const previewUrl = $derived(bgKind !== 'image' ? undefined : newImage ? newImage.url : bgId ? app.files.links[bgId]?.url : undefined);
 
-  function saveSection() {
+  async function saveSection() {
     const patch: Partial<BoardRec> = { name: name.trim(), hue };
     if (bgChanged) patch.background = draftBg ?? null;
-    void app.saveBoard(id, patch);
+    await app.saveBoard(id, patch);
+    dropNew();
+  }
+  function removeImage() {
+    dropNew();
+    bgKind = 'none';
   }
   let bgPicker: HTMLInputElement | null = $state(null);
   let uploadingBg = $state(false);
@@ -65,7 +79,10 @@
     if (!f) return;
     uploadingBg = true;
     try {
-      await app.uploadBackground(id, f);
+      const up = await app.uploadBackground(id, f);
+      dropNew();
+      newImage = { id: up.id, url: URL.createObjectURL(up.image) };
+      bgKind = 'image';
     } catch (err) {
       app.say((err as Error).message);
     } finally {
@@ -144,22 +161,21 @@
             <span class="label">Background</span>
             <div
               class="bg-preview"
-              style:background={tileBackground(
-                b.board && { ...b.board, background: draftBg ?? null },
-                hue,
-                bgKind === 'image' && bgId ? app.files.links[bgId]?.url : undefined,
-              )}
+              style:background={tileBackground(b.board && { ...b.board, background: draftBg ?? null }, hue, previewUrl)}
             >
               <span>{bgKind === 'none' ? 'No background' : bgKind === 'image' ? 'Image' : 'Colour'}</span>
+              {#if bgKind === 'image' && imageId}
+                <button class="btn remove-bg" onclick={removeImage}><Icon name="trash" /> Remove image</button>
+              {/if}
             </div>
             <div class="seg" role="group" aria-label="Background">
               <button aria-pressed={bgKind === 'none'} onclick={() => (bgKind = 'none')}>None</button>
               <button aria-pressed={bgKind === 'colour'} onclick={() => (bgKind = 'colour')}>Colour</button>
               <button
                 aria-pressed={bgKind === 'image'}
-                disabled={uploadingBg || (!app.online && !(bgId && bgKind !== 'image'))}
-                onclick={() => (bgId && bgKind !== 'image' ? (bgKind = 'image') : bgPicker?.click())}
-                >{uploadingBg ? 'Uploading…' : bgId && bgKind === 'image' ? 'Change image' : 'Image'}</button
+                disabled={uploadingBg || (!app.online && !(imageId && bgKind !== 'image'))}
+                onclick={() => (imageId && bgKind !== 'image' ? (bgKind = 'image') : bgPicker?.click())}
+                >{uploadingBg ? 'Uploading…' : imageId && bgKind === 'image' ? 'Change image' : 'Image'}</button
               >
             </div>
             <input bind:this={bgPicker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onchange={pickBg} />
@@ -169,8 +185,9 @@
             {/if}
             <p class="note">Everyone in the board sees it. Images are made smaller before they're uploaded.</p>
           </div>
-          <div>
+          <div class="save-row">
             <button class="key ink" disabled={!changed || !name.trim()} onclick={saveSection}>Save</button>
+            {#if changed}<span class="unsaved">Not saved yet. The board shows the change once you save.</span>{/if}
           </div>
         </div>
       {:else}
@@ -429,7 +446,32 @@
     border: 1px solid var(--border);
     display: flex;
     align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
     padding: 8px 10px;
+  }
+  .remove-bg {
+    min-height: 36px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: var(--redT);
+    background: var(--raised);
+    border-color: color-mix(in oklab, var(--rose) 35%, var(--border));
+  }
+  @media (pointer: coarse) {
+    .remove-bg {
+      min-height: 44px;
+    }
+  }
+  .save-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .unsaved {
+    color: var(--muted);
+    font-size: 13px;
   }
   .bg-preview span {
     font: 600 12px var(--font);

@@ -9,6 +9,7 @@ import {
   type ColumnRec,
   type CommentRec,
   type FieldRec,
+  type FileRec,
   type Hue,
   type Kind,
   newId,
@@ -608,12 +609,15 @@ export class App {
   }
 
   /** A background image for a board (admins): made smaller here, then uploaded. */
-  async uploadBackground(board: string, file: File): Promise<void> {
-    const res = await putBlob<{ board: BoardRec | null }>(
-      `/files?${new URLSearchParams({ board, background: '1' })}`,
-      await fitImage(file),
-    );
-    if (res.board) this.data[board]?.apply([{ kind: 'board', key: 'main', data: res.board }]);
+  /**
+   * Upload a background image (admins), made smaller here first. It isn't the board's background
+   * until the board is saved with it; the id and the smaller image (for a preview) come back.
+   */
+  async uploadBackground(board: string, file: File): Promise<{ id: string; image: Blob }> {
+    const image = await fitImage(file);
+    const res = await putBlob<{ file: FileRec }>(`/files?${new URLSearchParams({ board, background: '1' })}`, image);
+    this.data[board]?.apply([{ kind: 'file', key: res.file.id, data: res.file }]);
+    return { id: res.file.id, image };
   }
 
   async saveField(board: string, field: FieldRec): Promise<void> {
