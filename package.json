@@ -1,0 +1,45 @@
+{
+  "name": "boardo",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Shared project boards: columns of cards, invited people, and a log of everything that happens.",
+  "license": "MIT",
+  "author": "Qaisar Khan <kaiser@kaiserkhan.com>",
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.json && tsc -p worker/tsconfig.json",
+    "format": "prettier --write src worker/src index.html vite.config.ts svelte.config.js README.md",
+    "format:check": "prettier --check src worker/src index.html vite.config.ts svelte.config.js README.md",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "deploy": "./scripts/deploy.sh",
+    "worker:dev": "cd worker && wrangler dev --port 8788",
+    "worker:deploy": "cd worker && wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260926.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "fake-indexeddb": "^6.2.5",
+    "prettier": "^3.9.9",
+    "prettier-plugin-svelte": "^4.1.1",
+    "svelte": "^5.57.1",
+    "svelte-check": "^4.7.6",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.1",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.141.0"
+  },
+  "dependencies": {
+    "@fontsource/instrument-sans": "5.3.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "workerd@1.20261019.1": true
+  }
+}

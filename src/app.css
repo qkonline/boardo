@@ -1,0 +1,401 @@
+@import '@fontsource/instrument-sans/400.css';
+@import '@fontsource/instrument-sans/500.css';
+@import '@fontsource/instrument-sans/600.css';
+
+/* Theme tokens, shared with Elastic. Light by default; dark follows the device unless the user
+   picked a theme (index.html sets data-theme before first paint). */
+:root {
+  --bg: #f4f5f7;
+  --raised: #ffffff;
+  --sunk: #eceef2;
+  --border: #e3e5ea;
+  --line: #dadde3;
+  --edge: #c9ccd4;
+  --text: #16181d;
+  --muted: #5b6170;
+  --faint: #8a909c;
+  --accent: #6366f1;
+  --rose: #f43f5e;
+  --redT: #be123c;
+  --grT: #3f6212;
+  --scrim: rgba(22, 24, 29, 0.38);
+  /* Status colours: the bar on a card, and the tinted chip with its text. */
+  --s-slate: #94a3b8;
+  --t-slate: #475569;
+  --tint-slate: #eef1f5;
+  --s-indigo: #6366f1;
+  --t-indigo: #4338ca;
+  --tint-indigo: #eef0ff;
+  --s-lime: #65a30d;
+  --t-lime: #3f6212;
+  --tint-lime: #f0f8e4;
+  --s-rose: #e11d48;
+  --t-rose: #be123c;
+  --tint-rose: #fff0f3;
+  --s-cyan: #0891b2;
+  --t-cyan: #155e75;
+  --tint-cyan: #e7f8fc;
+  --s-yellow: #ca8a04;
+  --t-yellow: #854d0e;
+  --tint-yellow: #fdf8e1;
+  /* The soft stripe (under lane names, along the top of keys). */
+  --stripe: #818cf8, #a78bfa, #c084fc, #f472b6, #f43f5e;
+  color-scheme: light;
+
+  --px: 16px;
+  --btn: 44px;
+  --bar-h: 60px;
+  --r-card: 10px;
+  --r-ctl: 8px;
+  --r-sm: 6px;
+  --r-bar: 2px;
+  --font: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #0f1115;
+    --raised: #181b21;
+    --sunk: #22262d;
+    --border: #2a2e36;
+    --line: #343943;
+    --edge: #05060a;
+    --text: #eceef2;
+    --muted: #9aa1ae;
+    --faint: #6e7480;
+    --accent: #a5b4fc;
+    --rose: #fb7185;
+    --redT: #fda4af;
+    --grT: #bef264;
+    --scrim: rgba(0, 0, 0, 0.6);
+    --s-slate: #64748b;
+    --t-slate: #cbd5e1;
+    --tint-slate: #252a33;
+    --s-indigo: #818cf8;
+    --t-indigo: #c7d2fe;
+    --tint-indigo: #23264a;
+    --s-lime: #84cc16;
+    --t-lime: #bef264;
+    --tint-lime: #1f2a12;
+    --s-rose: #fb7185;
+    --t-rose: #fda4af;
+    --tint-rose: #3a1720;
+    --s-cyan: #22d3ee;
+    --t-cyan: #a5f3fc;
+    --tint-cyan: #0f2d35;
+    --s-yellow: #facc15;
+    --t-yellow: #fde047;
+    --tint-yellow: #33290b;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #0f1115;
+  --raised: #181b21;
+  --sunk: #22262d;
+  --border: #2a2e36;
+  --line: #343943;
+  --edge: #05060a;
+  --text: #eceef2;
+  --muted: #9aa1ae;
+  --faint: #6e7480;
+  --accent: #a5b4fc;
+  --rose: #fb7185;
+  --redT: #fda4af;
+  --grT: #bef264;
+  --scrim: rgba(0, 0, 0, 0.6);
+  --s-slate: #64748b;
+  --t-slate: #cbd5e1;
+  --tint-slate: #252a33;
+  --s-indigo: #818cf8;
+  --t-indigo: #c7d2fe;
+  --tint-indigo: #23264a;
+  --s-lime: #84cc16;
+  --t-lime: #bef264;
+  --tint-lime: #1f2a12;
+  --s-rose: #fb7185;
+  --t-rose: #fda4af;
+  --tint-rose: #3a1720;
+  --s-cyan: #22d3ee;
+  --t-cyan: #a5f3fc;
+  --tint-cyan: #0f2d35;
+  --s-yellow: #facc15;
+  --t-yellow: #fde047;
+  --tint-yellow: #33290b;
+  color-scheme: dark;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --px: 28px;
+    --btn: 40px;
+  }
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  /* No double-tap zoom on quick taps. Pinch zoom still works. */
+  touch-action: manipulation;
+}
+
+body {
+  font: 400 15px/1.4 var(--font);
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-weight: 400;
+  margin: 0;
+  color: inherit;
+}
+
+button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Everything you can press gives a little as you press it. */
+button,
+a,
+[role='button'] {
+  transition:
+    translate 90ms ease,
+    scale 90ms ease,
+    filter 90ms ease;
+}
+:is(button, a, [role='button']):active:not(:disabled):not([aria-disabled='true']):not(.key) {
+  translate: 0 1px;
+  scale: 0.97;
+  filter: brightness(0.94);
+}
+
+/* iOS zooms into any form field with text under 16px; on touch screens bring them up to 16. */
+@media (pointer: coarse) {
+  input:not(.large-text),
+  textarea:not(.large-text),
+  select {
+    font-size: 16px !important;
+  }
+}
+
+input[type='date'],
+input[type='datetime-local'] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-height: 1.4em;
+}
+
+a {
+  color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* A raised key that presses down onto its edge: the main action of a screen or sheet. */
+.key {
+  min-height: var(--btn);
+  padding: 0 16px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--line);
+  background: var(--raised);
+  color: var(--text);
+  font: 600 14px/1 var(--font);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 var(--edge);
+  transition:
+    translate 80ms ease,
+    box-shadow 80ms ease;
+  white-space: nowrap;
+}
+.key:active:not(:disabled) {
+  translate: 0 3px;
+  box-shadow: 0 0 0 var(--edge);
+}
+.key.ink {
+  background: var(--text);
+  color: var(--bg);
+  border-color: var(--text);
+}
+.key:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* A quieter button: outlined, no edge. */
+.btn {
+  min-height: var(--btn);
+  padding: 0 14px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--border);
+  background: var(--raised);
+  color: var(--text);
+  font: 500 14px/1 var(--font);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.btn.danger {
+  color: var(--redT);
+  border-color: color-mix(in oklab, var(--rose) 45%, transparent);
+  background: color-mix(in oklab, var(--rose) 8%, var(--raised));
+}
+.btn.ghost {
+  border-color: transparent;
+  background: transparent;
+}
+
+.icon-btn {
+  width: 44px;
+  height: 44px;
+  flex: none;
+  border-radius: var(--r-ctl);
+  border: none;
+  background: transparent;
+  color: var(--text);
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .icon-btn:hover {
+    background: var(--sunk);
+  }
+}
+
+.chip {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--line);
+  background: var(--raised);
+  color: var(--muted);
+  font: 500 13px/1 var(--font);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip[aria-pressed='true'] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+.label {
+  font: 500 13px/1.2 var(--font);
+  color: var(--muted);
+}
+
+.field {
+  width: 100%;
+  min-height: var(--btn);
+  padding: 10px 12px;
+  border-radius: var(--r-ctl);
+  border: 1px solid var(--line);
+  background: var(--raised);
+  color: var(--text);
+  font: 400 15px/1.35 var(--font);
+}
+.field:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+  border-color: transparent;
+}
+textarea.field {
+  resize: vertical;
+  min-height: 88px;
+}
+
+.switch {
+  width: 48px;
+  height: 30px;
+  border-radius: var(--r-sm);
+  border: none;
+  background: var(--line);
+  position: relative;
+  cursor: pointer;
+  flex: none;
+  padding: 0;
+  transition: background 160ms;
+}
+.switch.on {
+  background: var(--text);
+}
+.switch span {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background: var(--raised);
+  transition: left 160ms;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
+.switch.on span {
+  left: 21px;
+}
+
+/* A soft stripe along the bottom of an element. */
+.striped {
+  position: relative;
+}
+.striped::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--stripe));
+  opacity: 0.55;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}

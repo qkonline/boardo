@@ -1,0 +1,164 @@
+<script lang="ts">
+  import { app } from '../lib/store.svelte';
+  import Icon from './Icon.svelte';
+
+  let step = $state<'email' | 'code'>('email');
+  let email = $state('');
+  let code = $state('');
+  let busy = $state(false);
+  let error = $state('');
+  let resent = $state(false);
+  const invited = app.inviteToken != null;
+
+  async function send(e?: Event) {
+    e?.preventDefault();
+    error = '';
+    busy = true;
+    try {
+      await app.sendCode(email.trim());
+      step = 'code';
+      code = '';
+    } catch (err) {
+      error = (err as Error).message;
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function verify(e?: Event) {
+    e?.preventDefault();
+    error = '';
+    busy = true;
+    try {
+      await app.verifyCode(email.trim(), code);
+    } catch (err) {
+      error = (err as Error).message;
+      busy = false;
+    }
+  }
+
+  async function again() {
+    resent = false;
+    await send();
+    if (!error) resent = true;
+  }
+
+  // Six digits typed or pasted: check them straight away.
+  $effect(() => {
+    if (step === 'code' && code.replace(/\D/g, '').length === 6 && !busy) void verify();
+  });
+</script>
+
+<main class="wrap">
+  <div class="card">
+    <img src="{import.meta.env.BASE_URL}icon.svg?v=1" alt="" width="56" height="56" />
+    <h1>Boardo</h1>
+    {#if invited}
+      <p class="lede">You've been invited to a board. Sign in with the email address the invite was sent to.</p>
+    {:else}
+      <p class="lede">Shared project boards. Sign in with your email, and we'll send you a code.</p>
+    {/if}
+
+    {#if step === 'email'}
+      <form onsubmit={send}>
+        <label class="label" for="email">Email</label>
+        <input
+          id="email"
+          class="field"
+          type="email"
+          autocomplete="email"
+          inputmode="email"
+          placeholder="you@example.com"
+          bind:value={email}
+          required
+        />
+        <button class="key ink" type="submit" disabled={busy || !email.trim()}>
+          <Icon name="mail" plain /> Send me a code
+        </button>
+      </form>
+    {:else}
+      <form onsubmit={verify}>
+        <p class="sent">We sent a 6-digit code to <b>{email}</b>. It works for 10 minutes.</p>
+        <label class="label" for="code">Code</label>
+        <input
+          id="code"
+          class="field code large-text"
+          inputmode="numeric"
+          autocomplete="one-time-code"
+          maxlength="7"
+          placeholder="123456"
+          bind:value={code}
+          required
+        />
+        <button class="key ink" type="submit" disabled={busy || code.replace(/\D/g, '').length !== 6}>Sign in</button>
+        <div class="row">
+          <button type="button" class="btn ghost" onclick={() => ((step = 'email'), (error = ''))}>Use another email</button>
+          <button type="button" class="btn ghost" onclick={again} disabled={busy}>Send a new code</button>
+        </div>
+        {#if resent}<p class="ok" role="status">A new code is on its way.</p>{/if}
+      </form>
+    {/if}
+    {#if error}<p class="err" role="alert">{error}</p>{/if}
+  </div>
+</main>
+
+<style>
+  .wrap {
+    min-height: 100dvh;
+    display: grid;
+    place-items: center;
+    padding: 24px max(var(--px), env(safe-area-inset-left)) 24px max(var(--px), env(safe-area-inset-right));
+  }
+  .card {
+    width: min(400px, 100%);
+    display: grid;
+    gap: 14px;
+  }
+  img {
+    border-radius: 12px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 600;
+  }
+  .lede {
+    margin: 0;
+    color: var(--muted);
+  }
+  form {
+    display: grid;
+    gap: 10px;
+    margin-top: 8px;
+  }
+  .code {
+    font-size: 26px;
+    letter-spacing: 0.3em;
+    font-weight: 600;
+  }
+  .key {
+    margin-top: 6px;
+  }
+  .row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .row .btn {
+    padding: 0 4px;
+    color: var(--muted);
+  }
+  .sent {
+    margin: 0;
+    color: var(--muted);
+  }
+  .err {
+    margin: 0;
+    color: var(--redT);
+  }
+  .ok {
+    margin: 0;
+    color: var(--grT);
+  }
+</style>

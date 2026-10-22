@@ -1,0 +1,33 @@
+# Boardo's API. Deploy from this folder with `npx wrangler deploy`. Secrets:
+# `npx wrangler secret put RESEND_API_KEY` and `FILE_SIGNING_KEY`. Database changes go in
+# migrations/ and are applied with `npx wrangler d1 migrations apply boardo --remote`.
+name = "boardo-api"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = true
+
+[vars]
+ALLOWED_ORIGINS = "https://kaiserkhan.com,http://localhost:5174,http://localhost:4174"
+APP_URL = "https://kaiserkhan.com/boardo/"
+MAIL_FROM = "Boardo <boardo@kaiserkhan.com>"
+
+[[durable_objects.bindings]]
+name = "BOARDS"
+class_name = "Board"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Board"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "boardo"
+database_id = "80adce19-ab9f-4910-970f-e7d11ec23795"
+migrations_dir = "migrations"
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "boardo-files"
+
+[observability]
+enabled = true

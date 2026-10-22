@@ -1,0 +1,363 @@
+# Boardo: architecture
+
+Last updated: 22 October 2026
+
+This document describes how Boardo is built and how it connects to Elastic. What Boardo does, and why, is in [PRD.md](PRD.md); requirement numbers like R8.15 refer to it.
+
+## 1. Overview
+
+```
+ kaiserkhan.com/boardo (static PWA, Hostinger)     kaiserkhan.com/planner (Elastic)
+          │  HTTPS + WebSocket                                │ HTTPS (OAuth token, scope "elastic")
+          ▼                                                   ▼
+ boardo-api.qaisarkhans.workers.dev  ── Worker "boardo-api" ──────────────────────
+   ├─ D1 "boardo": users, sessions, email codes, boards, members, invites, OAuth codes, app tokens
+   ├─ Durable Object Board (one per board, SQLite): columns, cards, fields, comments, files,
+   │    time sessions, logs; per-board rev; hibernating WebSockets for live sync
+   ├─ R2 "boardo-files": attachments and thumbnails
+   └─ Resend HTTP API: sign-in codes, invites
+```
+
+- **The app** is a static Svelte 5 + TypeScript + Vite PWA, served from kaiserkhan.com/boardo (the same Hostinger site as Elastic, uploaded with rsync over SSH). It keeps every board the person belongs to in IndexedDB, works offline and syncs live.
+- **Same origin as Elastic.** Both apps are on https://kaiserkhan.com, so everything stored in the browser is named apart: IndexedDB `boardo`, `localStorage` keys `boardo:*`, the `boardo-sync` lock, the `boardo` BroadcastChannel, the service worker scope `/boardo/` and caches `boardo-*`.
+- **D1 is the directory.** It holds:
+  - who exists;
+  - who is in which board, with which role;
+  - invites and tokens.
+
+  The Worker checks membership in D1 before passing any request or socket to a board's Durable Object.
+- **Each board's Durable Object holds that board's content.** A per-board `rev` sequence drives sync, and boards are fully independent of one another.
+- **My cards is computed on the device** from the boards already synced there. There's no server-side join, and it works offline.
+- **Elastic** gets the one cross-board server query. `POST /elastic/cards` fans out to the person's board DOs through an RPC, `myCards(userId)`.
+
+### 1.1 Stack and versions
+
+| Part | Choice |
+|---|---|
+| App | Svelte ^5.57, Vite ^8.3, TypeScript ^6.0 |
+| Tests | Vitest ^4.1, fake-indexeddb ^6.2 |
+| Server | Cloudflare Workers, D1, Durable Objects (SQLite storage, hibernation API), R2 |
+| Tooling | Wrangler ^4.141, @cloudflare/workers-types (Wrangler needs Node 22) |
+| Email | Resend HTTP API |
+| Hosting | The app on Hostinger at kaiserkhan.com/boardo (`npm run deploy`: tests, build, rsync); the API on Cloudflare (`wrangler deploy`) |
+
+### 1.2 Patterns carried over from Elastic
+
+Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](https://github.com/qkonline/elastic)). It doesn't share code with it at runtime.
+
+| In Elastic | In Boardo |
+|---|---|
+| `worker/src/index.ts`: JSON-only POST routes, `Refusal` errors, CORS allow-list echo, Bearer tokens | `worker/src/index.ts` |
+| `worker/src/auth.ts`: email codes (`sixDigits()`, `sha256(email\|code)`, 10 min life, 5 tries, 60 s resend wait, silent on unknown emails), hashed session tokens | `worker/src/auth.ts`. Mail goes through one `sendMail(env, to, subject, text, html?)` that calls Resend |
+| `worker/src/account.ts`: a DO with SQLite `records(kind, key, rev, data)`, hibernating sockets, `sendSince` chunks, `put` → `ack{ok, conflicts}` inside `transactionSync`, broadcast, ping auto-response | `worker/src/board.ts` |
+| `worker/src/checks.ts`: record validation and caps | `worker/src/checks.ts` |
+| `src/lib/db.ts`: IndexedDB with `synced` and `outbox` stores, writes noted in the outbox in the same transaction | `src/lib/db.ts` |
+| `src/lib/sync.ts`: leader tab lock, backoff 1, 2, 5, 10, 30 s, outbox batching, one put in flight, serial incoming queue | `src/lib/sync.ts`, with one connection per board |
+| `src/lib/merge.ts`: `fields()` three-way merge | Card and column merges |
+| `src/lib/sync.test.ts`: fake DO and fake WebSocket, several devices with `vi.resetModules` and separate fake IndexedDBs | Multi-user sync tests |
+| Service worker build plugin, update check, keyboard-aware viewport, install prompt, sheet and collapsible components | The app shell |
+
+## 2. Data model
+
+### 2.1 D1 (`worker/migrations/0001_init.sql`)
+
+| Table | Columns |
+|---|---|
+| `users` | id, email UNIQUE, name, hue, created |
+| `sessions` | hash PK, user_id, device, created, used |
+| `email_codes` | email PK, hash, tries, sent, expires (one code per address; signing in and signing up are the same step) |
+| `boards` | id, name, hue, created_by, created (name and hue mirror the board's own record, for the board list) |
+| `members` | board_id, user_id, role (`admin` or `member`), added_at; PK (board_id, user_id) |
+| `invites` | id, board_id, email, role, token_hash, invited_by, created, expires, accepted_by |
+| `oauth_codes` | code_hash, user_id, client_id, redirect_uri, challenge, scope, expires |
+| `app_tokens` | hash PK, id (for listing and revoking), user_id, client_id, scope, label, created, used |
+| `limits` | key PK, count, start (an hour-long window; rate limiting per email and per IP) |
+
+Sessions, codes, invite tokens, OAuth codes and app tokens are only ever stored as SHA-256 hashes.
+
+### 2.2 Board Durable Object
+
+Records are `(kind, key, rev, data)`. `data: null` means deleted.
+
+| Kind | Fields | Written by |
+|---|---|---|
+| `board` | name, hue, maxUploadMB (default 30), statusField id | admins |
+| `member` | userId, name, hue, role (a mirror of D1, pushed by the Worker) | server |
+| `column` | id, name, order | members |
+| `field` | id, key (`start`, `end`, `status` for built-ins, null for custom), name, type, options `[{id, label, hue, role?}]`, order | admins |
+| `card` | id, columnId, order, title, desc, values `{fieldId: value}`, assignees `[userId]`, done `{userId: ms}`, archived, createdBy, created | members |
+| `comment` | id, cardId, userId, text, at, editedAt, deleted | members (their own only) |
+| `file` | id, cardId, name, mime, size, r2Key, thumbKey, by, at | server, after an upload |
+| `session` | id, cardId, userId, start ms, end ms or null, source | server, from Elastic ops |
+| `log` | id, cardId or null, userId, at, action, detail `{field, from, to, …}` | server only |
+
+- **Field types:** `text`, `longtext`, `number`, `date`, `datetime`, `dropdown`, `checkbox`, `person`.
+- **Status.** Status is a built-in dropdown field. Two of its options carry fixed roles, `in_progress` and `completed`, which automation relies on. Admins can rename those two options but not remove them (R4.3).
+- **Order.** Card and column order are fractional numbers, so two people reordering at the same time don't collide.
+- **Dates.** A `date` is a `YYYY-MM-DD` calendar date. A `datetime` is ISO 8601 with offset. Logs and sessions use UTC milliseconds.
+- **Text.** All text is plain text. Links are detected on display, and no HTML is ever interpreted.
+
+### 2.3 Rules enforced in the Durable Object
+
+- **Permissions.** Every put is checked against the sender's role (PRD section 2.2):
+  - members can't write `board`, `field` or `member`;
+  - nobody writes `log`, `session` or `file` directly;
+  - a comment can only be changed by its author.
+- **Logs.** The DO writes log entries itself. It diffs each accepted change, so entries can't be forged (R6.4). Actions:
+  - created, archived, restored;
+  - moved (column);
+  - field changed (from, to);
+  - assigned, unassigned;
+  - part done, part undone;
+  - status changed (by hand or automatic);
+  - comment added;
+  - file added, file removed;
+  - worked (duration, from Elastic).
+- **Completion** runs after each change (R5.1 to R5.5):
+  - when every assignee has a `done` entry and Status isn't `completed`, it sets `completed` and logs it;
+  - when a part is undone or an assignee is added to a Completed card, it sets `in_progress`;
+  - a manual status change never touches `done`.
+- **Time spent** is computed from `session` records, never stored on the card. A running session counts up to now. It's shown in total and per person.
+
+## 3. Sync and offline
+
+- **IndexedDB `boardo`:**
+  - `records`, keyed `board:kind:key`;
+  - `synced` (the last agreed version, used as the merge base);
+  - `outbox`;
+  - `meta` (session, board list, revs per board);
+  - `uploads` (file blobs queued while offline).
+- **One leader tab** (`navigator.locks` lock `boardo-sync`) holds one WebSocket per board: `GET /sync?board=<id>`, with the token as the second subprotocol. Other tabs follow over a BroadcastChannel.
+- **Protocol:**
+  - `hello{since}` → `changes{recs, more}` chunks, ending with `done`;
+  - `put{id, recs:[{kind, key, base, data}]}` → `ack{id, ok, conflicts, rejected}`. An `ok` entry carries `data` when the board stored something other than what was sent (the completion rule moved the status, or someone else's part was kept as it was); `rejected` holds changes the sender wasn't allowed to make, with the board's version, which replaces the local copy;
+  - the log entries a change produced go back to the sender as a `changes` message too;
+  - accepted changes are broadcast to the board's other sockets.
+- **Conflicts.** A put whose `base` rev is stale comes back in `conflicts`. The device then merges field by field with `fields()` against its `synced` base and sends again, so the latest change wins per field (R9.5). Comments, files, sessions and logs are separate records, so they never conflict.
+- **Board list.** `POST /boards` returns the person's boards and pending invites. The app asks on open, when it becomes visible, and when a socket reports a membership change.
+  - Joining a board opens its socket.
+  - Removal closes the socket with code 4003, and the device deletes that board's local data (R9.7).
+- **Reconnect.** Backoff steps are 1, 2, 5, 10 and 30 s. The app reconnects at once on `online` and when it becomes visible, and pings every 20 s while visible.
+- **Offline attachments** wait in `uploads` and are sent once back online. Files already viewed are cached by the service worker.
+- **Scale.** This approach is comfortable up to about 20 boards per person (R11.8). Beyond that, a per-user Durable Object could multiplex boards over one socket.
+
+## 4. Worker API
+
+Everything is POST with a JSON body, except the sync socket and file transfers. The token travels as `Authorization: Bearer`.
+
+**Auth and profile**
+- `/auth/code/send {email}`: rate-limited per email and per IP, and silent on unknown emails.
+- `/auth/code/verify {email, code}` → `{token, user}`: creates the account on first use.
+- `/auth/signout`
+- `/me {name?, hue?}`
+- `/me/delete`: refused while the person is the last admin of a board.
+
+**Boards and members**
+- `/boards`, `/boards/create`, `/boards/delete` (admin)
+- `/members/role`, `/members/remove` (admin; at least one admin always remains)
+- `/invites/create {board, email, role}`: emails `https://kaiserkhan.com/boardo/?invite=<token>` through Resend. (A query string rather than a path, so the static host needs no rewrites.)
+- `/invites {board}` (admin): the invites waiting in a board.
+- `/invites/accept {token}` or `{id}` (from the invites on Home): the signed-in email must match the invite.
+- `/invites/decline {id}`: the invitee turns it down.
+- `/invites/revoke`, `/invites/resend`: invites expire after 14 days.
+
+**Sync**
+- `GET /sync?board=<id>`: WebSocket upgrade. A bad token or a non-member still gets an upgrade, followed by `{t:'signedout'}` or `{t:'removed'}` and a close, so the app can tell this apart from a network drop.
+
+**Files**
+- `PUT /files?board=&card=&name=`: streams the body to R2. It checks:
+  - membership;
+  - the board's size limit;
+  - the type, by extension **and** by the file's first bytes (JPG, PNG, WebP, GIF, PDF, and Office zip and legacy formats).
+
+  It then writes the `file` record and a log entry through the DO.
+- `PUT /files?board=&thumb=<file id>`: an image's thumbnail (a JPEG made on the device, at most 480 px), stored next to the original as `<board>/<id>.thumb`; the `file` record gets `thumb: true`.
+- `POST /files/links {board, files}` (members): links good for an hour, `{id: {url, thumb?, exp}}`.
+- `GET /files/<board>/<id>[/thumb]?exp=&sig=`: a link, opened. Signed with HMAC (`FILE_SIGNING_KEY`), so `<img>` tags and downloads work without a token; this route is the one that skips the origin check, since they send no Origin. Responses send `X-Content-Type-Options: nosniff` and a sandboxing CSP, and non-images send `Content-Disposition: attachment`.
+- `POST /files/delete {board, file}`: whoever added it, or an admin. The record goes, with a log entry, and so do the bytes in R2.
+- Files added offline wait in IndexedDB (`uploads`) and go once there's a connection.
+
+**Connected apps and Elastic:** `/oauth/approve`, `/oauth/token`, `/apps`, `/apps/revoke`, `/elastic/cards`, `/elastic/ops` (section 5).
+
+**CORS**
+- `https://kaiserkhan.com` and the dev origins (`http://localhost:5174` for Boardo, `http://localhost:5173` for Elastic) may call the API. Every other origin is refused.
+- Boardo and Elastic share the `https://kaiserkhan.com` origin, so the origin can't tell them apart. The tokens do: a session token (Boardo) is refused on `/elastic/*`, and an app token (scope `elastic`) is accepted only on `/elastic/*`.
+
+**Secrets:** `RESEND_API_KEY` and `FILE_SIGNING_KEY` are Worker secrets. Local values go in the git-ignored `worker/.dev.vars`.
+
+## 5. Elastic connection (OAuth 2.0 authorization code with PKCE)
+
+### 5.1 Connecting
+
+1. In Elastic: Settings → Projects → **Connect Boardo**. Elastic creates a PKCE verifier and challenge (S256) and a `state`, then opens:
+   `https://kaiserkhan.com/boardo/?connect&client_id=elastic&redirect_uri=https://kaiserkhan.com/planner/&code_challenge=…&code_challenge_method=S256&state=…`
+2. Boardo signs the person in if needed, then asks: "Elastic wants to see the cards assigned to you and log your time on them". The options are **Allow** and **Cancel**.
+3. **Allow** calls `/oauth/approve`, which:
+   - checks `client_id` and `redirect_uri` against the clients registered in the Worker's config;
+   - stores a one-time code, valid for 5 minutes;
+   - redirects to `redirect_uri?code=…&state=…`.
+4. Elastic checks `state` and calls `/oauth/token {code, verifier}`. It receives a long-lived opaque token with scope `elastic`.
+   - The token is stored hashed in `app_tokens`.
+   - It's listed in Boardo → Settings → Connected apps, where it can be revoked.
+5. Elastic keeps the token **on that device only**, in IndexedDB. It's never synced through Elastic's account, so Elastic's server never holds it (R8.5).
+
+### 5.2 Reading cards
+
+`POST /elastic/cards` returns the person's cards that have at least one date and aren't archived, from every board they're in. For each card it returns only:
+- `id`, `title`, `start`, `end`, `hasTime`;
+- `board {id, name, hue}`;
+- `status {label, role}`;
+- `myDone`, `completed`, `completedAt`;
+- `url`, the card's address in Boardo.
+
+It also returns `boards`, the number of boards the person is in. Elastic uses it to decide whether to show the Projects section at all (R8.7).
+
+Comments, files, custom fields and other people's cards are never returned (R8.3).
+
+### 5.3 Writing time and done marks
+
+`POST /elastic/ops {ops: [{id, type, cardId, sessionId, at}]}`, where `type` is one of `start`, `stop`, `done` or `undone`.
+
+- The Worker checks that the person is a member of the card's board **and** assigned to the card, then hands the ops to the board's DO.
+- Ops are idempotent by `id`, so retries and late offline deliveries never count twice.
+- `start` opens a session and sets Status to `in_progress` (R5.6).
+- `stop` closes the session and logs the time worked.
+- `done` and `undone` set or clear the person's part, which triggers the completion rule.
+- Log entries use the op's `at`, so time worked offline is recorded when it really happened (R8.27).
+
+## 6. Changes in Elastic
+
+All of these are in Elastic's repository.
+
+- **`src/lib/boardo.ts` (new)** handles:
+  - the connect flow, with PKCE through WebCrypto, and picking up `?code&state` when the page loads;
+  - `fetchCards()`, which runs on start, when the app becomes visible, and every 5 minutes while it's visible; the result is cached so it works offline;
+  - an ops outbox, flushed when the device is online;
+  - disconnect.
+
+  The API address comes from `VITE_BOARDO_URL`.
+- **`cardsFor(dayKey, cards, now)`** is a pure function that applies R8.12 to R8.18 and builds the deadline labels: Overdue, Due today (with the time if there is one), Due tomorrow, a weekday within the next 6 days, otherwise a short date.
+- **`src/components/Projects.svelte` (new):**
+  - built on Elastic's `Collapsible` component (R8.8);
+  - placed in the plan after the Checklist and before the timeline;
+  - shown only when the person is connected and in at least one board;
+  - each row has the title, the project in its colour, a status chip, the deadline and a Start button;
+  - tapping a row opens a read-only card sheet with **Open in Boardo**.
+- **`Item.card?: { id: string; board: string }`** links a day item to a card, and Elastic's backup import validates it.
+  - Starting a card creates a task item with `min: 0`, the card's title and the project's colour. Elastic's existing `startItem` then places it at the current point.
+  - Elastic's scheduler already ends a running item at `max(now, start + min + pausedFor)`, so a `min: 0` item counts up and pushes the plan later (R8.20, R8.21).
+- **The running card's row** shows elapsed time counting up, not a countdown, and books no time's-up alert or push. Its controls:
+  - **Pause** sends `stop`, and resuming sends `start` with a new session;
+  - **Postpone** sends `stop`;
+  - **Done** sends `stop` and then `done`.
+- **Starting another task, or ending the day, while a card runs** sets the card item aside as partly done: the time worked is kept and the session stops. The card is **not** marked done and stays in Projects (R8.24).
+- **Settings → Projects:** Connect, Disconnect, and the Boardo account it's connected to.
+
+## 7. App structure (Boardo)
+
+**Screens**
+- **Sign in:** email, then a 6-digit code, then a name the first time.
+- **Home:** the person's boards (colour, name, their open cards), pending invites, My cards, New board.
+- **Board:**
+  - columns side by side, scrolling sideways on a phone;
+  - cards show title, assignees, status, dates and comment and attachment counts;
+  - drag within and between columns;
+  - filters by person and status.
+- **Card sheet:**
+  - all fields;
+  - Time spent, in total and per person;
+  - attachments;
+  - comments with an emoji button;
+  - the card's log;
+  - "Mark my part done" for assignees.
+- **Activity:** the project log, filterable by person and card.
+- **Board settings** (admin):
+  - name and colour;
+  - members and roles;
+  - invites;
+  - the fields editor;
+  - the upload limit;
+  - delete board.
+- **My cards:** grouped by deadline or by project.
+- **Settings:** profile, connected apps, sign out, theme.
+
+**Interaction**
+- Drag uses press-and-hold on touch and a short move threshold with a mouse, with other cards sliding aside, as in Elastic.
+- Sheets slide up on a phone and in from the side on a computer.
+- Everything respects reduced motion.
+
+## 8. Phases
+
+**Phase 0: setup**
+- Repository `qkonline/boardo` (public, MIT).
+- The app is served from kaiserkhan.com/boardo (Hostinger, beside Elastic); the Worker from `boardo-api.qaisarkhans.workers.dev`.
+- Resend sends from `boardo@kaiserkhan.com`. Its SPF and DKIM records go in kaiserkhan.com's DNS at Hostinger, on Resend's own names (`send.kaiserkhan.com`, `resend._domainkey`), so they don't touch the domain's existing mail.
+- Create D1 `boardo`, R2 `boardo-files` and the Worker `boardo-api`. Set the secrets.
+- Scaffold the app with Svelte, Vite, Vitest, Prettier and svelte-check. `npm run deploy` runs the tests and checks, builds and uploads to Hostinger.
+- Confirm the free tiers still cover the plan: SQLite-backed Durable Objects, D1, R2 (10 GB) and Resend (3,000 emails a month, 100 a day).
+
+**Phase 1: accounts and boards**
+- Email sign-in, sessions and profile.
+- Boards, members, admins and invites.
+- The Board DO with columns, cards and the default fields.
+- Permission checks, offline storage and live sync for several people.
+- Card and project logs.
+- Screens: sign in, home, board, card sheet (without comments and files), activity, board settings (members).
+
+**Phase 2: the rest of Boardo**
+- Custom fields and the fields editor.
+- Comments with emoji.
+- Attachments.
+- My cards and board filters.
+- Connected apps settings.
+
+**Phase 3: time and Elastic**
+- Sessions and Time spent.
+- Parts done and the completion rule.
+- OAuth, `/elastic/cards` and `/elastic/ops`.
+- The Elastic changes in section 6.
+
+Each phase is tested, deployed and pushed before the next starts.
+
+## 9. Testing
+
+**Boardo unit tests (Vitest)**
+- **Permissions:** member and admin puts for every kind; a removed member is refused.
+- **Completion:** one of two assignees done, both done, an undo, a new assignee on a Completed card, and a manual status change.
+- **Logs:** the right entries come from each kind of change, and a client can't write `log`.
+- **OAuth:** PKCE verification, an unregistered redirect refused, a used or expired code refused, a revoked token refused.
+- **Files:** types checked by their first bytes, a renamed executable refused, the size limit and an admin raise.
+- **Merge:** per-field merges, and comments are never lost.
+- **Sync:** two people plus a non-member, each with their own fake IndexedDB, against an in-memory board DO over a fake WebSocket. It checks:
+  - edits flow both ways;
+  - offline edits merge;
+  - the non-member never receives the board;
+  - removal wipes the local copy.
+- **Auth:** code tries, the resend wait, silence on unknown emails, and rate limits.
+
+**Elastic unit tests**
+- `cardsFor`:
+  - dates in range, one-date cards, no dates;
+  - overdue In Progress kept, overdue Blocked dropped;
+  - my part done hidden, Completed shown ticked on the day;
+  - every deadline label.
+- The ops outbox is idempotent and survives a reload.
+- Starting a task while a card runs sets the card aside without marking it done.
+- A running `min: 0` card counts up and pushes later tasks.
+
+**Browser checks (headless Chrome, phone and desktop sizes, light and dark)**
+- **Boardo**, two browser profiles as two people:
+  - the admin creates a board and invites the other, who accepts;
+  - each sees only their own boards;
+  - drag between columns, edit fields, comment with emoji;
+  - upload an image and a PDF, and a blocked type is refused;
+  - every action appears in the logs.
+- **Elastic against a local Boardo:**
+  - connect through OAuth, and the Projects section appears;
+  - start a card: it counts up and shows In Progress in Boardo;
+  - pause and done: Completed once the other assignee is done;
+  - Time spent adds up;
+  - offline ops flush on reconnect;
+  - disconnect hides the section.
+
+**Live:** after each deploy, check with `curl`, sign in with a real email through Resend, and try it as an installed app on iPhone.

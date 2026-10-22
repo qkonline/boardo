@@ -1,0 +1,195 @@
+// Boardo's Worker: the API behind the app.
+//
+// - Signing in by email code (auth.ts) and the directory of boards, members and invites
+//   (boards.ts), kept in D1.
+// - One Board Durable Object per board (board.ts) holds its content. Devices sync with it over a
+//   WebSocket (`/sync`), once the Worker has checked they're a member.
+//
+// Everything else is POST with a JSON body and the session token as `Authorization: Bearer`.
+
+import { Board } from './board';
+import {
+  acceptInvite,
+  boardInvites,
+  boardStub,
+  createBoard,
+  createInvite,
+  declineInvite,
+  deleteBoard,
+  leaveAll,
+  listBoards,
+  refreshMemberships,
+  removeMember,
+  resendInvite,
+  revokeInvite,
+  roleIn,
+  setRole,
+} from './boards';
+import { deleteUser, getUser, Refusal, sendCode, sessionUser, signOut, updateMe, verifyCode } from './auth';
+import type { Env } from './env';
+import { links, remove as removeFile, serve as serveFile, upload } from './files';
+import { devOutbox } from './mail';
+
+export { Board };
+
+const MAX_BODY = 64 * 1024;
+
+export default {
+  async fetch(req, env): Promise<Response> {
+    const origin = req.headers.get('origin') ?? '';
+    const allowed = env.ALLOWED_ORIGINS.split(',').some((o) => o.trim() === origin);
+    const cors: Record<string, string> = allowed
+      ? {
+          'access-control-allow-origin': origin,
+          'access-control-allow-methods': 'GET, POST, PUT',
+          'access-control-allow-headers': 'authorization, content-type',
+          'access-control-max-age': '86400',
+          vary: 'origin',
+        }
+      : {};
+    const reply = (status: number, body?: unknown) =>
+      new Response(body === undefined ? null : JSON.stringify(body), {
+        status,
+        headers: body === undefined ? cors : { ...cors, 'content-type': 'application/json' },
+      });
+
+    if (req.method === 'OPTIONS') return reply(allowed ? 204 : 403);
+    const { pathname } = new URL(req.url);
+    // Signed file links are opened by <img> tags and downloads, which send no Origin: the
+    // signature is the check.
+    if (req.method === 'GET' && pathname.startsWith('/files/')) return serveFile(req, env);
+    if (!allowed) return reply(403);
+
+    if (pathname === '/sync') return connect(req, env);
+    if (req.method === 'PUT' && pathname === '/files') {
+      try {
+        return reply(200, await upload(req, env));
+      } catch (e) {
+        if (e instanceof Refusal) return reply(e.status, { error: e.message });
+        console.error(e);
+        return reply(500, { error: "The file couldn't be stored. Try again." });
+      }
+    }
+    if (req.method !== 'POST') return reply(404);
+
+    let body: Record<string, unknown>;
+    try {
+      const text = await req.text();
+      if (text.length > MAX_BODY) return reply(413);
+      body = text ? JSON.parse(text) : {};
+      if (!body || typeof body !== 'object' || Array.isArray(body)) return reply(400);
+    } catch {
+      return reply(400);
+    }
+
+    try {
+      const token = req.headers.get('authorization')?.replace(/^Bearer /, '');
+      const mustUser = async () => {
+        const id = await sessionUser(env, token);
+        if (!id) throw new Refusal(401, 'Signed out');
+        return id;
+      };
+
+      switch (pathname) {
+        case '/auth/code/send':
+          await sendCode(env, body, req.headers.get('cf-connecting-ip') ?? 'local');
+          return reply(204);
+        case '/auth/code/verify':
+          return reply(200, await verifyCode(env, body));
+        case '/auth/signout':
+          if (token) await signOut(env, token);
+          return reply(204);
+
+        case '/me': {
+          const id = await mustUser();
+          if (body.name === undefined && body.hue === undefined) {
+            const user = await getUser(env, id);
+            if (!user) throw new Refusal(401, 'Signed out');
+            return reply(200, { user });
+          }
+          const user = await updateMe(env, id, body);
+          await refreshMemberships(env, user);
+          return reply(200, { user });
+        }
+        case '/me/delete': {
+          const id = await mustUser();
+          await leaveAll(env, id);
+          await deleteUser(env, id);
+          return reply(204);
+        }
+
+        case '/boards':
+          return reply(200, await listBoards(env, await mustUser()));
+        case '/boards/create':
+          return reply(200, { board: await createBoard(env, await mustUser(), body) });
+        case '/boards/delete':
+          await deleteBoard(env, await mustUser(), body);
+          return reply(204);
+
+        case '/members/role':
+          await setRole(env, await mustUser(), body);
+          return reply(204);
+        case '/members/remove':
+          await removeMember(env, await mustUser(), body);
+          return reply(204);
+
+        case '/invites':
+          return reply(200, await boardInvites(env, await mustUser(), body));
+        case '/invites/create':
+          await createInvite(env, await mustUser(), body);
+          return reply(204);
+        case '/invites/accept':
+          return reply(200, await acceptInvite(env, await mustUser(), body));
+        case '/invites/decline':
+          await declineInvite(env, await mustUser(), body);
+          return reply(204);
+        case '/invites/revoke':
+          await revokeInvite(env, await mustUser(), body);
+          return reply(204);
+        case '/invites/resend':
+          await resendInvite(env, await mustUser(), body);
+          return reply(204);
+
+        case '/files/links':
+          return reply(200, await links(env, await mustUser(), body, new URL(req.url).origin));
+        case '/files/delete':
+          await removeFile(env, await mustUser(), body);
+          return reply(204);
+
+        case '/dev/mail':
+          if (!env.DEV_MAIL || env.RESEND_API_KEY) return reply(404);
+          return reply(200, { mail: devOutbox });
+      }
+      return reply(404);
+    } catch (e) {
+      if (e instanceof Refusal) return reply(e.status, { error: e.message });
+      console.error(e);
+      return reply(500, { error: 'Something went wrong. Try again.' });
+    }
+  },
+} satisfies ExportedHandler<Env>;
+
+/**
+ * A device's live connection to one board. Browsers can't set headers on a WebSocket, so the
+ * token comes as the second subprotocol. Someone signed out, or not in the board, still gets a
+ * connection, which only says so and closes (a refused upgrade would look like the network
+ * dropping, and the app would keep retrying).
+ */
+async function connect(req: Request, env: Env): Promise<Response> {
+  if (req.headers.get('upgrade') !== 'websocket') return new Response(null, { status: 426 });
+  const boardId = new URL(req.url).searchParams.get('board');
+  const [proto, token] = (req.headers.get('sec-websocket-protocol') ?? '').split(',').map((s) => s.trim());
+  const userId = proto === 'boardo' ? await sessionUser(env, token) : null;
+  const role = userId ? await roleIn(env, boardId, userId) : null;
+  if (userId && role) {
+    const headers = new Headers(req.headers);
+    headers.set('x-user', userId);
+    headers.set('x-role', role);
+    return boardStub(env, boardId!).fetch(new Request(req.url, { headers }));
+  }
+  const [client, server] = Object.values(new WebSocketPair());
+  server.accept();
+  server.send(JSON.stringify({ t: userId ? 'removed' : 'signedout' }));
+  server.close(userId ? 4003 : 4001, userId ? 'Not in this board' : 'Signed out');
+  return new Response(null, { status: 101, webSocket: client, headers: { 'sec-websocket-protocol': 'boardo' } });
+}
