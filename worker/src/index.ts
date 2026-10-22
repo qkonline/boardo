@@ -28,7 +28,7 @@ import {
 } from './boards';
 import { deleteUser, getUser, Refusal, sendCode, sessionUser, signOut, updateMe, verifyCode } from './auth';
 import type { Env } from './env';
-import { links, remove as removeFile, serve as serveFile, upload } from './files';
+import { links, putPhoto, remove as removeFile, removePhoto, serve as serveFile, servePhoto, upload } from './files';
 import { devOutbox } from './mail';
 import { elasticCards, elasticOps } from './elastic';
 import { listPasskeys, loginFinish, loginStart, registerFinish, registerStart, removePasskey } from './passkeys';
@@ -62,11 +62,19 @@ export default {
     // Signed file links are opened by <img> tags and downloads, which send no Origin: the
     // signature is the check.
     if (req.method === 'GET' && pathname.startsWith('/files/')) return serveFile(req, env);
+    if (req.method === 'GET' && pathname.startsWith('/photos/')) return servePhoto(req, env);
     if (!allowed) return reply(403);
 
     if (pathname === '/sync') return connect(req, env);
-    if (req.method === 'PUT' && pathname === '/files') {
+    if (req.method === 'PUT' && (pathname === '/files' || pathname === '/me/photo')) {
       try {
+        if (pathname === '/me/photo') {
+          const res = await putPhoto(req, env);
+          const id = await sessionUser(env, req.headers.get('authorization')?.replace(/^Bearer /, ''));
+          const user = id ? await getUser(env, id) : null;
+          if (user) await refreshMemberships(env, user);
+          return reply(200, { ...res, user });
+        }
         return reply(200, await upload(req, env));
       } catch (e) {
         if (e instanceof Refusal) return reply(e.status, { error: e.message });
@@ -134,9 +142,17 @@ export default {
           await refreshMemberships(env, user);
           return reply(200, { user });
         }
+        case '/me/photo/remove': {
+          const id = await mustUser();
+          await removePhoto(env, id);
+          const user = await getUser(env, id);
+          if (user) await refreshMemberships(env, user);
+          return reply(200, { user });
+        }
         case '/me/delete': {
           const id = await mustUser();
           await leaveAll(env, id);
+          await removePhoto(env, id);
           await deleteUser(env, id);
           return reply(204);
         }

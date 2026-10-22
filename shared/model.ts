@@ -21,7 +21,12 @@ export interface BoardRec {
   hue: Hue;
   /** Largest attachment, in MB (30 by default, at most 100). */
   maxUploadMB: number;
+  /** Behind the columns (admins): a colour, an image (a file of the board, see BOARD_FILE), or none. */
+  background?: { hue: Hue } | { image: string } | null;
 }
+
+/** The `cardId` of files that belong to the board itself (its background image), not a card. */
+export const BOARD_FILE = '_board';
 
 /** A person in the board, key = their user id. A mirror of the directory, kept by the server. */
 export interface MemberRec {
@@ -30,6 +35,8 @@ export interface MemberRec {
   email: string;
   hue: Hue;
   role: Role;
+  /** Their profile photo's id (served at `/photos/<userId>/<photo>`), or none. */
+  photo?: string | null;
 }
 
 export interface ColumnRec {
@@ -138,7 +145,8 @@ export type LogAction =
   | 'field_removed'
   | 'member_added'
   | 'member_removed'
-  | 'role_changed';
+  | 'role_changed'
+  | 'background_changed';
 
 /** One entry in a card's log, or the board's (cardId null). Written by the server only. */
 export interface LogRec {

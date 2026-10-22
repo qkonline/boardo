@@ -4,6 +4,7 @@
   import { when } from '../lib/dates';
   import { cancelled, passkeysAvailable } from '../lib/passkeys';
   import { app, type Theme } from '../lib/store.svelte';
+  import Avatar from './Avatar.svelte';
   import HuePicker from './HuePicker.svelte';
   import Icon from './Icon.svelte';
 
@@ -13,6 +14,34 @@
   let hue = $state<Hue>((app.user?.hue as Hue) ?? 'indigo');
   let saving = $state(false);
   const changed = $derived(!!app.user && (name.trim() !== (app.user.name ?? '') || hue !== app.user.hue));
+
+  // A profile photo: made square and small on the device, shown to the people in your boards.
+  let photoPicker: HTMLInputElement | null = $state(null);
+  let photoBusy = $state(false);
+  async function pickPhoto(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const f = input.files?.[0];
+    input.value = '';
+    if (!f) return;
+    photoBusy = true;
+    try {
+      await app.setPhoto(f);
+    } catch (err) {
+      app.say((err as Error).message);
+    } finally {
+      photoBusy = false;
+    }
+  }
+  async function dropPhoto() {
+    photoBusy = true;
+    try {
+      await app.removePhoto();
+    } catch (err) {
+      app.say((err as Error).message);
+    } finally {
+      photoBusy = false;
+    }
+  }
 
   let keys = $state<{ id: string; label: string; created: number; used: number | null }[] | null>(null);
   let addingKey = $state(false);
@@ -108,6 +137,18 @@
   <section>
     <h2>You</h2>
     <div class="card form">
+      <div class="photo">
+        {#if app.user}<Avatar person={{ ...app.user, name: app.user.name ?? app.user.email }} size={64} />{/if}
+        <div class="photo-acts">
+          <button class="btn" disabled={photoBusy || !app.online} onclick={() => photoPicker?.click()}
+            >{photoBusy ? 'Uploading…' : app.user?.photo ? 'Change photo' : 'Add a photo'}</button
+          >
+          {#if app.user?.photo}
+            <button class="btn ghost" disabled={photoBusy || !app.online} onclick={dropPhoto}>Remove</button>
+          {/if}
+        </div>
+        <input bind:this={photoPicker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onchange={pickPhoto} />
+      </div>
       <p class="email">Signed in as <b>{app.user?.email}</b></p>
       <label class="label" for="me-name">Name</label>
       <input id="me-name" class="field" maxlength="60" autocomplete="name" bind:value={name} />
@@ -222,6 +263,20 @@
     display: grid;
     gap: 8px;
     padding: 14px;
+  }
+  .photo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  .photo :global(.av) {
+    border-radius: var(--r-card);
+  }
+  .photo-acts {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
   }
   .email {
     margin: 0 0 4px;

@@ -19,6 +19,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import {
   ADMIN_KINDS,
+  BOARD_FILE,
   type BoardRec,
   type CardRec,
   type ColumnRec,
@@ -312,7 +313,13 @@ export class Board extends DurableObject<Env> {
           res.changed.push(r);
           res.extra.push(r);
         }
-        if (c.kind === 'board' && data) this.mirrorBoard(data as BoardRec);
+        if (c.kind === 'board' && data) {
+          this.mirrorBoard(data as BoardRec);
+          for (const r of this.dropBackground(prev as BoardRec | null, data as BoardRec)) {
+            res.changed.push(r);
+            res.extra.push(r);
+          }
+        }
       }
     });
     return res;
@@ -326,8 +333,17 @@ export class Board extends DurableObject<Env> {
     const admin = who.role === 'admin';
     if (ADMIN_KINDS.includes(c.kind) && !admin) return undefined;
     switch (c.kind) {
-      case 'board':
-        return c.data ?? undefined; // a board is deleted through the Worker, never as a record
+      case 'board': {
+        // A board is deleted through the Worker, never as a record. A background image is only
+        // ever set by an upload (setBackground); a device can keep it, or change it to a colour or none.
+        const next = c.data as BoardRec | null;
+        if (!next) return undefined;
+        const before = prev as BoardRec | null;
+        const img = next.background && 'image' in next.background ? next.background.image : null;
+        const had = before?.background && 'image' in before.background ? before.background.image : null;
+        if (img && img !== had) return { ...next, background: before?.background ?? null };
+        return next;
+      }
       case 'column':
         return c.data;
       case 'field': {
@@ -437,9 +453,12 @@ export class Board extends DurableObject<Env> {
     if (kind === 'board') {
       const before = prev as BoardRec | null;
       const after = next as BoardRec;
+      const out: { cardId: string | null; userId: string | null; entry: LogEntry }[] = [];
       if (before && before.name !== after.name)
-        return [{ cardId: null, userId, entry: { action: 'board_renamed', detail: { from: before.name, to: after.name } } }];
-      return [];
+        out.push({ cardId: null, userId, entry: { action: 'board_renamed', detail: { from: before.name, to: after.name } } });
+      if (before && JSON.stringify(before.background ?? null) !== JSON.stringify(after.background ?? null))
+        out.push({ cardId: null, userId, entry: { action: 'background_changed', detail: { to: bgKind(after) } } });
+      return out;
     }
     void now;
     return [];
@@ -450,6 +469,36 @@ export class Board extends DurableObject<Env> {
     const asked = { ...after, values: { ...after.values, status: before.values.status ?? null } };
     const { auto } = settle(before, asked as CardRec, status);
     return auto != null && optionWithRole(status, auto)?.id === after.values.status;
+  }
+
+  /**
+   * A background image that's been replaced or taken away: its file record goes, and its bytes.
+   * Call inside a transaction.
+   */
+  private dropBackground(before: BoardRec | null, after: BoardRec | null): Rec[] {
+    const had = before?.background && 'image' in before.background ? before.background.image : null;
+    const now = after?.background && 'image' in after.background ? after.background.image : null;
+    if (!had || had === now || !this.get('file', had)) return [];
+    const board = this.boardId();
+    this.ctx.waitUntil(this.env.FILES.delete([`${board}/${had}`, `${board}/${had}.thumb`]));
+    return [this.write('file', had, null)];
+  }
+
+  /** A new background image was stored (admins): it replaces whatever background there was. */
+  async setBackground(userId: string, f: FileRec): Promise<BoardRec | null> {
+    const out: Rec[] = [];
+    let next: BoardRec | null = null;
+    this.ctx.storage.transactionSync(() => {
+      const before = this.get('board', 'main');
+      if (!before) return;
+      next = { ...before, background: { image: f.id } };
+      out.push(this.write('file', f.id, { ...f, cardId: BOARD_FILE }));
+      out.push(this.write('board', 'main', next));
+      out.push(...this.dropBackground(before, next));
+      out.push(this.log(null, userId, { action: 'background_changed', detail: { to: 'image' } }, Date.now()));
+    });
+    this.broadcast(out, null);
+    return next;
   }
 
   /** Keep the directory's copy of the board's name and colour (the board list reads it). */
@@ -746,6 +795,8 @@ export class Board extends DurableObject<Env> {
     return f;
   }
 }
+
+const bgKind = (b: BoardRec) => (!b.background ? 'none' : 'image' in b.background ? 'image' : 'colour');
 
 type KindOf<K extends Kind> = K extends keyof import('../../shared/model').KindData
   ? import('../../shared/model').KindData[K]

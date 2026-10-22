@@ -60,7 +60,19 @@ function board(d: Record<string, unknown>): BoardRec | null {
   if (!name || !isHue(d.hue)) return null;
   const mb = num(d.maxUploadMB) ? Math.round(d.maxUploadMB) : 30;
   if (mb < 1 || mb > MAX_UPLOAD_MB) return null;
-  return { name, hue: d.hue, maxUploadMB: mb };
+  const out: BoardRec = { name, hue: d.hue, maxUploadMB: mb };
+  const bg = d.background as Record<string, unknown> | null | undefined;
+  if (bg != null) {
+    if (typeof bg !== 'object') return null;
+    if ('hue' in bg) {
+      if (!isHue(bg.hue)) return null;
+      out.background = { hue: bg.hue };
+    } else if ('image' in bg) {
+      if (!isId(bg.image)) return null;
+      out.background = { image: bg.image };
+    } else return null;
+  }
+  return out;
 }
 
 function column(key: string, d: Record<string, unknown>): ColumnRec | null {

@@ -43,7 +43,7 @@ Afterwards:
 ### 2.1 Accounts
 
 - **R2.1** Anyone can create an account with their email address and sign in from any device.
-- **R2.2** On first sign-in, a person gives their name. They can change it later.
+- **R2.2** On first sign-in, a person gives their name. They can change it later, and add a profile photo, which the people in their boards see in place of their initials.
 
 ### 2.2 Board roles
 
@@ -75,7 +75,7 @@ Each board has two roles.
 
 ## 3. Boards and columns
 
-- **R3.1** A board has a name and a colour.
+- **R3.1** A board has a name and a colour. An admin can give it a background: a colour, or an image, which everyone in the board sees behind the columns and on the board's tile in the board list.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.

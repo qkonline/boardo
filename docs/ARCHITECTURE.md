@@ -83,7 +83,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
 
 | Kind | Fields | Written by |
 |---|---|---|
-| `board` | name, hue, maxUploadMB (default 30), statusField id | admins |
+| `board` | name, hue, maxUploadMB (default 30), background (`{hue}`, `{image: file id}` or none) | admins; an image only through an upload |
 | `member` | userId, name, hue, role (a mirror of D1, pushed by the Worker) | server |
 | `column` | id, name, order | members |
 | `field` | id, key (`start`, `end`, `status` for built-ins, null for custom), name, type, options `[{id, label, hue, role?}]`, order | admins |
@@ -186,6 +186,10 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - `GET /files/<board>/<id>[/thumb]?exp=&sig=`: a link, opened. Signed with HMAC (`FILE_SIGNING_KEY`), so `<img>` tags and downloads work without a token; this route is the one that skips the origin check, since they send no Origin. Responses send `X-Content-Type-Options: nosniff` and a sandboxing CSP, and non-images send `Content-Disposition: attachment`.
 - `POST /files/delete {board, file}`: whoever added it, or an admin. The record goes, with a log entry, and so do the bytes in R2.
 - Files added offline wait in IndexedDB (`uploads`) and go once there's a connection.
+
+**Backgrounds and photos**
+- `PUT /files?board=&background=1` (admins): a background image, made at most 2400 px on the device. Stored as a `file` record with `cardId: '_board'` (so it's on no card), it becomes `board.background = {image}`; a replaced or removed image's record and bytes go. Served by signed link like any file.
+- `PUT /me/photo`: a profile photo, a 512 px square made on the device, at R2 `users/<user id>/<photo id>` (D1 `users.photo`, `0003_photos.sql`), mirrored to every board's `member.photo`. `GET /photos/<user id>/<photo id>` serves it without a token: the id is long and random, and the address changes with each new photo, so it's cached for a year. `/me/photo/remove` takes it away.
 
 **Connected apps and Elastic:** `/oauth/approve`, `/oauth/token`, `/apps`, `/apps/revoke`, `/elastic/cards`, `/elastic/ops` (section 5).
 

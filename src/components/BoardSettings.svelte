@@ -2,6 +2,7 @@
   import type { Hue, Role } from '../../shared/model';
   import { call } from '../lib/api';
   import { when } from '../lib/dates';
+  import { bgImage, tileBackground } from '../lib/background';
   import { app } from '../lib/store.svelte';
   import Avatar from './Avatar.svelte';
   import FieldsEditor from './FieldsEditor.svelte';
@@ -28,6 +29,34 @@
     }
   });
   const changed = $derived(!!b?.board && (name.trim() !== b.board.name || hue !== b.board.hue));
+
+  // The background: a colour (saved as it's picked) or an image (uploaded from here).
+  const bgId = $derived(bgImage(b?.board));
+  $effect(() => {
+    if (bgId && app.online) void app.files.ensure(id, [bgId]);
+  });
+  // svelte-ignore state_referenced_locally
+  let bgHue = $state<Hue>((b?.board?.background && 'hue' in b.board.background ? b.board.background.hue : b?.board?.hue) ?? 'indigo');
+  $effect(() => {
+    const cur = b?.board?.background;
+    if (cur && 'hue' in cur && cur.hue !== bgHue) void app.saveBoard(id, { background: { hue: bgHue } });
+  });
+  let bgPicker: HTMLInputElement | null = $state(null);
+  let uploadingBg = $state(false);
+  async function pickBg(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const f = input.files?.[0];
+    input.value = '';
+    if (!f) return;
+    uploadingBg = true;
+    try {
+      await app.uploadBackground(id, f);
+    } catch (err) {
+      app.say((err as Error).message);
+    } finally {
+      uploadingBg = false;
+    }
+  }
 
   let email = $state('');
   let role = $state<Role>('member');
@@ -184,6 +213,30 @@
         <h2>Fields</h2>
         <p class="note">Every card in this board has these. Members fill them in; only admins change them.</p>
         <FieldsEditor {b} />
+      </section>
+
+      <section>
+        <h2>Background</h2>
+        <div class="card form">
+          <div class="bg-preview" style:background={tileBackground(b.board, b.board?.hue ?? 'indigo', bgId ? app.files.links[bgId]?.url : undefined)}>
+            <span>{!b.board?.background ? 'No background' : bgId ? 'Image' : 'Colour'}</span>
+          </div>
+          <div class="seg" role="group" aria-label="Background">
+            <button aria-pressed={!b.board?.background} onclick={() => app.saveBoard(id, { background: null })}>None</button>
+            <button aria-pressed={!!b.board?.background && !bgId} onclick={() => app.saveBoard(id, { background: { hue: bgHue } })}
+              >Colour</button
+            >
+            <button aria-pressed={!!bgId} disabled={uploadingBg || !app.online} onclick={() => bgPicker?.click()}
+              >{uploadingBg ? 'Uploading…' : bgId ? 'Change image' : 'Image'}</button
+            >
+          </div>
+          <input bind:this={bgPicker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onchange={pickBg} />
+          {#if b.board?.background && !bgId}
+            <span class="label">Colour</span>
+            <HuePicker bind:value={bgHue} label="Background colour" />
+          {/if}
+          <p class="note">Everyone in the board sees it. Images are made smaller before they're uploaded.</p>
+        </div>
       </section>
 
       <section>
@@ -344,6 +397,43 @@
   .ask {
     font-size: 13px;
     color: var(--redT);
+  }
+  .bg-preview {
+    height: 96px;
+    border-radius: var(--r-ctl);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    padding: 8px 10px;
+  }
+  .bg-preview span {
+    font: 600 12px var(--font);
+    background: var(--raised);
+    color: var(--text);
+    border-radius: var(--r-sm);
+    padding: 3px 7px;
+  }
+  .seg {
+    display: flex;
+    background: var(--sunk);
+    border-radius: var(--r-ctl);
+    padding: 3px;
+    gap: 2px;
+  }
+  .seg button {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: 500 14px var(--font);
+    min-height: 40px;
+    border-radius: var(--r-sm);
+    cursor: pointer;
+  }
+  .seg button[aria-pressed='true'] {
+    background: var(--raised);
+    color: var(--text);
+    box-shadow: 0 1px 0 var(--line);
   }
   .badge {
     font-size: 12px;

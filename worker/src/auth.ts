@@ -21,6 +21,7 @@ export interface User {
   email: string;
   name: string | null;
   hue: string;
+  photo: string | null;
 }
 
 const CODE_MS = 10 * 60_000;
@@ -107,7 +108,7 @@ export async function signOut(env: Env, token: string): Promise<void> {
 }
 
 export async function getUser(env: Env, id: string): Promise<User | null> {
-  return env.DB.prepare('SELECT id, email, name, hue FROM users WHERE id = ?').bind(id).first<User>();
+  return env.DB.prepare('SELECT id, email, name, hue, photo FROM users WHERE id = ?').bind(id).first<User>();
 }
 
 // ---------- email codes ----------
@@ -151,7 +152,7 @@ export async function verifyCode(
     throw wrong;
   }
   await env.DB.prepare('DELETE FROM email_codes WHERE email = ?').bind(email).run();
-  let user = await env.DB.prepare('SELECT id, email, name, hue FROM users WHERE email = ?').bind(email).first<User>();
+  let user = await env.DB.prepare('SELECT id, email, name, hue, photo FROM users WHERE email = ?').bind(email).first<User>();
   let fresh = false;
   if (!user) {
     const id = randomToken(12);
@@ -160,7 +161,7 @@ export async function verifyCode(
     await env.DB.prepare('INSERT INTO users (id, email, name, hue, created) VALUES (?, ?, NULL, ?, ?)')
       .bind(id, email, hue, Date.now())
       .run();
-    user = { id, email, name: null, hue };
+    user = { id, email, name: null, hue, photo: null };
     fresh = true;
   }
   return { token: await newSession(env, user.id), user, fresh };

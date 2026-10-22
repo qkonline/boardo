@@ -94,6 +94,8 @@
     color: var(--bg);
     font-size: 14px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    /* A message, never in the way: taps go through to what's under it. */
+    pointer-events: none;
   }
   @media (min-width: 768px) {
     .toast {

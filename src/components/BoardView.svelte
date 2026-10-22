@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CardRec } from '../../shared/model';
+  import { bgImage, boardBackground } from '../lib/background';
   import { drag } from '../lib/drag.svelte';
   import { hueColor } from '../lib/hue';
   import { app } from '../lib/store.svelte';
@@ -41,6 +42,13 @@
     return true;
   }
 
+  // The board's background (admins set it in board settings): a colour, or an image by link.
+  const bgId = $derived(bgImage(b?.board));
+  $effect(() => {
+    if (bgId && app.online) void app.files.ensure(id, [bgId]);
+  });
+  const background = $derived(boardBackground(b?.board, bgId ? app.files.links[bgId]?.url : undefined));
+
   let menuFor = $state<string | null>(null);
   let addingCol = $state(false);
   let colName = $state('');
@@ -64,7 +72,7 @@
 </script>
 
 {#if b && item}
-  <div class="screen">
+  <div class="screen" class:has-bg={!!b.board?.background} class:has-image={!!bgId} style:background>
     <header class="head">
       <button class="icon-btn back" aria-label="Boards" onclick={() => app.go({ name: 'home' })}><Icon name="back" /></button>
       <h1><span class="mark" style:background={hueColor(b.board?.hue ?? item.hue)}></span><span class="name">{b.board?.name ?? item.name}</span></h1>
@@ -157,6 +165,17 @@
 {/if}
 
 <style>
+  /* Over a background image, the header gets a frosted strip so its words stay readable. */
+  .has-image .head {
+    background: color-mix(in oklab, var(--bg) 72%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .has-image .lanes :global(.lane) {
+    background: color-mix(in oklab, var(--sunk) 88%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
   .screen {
     height: 100dvh;
     display: flex;

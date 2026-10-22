@@ -1,13 +1,21 @@
 <script lang="ts">
   import type { MemberRec } from '../../shared/model';
+  import { API } from '../lib/api';
   import { hueColor, initials, inkOn } from '../lib/hue';
 
   /** A person as a small coloured square with their initials. */
-  let { person, size = 24 }: { person: Pick<MemberRec, 'name' | 'hue'> | null | undefined; size?: number } = $props();
+  type Person = Pick<MemberRec, 'name' | 'hue'> & { photo?: string | null; userId?: string; id?: string };
+  let { person, size = 24 }: { person: Person | null | undefined; size?: number } = $props();
   const bg = $derived(hueColor(person?.hue));
+  // Their profile photo, when they have one.
+  const photo = $derived(
+    person?.photo && (person.userId ?? person.id) ? `${API}/photos/${person.userId ?? person.id}/${person.photo}` : null,
+  );
 </script>
 
-<span
+{#if photo}
+  <img class="av" src={photo} alt="" width={size} height={size} title={person?.name} loading="lazy" />
+{:else}<span
   class="av"
   style:width="{size}px"
   style:height="{size}px"
@@ -16,9 +24,13 @@
   style:font-size="{Math.round(size * 0.42)}px"
   title={person?.name ?? 'Someone who left'}
   aria-hidden="true">{person ? initials(person.name) : '?'}</span
->
+>{/if}
 
 <style>
+  img.av {
+    object-fit: cover;
+    background: var(--sunk);
+  }
   .av {
     display: inline-grid;
     place-items: center;

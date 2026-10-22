@@ -35,6 +35,7 @@ const memberRec = (u: User, role: Role): MemberRec => ({
   email: u.email,
   hue: u.hue as Hue,
   role,
+  photo: u.photo ?? null,
 });
 
 /** The boards someone is in, and the invites waiting for their address. */

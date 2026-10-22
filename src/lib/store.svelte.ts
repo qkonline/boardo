@@ -15,7 +15,8 @@ import {
   type Role,
 } from '../../shared/model';
 import { settle } from '../../shared/rules';
-import { API, ApiError, call, setToken, whenSignedOut } from './api';
+import { API, ApiError, call, putBlob, setToken, whenSignedOut } from './api';
+import { fitImage, squarePhoto } from './images';
 import { BoardState } from './board.svelte';
 import * as db from './db';
 import { splitRid } from './db';
@@ -28,6 +29,7 @@ export interface User {
   email: string;
   name: string | null;
   hue: Hue;
+  photo?: string | null;
 }
 
 export interface BoardItem {
@@ -306,6 +308,19 @@ export class App {
     await db.putMeta('session', { token: this.token, user: res.user });
   }
 
+  /** A profile photo: made square and small here, then uploaded. */
+  async setPhoto(file: File): Promise<void> {
+    const res = await putBlob<{ user: User | null }>('/me/photo', await squarePhoto(file));
+    if (res.user) this.user = res.user;
+    await db.putMeta('session', { token: this.token, user: this.user });
+  }
+
+  async removePhoto(): Promise<void> {
+    const res = await call<{ user: User | null }>('/me/photo/remove');
+    if (res.user) this.user = res.user;
+    await db.putMeta('session', { token: this.token, user: this.user });
+  }
+
   async signOut(): Promise<void> {
     try {
       await call('/auth/signout');
@@ -577,6 +592,15 @@ export class App {
     if (!cur) return;
     await this.put(board, [{ kind: 'board', key: 'main', data: { ...cur, ...patch } }]);
     this.boards = this.boards.map((x) => (x.id === board ? { ...x, name: patch.name ?? x.name, hue: patch.hue ?? x.hue } : x));
+  }
+
+  /** A background image for a board (admins): made smaller here, then uploaded. */
+  async uploadBackground(board: string, file: File): Promise<void> {
+    const res = await putBlob<{ board: BoardRec | null }>(
+      `/files?${new URLSearchParams({ board, background: '1' })}`,
+      await fitImage(file),
+    );
+    if (res.board) this.data[board]?.apply([{ kind: 'board', key: 'main', data: res.board }]);
   }
 
   async saveField(board: string, field: FieldRec): Promise<void> {

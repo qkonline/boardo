@@ -87,6 +87,8 @@ export function logText(l: LogRec, b: BoardState, onCard: boolean): string {
       return l.userId && l.userId !== d.user ? `added ${name(d.user)} as ${d.role === 'admin' ? 'an admin' : 'a member'}` : `${name(d.user)} joined`;
     case 'member_removed':
       return d.user === l.userId ? `left the board` : `removed ${name(d.user)}`;
+    case 'background_changed':
+      return d.to === 'none' ? 'took the background away' : `changed the background to ${d.to === 'image' ? 'an image' : 'a colour'}`;
     case 'role_changed':
       return `made ${name(d.user)} ${d.role === 'admin' ? 'an admin' : 'a member'}`;
   }

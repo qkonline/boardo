@@ -24,6 +24,23 @@ export const getToken = () => token;
 let onSignedOut: (() => void) | null = null;
 export const whenSignedOut = (fn: () => void) => (onSignedOut = fn);
 
+/** Send a file as the body of a PUT (uploads), with the session token. */
+export async function putBlob<T = unknown>(path: string, blob: Blob): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(API + path, {
+      method: 'PUT',
+      headers: { 'content-type': blob.type || 'application/octet-stream', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: blob,
+    });
+  } catch {
+    throw new ApiError(0, "You're offline. Try again once you're connected.");
+  }
+  const data = (await res.json().catch(() => ({}))) as { error?: string };
+  if (!res.ok) throw new ApiError(res.status, data.error ?? "That couldn't be uploaded. Try again.");
+  return data as T;
+}
+
 export async function call<T = unknown>(path: string, body: object = {}): Promise<T> {
   let res: Response;
   try {

@@ -1,11 +1,21 @@
 <script lang="ts">
   import { allPartsDone, statusOption } from '../../shared/rules';
+  import { bgImage, tileBackground } from '../lib/background';
   import { hueColor } from '../lib/hue';
   import { app } from '../lib/store.svelte';
   import { cancelled } from '../lib/passkeys';
   import Icon from './Icon.svelte';
 
   let busy = $state<string | null>(null);
+  // Links to the boards' background images, for their tiles.
+  const links = $derived(app.files.links);
+  $effect(() => {
+    if (!app.online) return;
+    for (const b of app.boards) {
+      const img = bgImage(app.data[b.id]?.board);
+      if (img) void app.files.ensure(b.id, [img]);
+    }
+  });
   let adding = $state(false);
 
   async function addKey() {
@@ -90,23 +100,30 @@
   {/if}
 
   {#if app.boards.length}
-    <ul class="list">
+    <ul class="tiles">
       {#each app.boards as b (b.id)}
         {@const n = counts(b.id)}
+        {@const st = app.data[b.id]}
+        {@const img = bgImage(st?.board)}
         <li>
-          <button class="row" onclick={() => app.go({ name: 'board', id: b.id })}>
-            <span class="mark" style:background={hueColor(b.hue)}></span>
-            <span class="name">{b.name}</span>
-            <span class="meta">
-              {#if n && app.data[b.id]?.loaded}
-                {n.open} open{#if n.mine}<span class="mine">, {n.mine} yours</span>{/if}
-              {/if}
+          <button class="tile" onclick={() => app.go({ name: 'board', id: b.id })}>
+            <span class="cover" style:background={tileBackground(st?.board, b.hue, img ? links[img]?.url : undefined)}>
               {#if b.role === 'admin'}<span class="badge">Admin</span>{/if}
             </span>
-            <Icon name="right" />
+            <span class="info">
+              <span class="name">{b.name}</span>
+              <span class="meta">
+                {#if n && st?.loaded}
+                  {n.open} open{#if n.mine}<span class="mine">, {n.mine} yours</span>{/if}
+                {:else}&nbsp;{/if}
+              </span>
+            </span>
           </button>
         </li>
       {/each}
+      <li>
+        <button class="tile new" onclick={() => (app.sheet = 'newBoard')}><Icon name="plus" /> Create new board</button>
+      </li>
     </ul>
   {:else if !app.invites.length}
     <div class="empty">
@@ -120,7 +137,7 @@
   .page {
     padding: 20px max(var(--px), env(safe-area-inset-right)) calc(var(--bar-h) + 40px + env(safe-area-inset-bottom))
       max(var(--px), env(safe-area-inset-left));
-    max-width: 760px;
+    max-width: 1100px;
     margin: 0 auto;
     padding-top: max(20px, env(safe-area-inset-top));
   }
@@ -177,58 +194,87 @@
     display: flex;
     gap: 8px;
   }
-  .list {
+  /* Boards as tiles, like Trello's: the background across the top, the name below. */
+  .tiles {
     list-style: none;
     margin: 0;
     padding: 0;
-    background: var(--raised);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+    gap: 14px;
+  }
+  @media (max-width: 480px) {
+    .tiles {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+  }
+  .tile {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
     border: 1px solid var(--border);
     border-radius: var(--r-card);
+    background: var(--raised);
+    box-shadow: 0 2px 0 var(--line);
     overflow: hidden;
-  }
-  li + li {
-    border-top: 1px solid var(--border);
-  }
-  .row {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 14px;
-    min-height: 60px;
-    border: none;
-    background: none;
     text-align: left;
     cursor: pointer;
     font: inherit;
+    color: var(--text);
   }
   @media (hover: hover) {
-    .row:hover {
-      background: var(--sunk);
+    .tile:hover {
+      border-color: var(--line);
+    }
+    .tile:hover .cover {
+      filter: brightness(0.95);
     }
   }
+  .cover {
+    height: 88px;
+    flex: none;
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    padding: 8px;
+  }
+  .info {
+    display: grid;
+    gap: 3px;
+    padding: 10px 12px 12px;
+  }
   .name {
-    flex: 1;
     font-weight: 600;
-    font-size: 16px;
-    min-width: 0;
+    font-size: 15px;
+    line-height: 1.3;
     overflow-wrap: anywhere;
   }
   .meta {
     color: var(--muted);
-    font-size: 13px;
-    display: inline-flex;
-    gap: 8px;
-    align-items: center;
-    white-space: nowrap;
+    font-size: 12.5px;
   }
   .badge {
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 600;
     padding: 3px 6px;
     border-radius: var(--r-sm);
-    background: var(--sunk);
+    background: var(--raised);
     color: var(--muted);
+  }
+  .tile.new {
+    min-height: 150px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-direction: row;
+    background: var(--sunk);
+    border-style: dashed;
+    box-shadow: none;
+    color: var(--muted);
+    font-weight: 500;
   }
   .empty {
     padding: 28px 18px;

@@ -4,7 +4,7 @@
 // another kind is refused. Files are served only through short-lived signed links, which a
 // member gets from `/files/links`; anything that isn't an image always downloads.
 
-import { MAX_UPLOAD_MB, newId } from '../../shared/model';
+import { BOARD_FILE, MAX_UPLOAD_MB, newId } from '../../shared/model';
 import { b64url, Refusal, sessionUser } from './auth';
 import { boardStub, roleIn } from './boards';
 import { isId } from './checks';
@@ -119,6 +119,20 @@ export async function upload(req: Request, env: Env): Promise<unknown> {
   const size = Number(req.headers.get('content-length'));
   if (!req.body || !Number.isInteger(size) || size <= 0) throw new Refusal(411, 'That file is empty.');
 
+  // The board's background image (admins): an image only, stored like a card's file.
+  if (url.searchParams.get('background')) {
+    if (role !== 'admin') throw new Refusal(403, 'Only admins can change the background.');
+    if (size > 15 * 1024 * 1024) throw new Refusal(413, 'Pick an image of up to 15 MB.');
+    const { head, stream } = await peek(req.body, 16);
+    const k = sniff(head);
+    if (k !== 'jpg' && k !== 'png' && k !== 'webp') throw new Refusal(415, 'Pick a JPG, PNG or WebP image.');
+    const mime = TYPES[k].mime;
+    const id = newId();
+    await env.FILES.put(`${board}/${id}`, stream.pipeThrough(new FixedLengthStream(size)), { httpMetadata: { contentType: mime } });
+    const file = { id, cardId: BOARD_FILE, name: `background.${k}`, mime, size, by: userId, at: Date.now(), thumb: false };
+    return { board: await stub.setBackground(userId, file), file };
+  }
+
   const thumbOf = url.searchParams.get('thumb');
   if (thumbOf) {
     if (!isId(thumbOf) || size > 2 * 1024 * 1024) throw new Refusal(400, "That thumbnail can't be used.");
@@ -231,3 +245,49 @@ export async function remove(env: Env, userId: string, body: { board?: unknown; 
   await env.FILES.delete([`${board}/${f.id}`, `${board}/${f.id}.thumb`]);
 }
 
+
+// ---------- profile photos ----------
+
+/**
+ * `PUT /me/photo` with the image as the body (made square and small on the device). Stored at
+ * `users/<user id>/<photo id>` and shown to the people in the person's boards; the id is long
+ * and random, so only someone given the address can load it.
+ */
+export async function putPhoto(req: Request, env: Env): Promise<{ photo: string }> {
+  const userId = await userOf(env, req);
+  const size = Number(req.headers.get('content-length'));
+  if (!req.body || !Number.isInteger(size) || size <= 0) throw new Refusal(411, 'That photo is empty.');
+  if (size > 5 * 1024 * 1024) throw new Refusal(413, 'Pick a photo of up to 5 MB.');
+  const { head, stream } = await peek(req.body, 16);
+  const k = sniff(head);
+  if (k !== 'jpg' && k !== 'png' && k !== 'webp') throw new Refusal(415, 'Pick a JPG, PNG or WebP photo.');
+  const id = newId(24);
+  await env.FILES.put(`users/${userId}/${id}`, stream.pipeThrough(new FixedLengthStream(size)), {
+    httpMetadata: { contentType: TYPES[k].mime },
+  });
+  const old = await env.DB.prepare('SELECT photo FROM users WHERE id = ?').bind(userId).first<{ photo: string | null }>();
+  await env.DB.prepare('UPDATE users SET photo = ? WHERE id = ?').bind(id, userId).run();
+  if (old?.photo) await env.FILES.delete(`users/${userId}/${old.photo}`);
+  return { photo: id };
+}
+
+export async function removePhoto(env: Env, userId: string): Promise<void> {
+  const old = await env.DB.prepare('SELECT photo FROM users WHERE id = ?').bind(userId).first<{ photo: string | null }>();
+  await env.DB.prepare('UPDATE users SET photo = NULL WHERE id = ?').bind(userId).run();
+  if (old?.photo) await env.FILES.delete(`users/${userId}/${old.photo}`);
+}
+
+/** `GET /photos/<user id>/<photo id>`: a profile photo. Its address never changes, so it's cached long. */
+export async function servePhoto(req: Request, env: Env): Promise<Response> {
+  const [, , userId, id] = new URL(req.url).pathname.split('/');
+  if (!isId(userId) || !isId(id)) return new Response(null, { status: 404 });
+  const obj = await env.FILES.get(`users/${userId}/${id}`);
+  if (!obj) return new Response(null, { status: 404 });
+  return new Response(obj.body, {
+    headers: {
+      'content-type': obj.httpMetadata?.contentType ?? 'image/jpeg',
+      'cache-control': 'public, max-age=31536000, immutable',
+      'x-content-type-options': 'nosniff',
+    },
+  });
+}
