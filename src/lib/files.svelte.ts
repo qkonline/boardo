@@ -2,7 +2,7 @@
 // short-lived links to the ones already on a board. Uploads are kept in IndexedDB until they
 // reach the board, so a file added offline goes once there's a connection (R9.6).
 
-import { API, ApiError, call, getToken } from './api';
+import { API, ApiError, call, getToken, unreachable } from './api';
 import * as db from './db';
 import { type Upload } from './db';
 
@@ -48,7 +48,7 @@ function put(url: string, body: Blob, onProgress?: (p: number) => void): Promise
       if (x.status >= 200 && x.status < 300) resolve(data);
       else reject(new ApiError(x.status, data.error ?? "The file couldn't be stored. Try again."));
     };
-    x.onerror = () => reject(new ApiError(0, "You're offline. The file will upload once you're connected."));
+    x.onerror = () => reject(new ApiError(0, unreachable('The file will upload once it can.')));
     x.send(body);
   });
 }
