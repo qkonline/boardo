@@ -131,7 +131,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - `outbox`;
   - `meta` (session, board list, revs per board);
   - `uploads` (file blobs queued while offline).
-- **One leader tab** (`navigator.locks` lock `boardo-sync`) holds one WebSocket per board: `GET /sync?board=<id>`, with the token as the second subprotocol. Other tabs follow over a BroadcastChannel.
+- **One leader tab** (`navigator.locks` lock `boardo-sync`) holds one WebSocket per board: `GET /sync?board=<id>`, with the token as the second subprotocol. Other tabs follow over a BroadcastChannel. The tab in front takes the lead (it steals the lock on opening and on coming to the front), because a browser can put a background tab to sleep while it still holds the lock; the tab it was taken from closes its sockets and follows.
 - **Protocol:**
   - `hello{since}` → `changes{recs, more}` chunks, ending with `done`;
   - `put{id, recs:[{kind, key, base, data}]}` → `ack{id, ok, conflicts, rejected}`. An `ok` entry carries `data` when the board stored something other than what was sent (the completion rule moved the status, or someone else's part was kept as it was); `rejected` holds changes the sender wasn't allowed to make, with the board's version, which replaces the local copy;
