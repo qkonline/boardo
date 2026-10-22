@@ -175,7 +175,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    padding: 6px max(8px, env(safe-area-inset-right)) 8px max(4px, env(safe-area-inset-left));
+    padding: 6px max(8px, env(safe-area-inset-right)) 12px max(4px, env(safe-area-inset-left));
   }
   @media (min-width: 768px) {
     .head {
@@ -226,7 +226,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
-    margin-left: 10px;
+    margin-left: 28px;
     min-width: 0;
     flex: 0 1 auto;
   }

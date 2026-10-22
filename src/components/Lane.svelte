@@ -118,9 +118,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 4px 8px 0 14px;
-    padding-bottom: 4px;
-    min-height: 48px;
+    margin: 2px 8px 0 14px;
+    min-height: 44px;
   }
   h2 {
     flex: 1;
@@ -140,7 +139,7 @@
     min-height: 12px;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 10px 8px 4px;
+    padding: 2px 8px 4px;
     display: flex;
     flex-direction: column;
     gap: 8px;
