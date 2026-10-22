@@ -126,6 +126,14 @@
         /* not without a tap */
       }
   };
+  // The calendar opens on a tap anywhere in the box (its own icon is hidden to save room).
+  const openPicker = (e: MouseEvent) => {
+    try {
+      (e.currentTarget as HTMLInputElement).showPicker?.();
+    } catch {
+      /* already open */
+    }
+  };
   const autosize = (el: HTMLTextAreaElement) => {
     const fit = () => ((el.style.height = 'auto'), (el.style.height = el.scrollHeight + 'px'));
     fit();
@@ -286,13 +294,14 @@
             <div class="prop">
               <span class="pl"><Icon name="cal" size={16} /> Starts</span>
               {#if editing === 'start'}
-                <span class="pv edit">
+                <span class="pv edit when">
                   <input
                     class="field date"
                     type={startF?.type === 'datetime' ? 'datetime-local' : 'date'}
                     aria-label={startF?.name ?? 'Start date'}
                     value={dateIn(startF, view.values.start)}
                     onchange={(e) => pickDate('start', e)}
+                    onclick={openPicker}
                     onblur={() => (editing = null)}
                     {@attach focusIn}
                   />
@@ -310,13 +319,14 @@
             <div class="prop">
               <span class="pl"><Icon name="cal" size={16} /> Due</span>
               {#if editing === 'end'}
-                <span class="pv edit">
+                <span class="pv edit when">
                   <input
                     class="field date"
                     type={endF?.type === 'datetime' ? 'datetime-local' : 'date'}
                     aria-label={endF?.name ?? 'End date'}
                     value={dateIn(endF, view.values.end)}
                     onchange={(e) => pickDate('end', e)}
+                    onclick={openPicker}
                     onblur={() => (editing = null)}
                     {@attach focusIn}
                   />
@@ -787,12 +797,21 @@
     gap: 6px;
     flex-wrap: wrap;
   }
+  /* A date and its clear button stay on one line in the narrow side column. */
+  .edit.when {
+    flex-wrap: nowrap;
+  }
   .date {
     width: auto;
     min-width: 0;
-    flex: 1 1 150px;
+    flex: 1 1 0;
     min-height: 36px;
     padding: 4px 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .date::-webkit-calendar-picker-indicator {
+    display: none;
   }
   .icon-btn.sm {
     width: 32px;
