@@ -54,7 +54,7 @@
 
 <section class="files" aria-label="Attachments">
   <div class="head">
-    <h3 class="label">Attachments</h3>
+    <h3><Icon name="clip" size={16} /> Attachments{#if files.length}<span class="n">{files.length}</span>{/if}</h3>
     <button class="btn small" onclick={() => picker?.click()}><Icon name="clip" /> Attach</button>
     <input bind:this={picker} type="file" multiple accept={ACCEPT} hidden onchange={chosen} />
   </div>
@@ -136,6 +136,17 @@
   }
   h3 {
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font: 600 13.5px var(--font);
+  }
+  h3 .n {
+    font: 600 11px/1 var(--font);
+    color: var(--muted);
+    background: var(--sunk);
+    border-radius: var(--r-sm);
+    padding: 3px 6px;
   }
   .btn.small {
     min-height: 34px;

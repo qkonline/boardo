@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Hue, Role } from '../../shared/model';
+  import type { BoardRec, Hue, Role } from '../../shared/model';
   import { call } from '../lib/api';
   import { when } from '../lib/dates';
   import { bgImage, tileBackground } from '../lib/background';
@@ -21,26 +21,41 @@
   let hue = $state<Hue>(b?.board?.hue ?? 'indigo');
   // svelte-ignore state_referenced_locally
   let limit = $state(b?.board?.maxUploadMB ?? 30);
+
+  // The background: none or a colour is part of the Board draft, saved with Save. An image is
+  // uploaded the moment it's picked, since picking the file is the choice.
+  const bgId = $derived(bgImage(b?.board));
+  $effect(() => {
+    if (bgId && app.online) void app.files.ensure(id, [bgId]);
+  });
+  type BgKind = 'none' | 'colour' | 'image';
+  const kindOf = (r: BoardRec | null | undefined): BgKind => (!r?.background ? 'none' : 'image' in r.background ? 'image' : 'colour');
+  const hueOf = (r: BoardRec | null | undefined): Hue => (r?.background && 'hue' in r.background ? r.background.hue : r?.hue) ?? 'indigo';
+  // svelte-ignore state_referenced_locally
+  let bgKind = $state<BgKind>(kindOf(b?.board));
+  // svelte-ignore state_referenced_locally
+  let bgHue = $state<Hue>(hueOf(b?.board));
+
   $effect(() => {
     if (b?.board) {
       name = b.board.name;
       hue = b.board.hue;
       limit = b.board.maxUploadMB;
+      bgKind = kindOf(b.board);
+      bgHue = hueOf(b.board);
     }
   });
-  const changed = $derived(!!b?.board && (name.trim() !== b.board.name || hue !== b.board.hue));
+  const bgChanged = $derived(
+    !!b?.board && bgKind !== 'image' && (bgKind !== kindOf(b.board) || (bgKind === 'colour' && bgHue !== hueOf(b.board))),
+  );
+  const changed = $derived(!!b?.board && (name.trim() !== b.board.name || hue !== b.board.hue || bgChanged));
+  const draftBg = $derived<BoardRec['background']>(bgKind === 'none' ? null : bgKind === 'colour' ? { hue: bgHue } : b?.board?.background);
 
-  // The background: a colour (saved as it's picked) or an image (uploaded from here).
-  const bgId = $derived(bgImage(b?.board));
-  $effect(() => {
-    if (bgId && app.online) void app.files.ensure(id, [bgId]);
-  });
-  // svelte-ignore state_referenced_locally
-  let bgHue = $state<Hue>((b?.board?.background && 'hue' in b.board.background ? b.board.background.hue : b?.board?.hue) ?? 'indigo');
-  $effect(() => {
-    const cur = b?.board?.background;
-    if (cur && 'hue' in cur && cur.hue !== bgHue) void app.saveBoard(id, { background: { hue: bgHue } });
-  });
+  function saveSection() {
+    const patch: Partial<BoardRec> = { name: name.trim(), hue };
+    if (bgChanged) patch.background = draftBg ?? null;
+    void app.saveBoard(id, patch);
+  }
   let bgPicker: HTMLInputElement | null = $state(null);
   let uploadingBg = $state(false);
   async function pickBg(e: Event) {
@@ -125,31 +140,37 @@
           <input id="bs-name" class="field" maxlength="100" bind:value={name} />
           <span class="label">Colour</span>
           <HuePicker bind:value={hue} />
-          <div>
-            <button class="key ink" disabled={!changed || !name.trim()} onclick={() => app.saveBoard(id, { name: name.trim(), hue })}
-              >Save</button
-            >
-          </div>
           <div class="bg-part">
             <span class="label">Background</span>
-            <div class="bg-preview" style:background={tileBackground(b.board, b.board?.hue ?? 'indigo', bgId ? app.files.links[bgId]?.url : undefined)}>
-              <span>{!b.board?.background ? 'No background' : bgId ? 'Image' : 'Colour'}</span>
+            <div
+              class="bg-preview"
+              style:background={tileBackground(
+                b.board && { ...b.board, background: draftBg ?? null },
+                hue,
+                bgKind === 'image' && bgId ? app.files.links[bgId]?.url : undefined,
+              )}
+            >
+              <span>{bgKind === 'none' ? 'No background' : bgKind === 'image' ? 'Image' : 'Colour'}</span>
             </div>
             <div class="seg" role="group" aria-label="Background">
-              <button aria-pressed={!b.board?.background} onclick={() => app.saveBoard(id, { background: null })}>None</button>
-              <button aria-pressed={!!b.board?.background && !bgId} onclick={() => app.saveBoard(id, { background: { hue: bgHue } })}
-                >Colour</button
-              >
-              <button aria-pressed={!!bgId} disabled={uploadingBg || !app.online} onclick={() => bgPicker?.click()}
-                >{uploadingBg ? 'Uploading…' : bgId ? 'Change image' : 'Image'}</button
+              <button aria-pressed={bgKind === 'none'} onclick={() => (bgKind = 'none')}>None</button>
+              <button aria-pressed={bgKind === 'colour'} onclick={() => (bgKind = 'colour')}>Colour</button>
+              <button
+                aria-pressed={bgKind === 'image'}
+                disabled={uploadingBg || (!app.online && !(bgId && bgKind !== 'image'))}
+                onclick={() => (bgId && bgKind !== 'image' ? (bgKind = 'image') : bgPicker?.click())}
+                >{uploadingBg ? 'Uploading…' : bgId && bgKind === 'image' ? 'Change image' : 'Image'}</button
               >
             </div>
             <input bind:this={bgPicker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onchange={pickBg} />
-            {#if b.board?.background && !bgId}
+            {#if bgKind === 'colour'}
               <span class="label">Colour</span>
               <HuePicker bind:value={bgHue} label="Background colour" />
             {/if}
             <p class="note">Everyone in the board sees it. Images are made smaller before they're uploaded.</p>
+          </div>
+          <div>
+            <button class="key ink" disabled={!changed || !name.trim()} onclick={saveSection}>Save</button>
           </div>
         </div>
       {:else}
