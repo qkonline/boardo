@@ -6,7 +6,7 @@
   import CardTile from './CardTile.svelte';
   import Icon from './Icon.svelte';
 
-  /** One column: its name and count, its cards straight on the page, and an Add a card key. */
+  /** One column: a sunk lane with its name, its cards, and Add a card. */
   let {
     col,
     b,
@@ -54,7 +54,8 @@
 
 <section class="lane" data-lane={col.id} aria-label={col.name}>
   <header class="lane-h">
-    <h2>{col.name || 'Untitled column'} <span class="n">{cards.length}</span></h2>
+    <h2>{col.name || 'Untitled column'}</h2>
+    <span class="n">{cards.length}</span>
     <button class="icon-btn" aria-label="Column options for {col.name}" onclick={onmenu}><Icon name="more" /></button>
   </header>
   <div class="cards" data-scroll bind:this={list}>
@@ -88,7 +89,7 @@
   </div>
   {#if !adding}
     <button
-      class="key add"
+      class="add"
       onclick={() => {
         adding = true;
         queueMicrotask(() => input?.focus());
@@ -103,6 +104,8 @@
     max-height: 100%;
     display: flex;
     flex-direction: column;
+    background: var(--sunk);
+    border-radius: var(--r-card);
     scroll-snap-align: start;
     min-width: 0;
   }
@@ -115,34 +118,28 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 0 0 4px;
+    margin: 2px 8px 0 14px;
     min-height: 44px;
   }
   h2 {
     flex: 1;
     min-width: 0;
     margin: 0;
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 600;
     overflow-wrap: anywhere;
-    display: flex;
-    align-items: center;
-    gap: 8px;
   }
   .n {
-    font: 600 12.5px/1 var(--font);
-    color: var(--muted);
-    background: var(--sunk);
-    border-radius: var(--r-sm);
-    padding: 4px 7px;
-    flex: none;
+    color: var(--faint);
+    font-weight: 500;
+    font-size: 13px;
   }
   .cards {
     flex: 1 1 auto;
     min-height: 12px;
     overflow-y: auto;
     overscroll-behavior: contain;
-    padding: 2px 2px 6px;
+    padding: 2px 8px 4px;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -160,11 +157,24 @@
     font-size: 13px;
   }
   .add {
-    margin: 6px 2px 4px;
-    width: calc(100% - 4px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 8px 8px;
+    padding: 0 8px;
+    min-height: 44px;
+    border: none;
+    border-radius: var(--r-ctl);
+    background: transparent;
+    color: var(--muted);
+    font: 500 14px var(--font);
+    cursor: pointer;
     flex: none;
-    font-size: 15px;
-    min-height: 48px;
+  }
+  @media (hover: hover) {
+    .add:hover {
+      background: color-mix(in oklab, var(--text) 6%, transparent);
+    }
   }
   .adder {
     display: grid;
