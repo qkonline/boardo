@@ -71,8 +71,8 @@
   .tab {
     justify-self: center;
     width: 84px;
-    height: 52px;
-    padding: 0;
+    height: 58px;
+    padding: 0 0 6px;
     border: none;
     border-radius: var(--r-ctl);
     background: none;
@@ -87,7 +87,7 @@
   /* The screen you're on: an open tab joined to the page above it, as in Elastic. */
   .tab[aria-current='page'] {
     margin-top: -7px;
-    height: 59px;
+    height: 65px;
     padding-top: 7px;
     border-radius: 0 0 10px 10px;
     background: var(--bg);
@@ -154,6 +154,7 @@
       flex: none;
       width: auto;
       height: auto;
+      padding: 0 12px;
       min-height: 40px;
       display: inline-flex;
       align-items: center;
