@@ -705,6 +705,10 @@
     gap: 6px;
     cursor: pointer;
   }
+  /* The icon makes the left look fuller, so Details gets more room on its right. */
+  #tab-details {
+    padding: 0 28px 0 14px;
+  }
   .tabs button[aria-selected='true'] {
     color: var(--text);
     font-weight: 600;
