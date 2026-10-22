@@ -1,6 +1,7 @@
 <script lang="ts">
   import { call } from '../lib/api';
   import { app } from '../lib/store.svelte';
+  import ElasticMark from './ElasticMark.svelte';
   import Icon from './Icon.svelte';
 
   /**
@@ -29,7 +30,7 @@
     <div class="marks">
       <img src="{import.meta.env.BASE_URL}icon.svg?v=1" alt="" width="48" height="48" />
       <Icon name="link" size={22} />
-      <span class="other">E</span>
+      <ElasticMark size={48} />
     </div>
     <h1>Connect Elastic?</h1>
     <p>Elastic wants to see the cards assigned to you and log your time on them.</p>
@@ -67,16 +68,6 @@
   }
   .marks img {
     border-radius: 10px;
-  }
-  .other {
-    width: 48px;
-    height: 48px;
-    border-radius: 10px;
-    display: grid;
-    place-items: center;
-    background: var(--text);
-    color: var(--bg);
-    font: 600 22px var(--font);
   }
   h1 {
     margin: 0;
