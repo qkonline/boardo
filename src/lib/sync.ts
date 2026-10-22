@@ -18,6 +18,7 @@ import type { Kind } from '../../shared/model';
 import * as db from './db';
 import { rid, splitRid } from './db';
 import { merge } from './merge';
+import { PollSocket } from './pollsocket';
 
 export type SyncStatus = 'connecting' | 'live' | 'offline';
 
@@ -41,6 +42,8 @@ interface Remote {
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 const BACKOFF = [1, 2, 5, 10, 30].map((s) => s * 1000);
 const PING_MS = 20_000;
+const CONNECT_MS = 8000;
+const WS_TRIES = 2;
 const BATCH = 100;
 const BATCH_BYTES = 400_000;
 
@@ -77,6 +80,9 @@ export class Sync {
   private visible = true;
   private channel: BroadcastChannel | null = null;
   private online = () => this.reconnectAll();
+  /** WebSockets keep failing on this network: boards sync over plain requests instead. */
+  private http = false;
+  private wsFails = 0;
 
   constructor(
     private url: string,
@@ -214,16 +220,23 @@ export class Sync {
     c.retry = null;
     let ws: WebSocket;
     try {
-      ws = new WebSocket(`${this.url.replace(/^http/, 'ws')}/sync?board=${encodeURIComponent(c.board)}`, [
-        'boardo',
-        this.token,
-      ]);
+      ws = this.http
+        ? (new PollSocket(this.url, c.board, this.token) as unknown as WebSocket)
+        : new WebSocket(`${this.url.replace(/^http/, 'ws')}/sync?board=${encodeURIComponent(c.board)}`, ['boardo', this.token]);
     } catch {
       return this.later(c);
     }
+    const http = this.http;
+    let opened = false;
+    // A WebSocket a network quietly holds up never opens or closes: give up on it after a while.
+    let hung = false;
+    const stuck = http ? null : setTimeout(() => ws.readyState === 0 && ((hung = true), ws.close()), CONNECT_MS);
     c.ws = ws;
     this.setStatus(c.board, 'connecting');
     ws.onopen = () => {
+      opened = true;
+      if (stuck) clearTimeout(stuck);
+      if (!http) this.wsFails = 0;
       this.queue(async () => {
         c.rev = (await db.getMeta<number>(`rev:${c.board}`)) ?? 0;
         this.send(c, { t: 'hello', since: c.rev });
@@ -241,6 +254,13 @@ export class Sync {
       this.queue(() => this.onMessage(c, m));
     };
     ws.onclose = (e) => {
+      if (stuck) clearTimeout(stuck);
+      // WebSockets that never open (refused again and again, or held up once) while the device
+      // is online: switch over.
+      if (!http && !opened && (++this.wsFails >= WS_TRIES || hung) && navigator.onLine !== false) {
+        this.http = true;
+        c.tries = 0;
+      }
       if (c.ws !== ws) return;
       c.ws = null;
       c.ready = false;
@@ -256,8 +276,10 @@ export class Sync {
 
   /** Removed from the board, or it was deleted: forget it here. */
   private async gone(board: string): Promise<void> {
+    // The board says so in a message and again as it closes: once is enough.
     const c = this.conns.get(board);
-    if (c) this.close(c);
+    if (!c) return;
+    this.close(c);
     this.conns.delete(board);
     this.wanted.delete(board);
     await db.dropBoard(board);

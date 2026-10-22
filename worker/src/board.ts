@@ -135,20 +135,27 @@ export class Board extends DurableObject<Env> {
     } catch {
       return;
     }
-    const att = ws.deserializeAttachment() as Attachment;
-    if (m.t === 'hello') return this.sendSince(ws, Number.isInteger(m.since) ? (m.since as number) : 0);
-    if (m.t === 'put') {
-      const res = this.put(m.recs, att);
-      if (!res) {
-        ws.send(JSON.stringify({ t: 'ack', id: m.id, ok: [], conflicts: [], rejected: [], error: 'bad' }));
-        return;
-      }
-      ws.send(
-        JSON.stringify({ t: 'ack', id: m.id, ok: res.ok, conflicts: res.conflicts, rejected: res.rejected, rev: this.rev() }),
-      );
-      if (res.extra.length) ws.send(JSON.stringify({ t: 'changes', recs: res.extra, rev: this.rev() }));
-      if (res.changed.length) this.broadcast(res.changed, ws);
-    }
+    for (const out of this.answer(m, ws.deserializeAttachment() as Attachment, ws)) ws.send(JSON.stringify(out));
+  }
+
+  /**
+   * The same conversation for a device whose network lets ordinary requests through but not
+   * WebSockets: one message in, the replies back. It asks for changes every few seconds.
+   */
+  async httpSync(userId: string, role: Role, m: Record<string, unknown>): Promise<object[]> {
+    return this.answer(m, { userId, role }, null);
+  }
+
+  /** The replies to one message from a device: changes since a point, or a put's ack. */
+  private answer(m: Record<string, unknown>, who: Attachment, from: WebSocket | null): object[] {
+    if (m.t === 'hello') return this.since(Number.isInteger(m.since) ? (m.since as number) : 0);
+    if (m.t !== 'put') return [];
+    const res = this.put(m.recs, who);
+    if (!res) return [{ t: 'ack', id: m.id, ok: [], conflicts: [], rejected: [], error: 'bad' }];
+    const out: object[] = [{ t: 'ack', id: m.id, ok: res.ok, conflicts: res.conflicts, rejected: res.rejected, rev: this.rev() }];
+    if (res.extra.length) out.push({ t: 'changes', recs: res.extra, rev: this.rev() });
+    if (res.changed.length) this.broadcast(res.changed, from);
+    return out;
   }
 
   async webSocketClose(ws: WebSocket, code: number): Promise<void> {
@@ -160,7 +167,8 @@ export class Board extends DurableObject<Env> {
   }
 
   /** Everything after `since`, oldest first, in pieces; the last piece says how far that got. */
-  private sendSince(ws: WebSocket, since: number): void {
+  private since(since: number): object[] {
+    const out: object[] = [];
     const rev = this.rev();
     // A device that's ahead of the board (it was reset) starts again from the beginning.
     const from = since > rev ? 0 : since;
@@ -173,12 +181,13 @@ export class Board extends DurableObject<Env> {
       recs.push({ kind: r.kind, key: r.key, rev: r.rev, data: r.data == null ? null : JSON.parse(r.data) });
       size += (r.data?.length ?? 0) + 100;
       if (size > CHUNK) {
-        ws.send(JSON.stringify({ t: 'changes', recs, more: true }));
+        out.push({ t: 'changes', recs, more: true });
         recs = [];
         size = 0;
       }
     }
-    ws.send(JSON.stringify({ t: 'changes', recs, rev, done: true, reset: from === 0 && since > 0 }));
+    out.push({ t: 'changes', recs, rev, done: true, reset: from === 0 && since > 0 });
+    return out;
   }
 
   private broadcast(recs: Rec[], except: WebSocket | null): void {

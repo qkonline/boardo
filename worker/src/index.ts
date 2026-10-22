@@ -48,6 +48,8 @@ import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken 
 export { Board };
 
 const MAX_BODY = 64 * 1024;
+/** A put sent over /sync/http carries a batch of records (the app keeps a batch under 400 kB). */
+const MAX_SYNC_BODY = 1024 * 1024;
 
 export default {
   async fetch(req, env): Promise<Response> {
@@ -98,7 +100,7 @@ export default {
     let body: Record<string, unknown>;
     try {
       const text = await req.text();
-      if (text.length > MAX_BODY) return reply(413);
+      if (text.length > (pathname === '/sync/http' ? MAX_SYNC_BODY : MAX_BODY)) return reply(413);
       body = text ? JSON.parse(text) : {};
       if (!body || typeof body !== 'object' || Array.isArray(body)) return reply(400);
     } catch {
@@ -119,6 +121,15 @@ export default {
       };
 
       switch (pathname) {
+        case '/sync/http': {
+          // The board's sync for networks that block WebSockets (see Board.httpSync).
+          const userId = await mustUser();
+          const role = await roleIn(env, body.board, userId);
+          const m = body.m;
+          if (!m || typeof m !== 'object' || Array.isArray(m)) return reply(400);
+          if (!role) return reply(200, { msgs: [{ t: 'removed' }] });
+          return reply(200, { msgs: await boardStub(env, body.board as string).httpSync(userId, role, m as Record<string, unknown>) });
+        }
         case '/auth/code/send':
           await sendCode(env, body, req.headers.get('cf-connecting-ip') ?? 'local');
           return reply(204);
