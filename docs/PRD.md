@@ -1,6 +1,6 @@
 # Boardo: product requirements
 
-Status: agreed, ready to build
+Status: built and live (phases 1 to 3, plus the refinements in section 14)
 Last updated: 22 October 2026
 Owner: Qaisar Khan
 
@@ -75,7 +75,7 @@ Each board has two roles.
 
 ## 3. Boards and columns
 
-- **R3.1** A board has a name and a colour. An admin can give it a background: a colour, or an image, which everyone in the board sees behind the columns and on the board's tile in the board list.
+- **R3.1** A board has a name and a colour. An admin can give it a background: a colour, or an image, which everyone in the board sees behind the columns and on the board's tile in the board list. Like every setting, a new background shows only once the admin presses Save; an image can be removed the same way.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
@@ -102,7 +102,7 @@ Every card has these fields.
 - **R4.2** An admin can change a date field from date to date and time, and back.
 - **R4.3** An admin can rename Status values and add new ones. The values that mean "in progress" and "completed" can be renamed but not removed, because the Elastic connection relies on them.
 - **R4.4** A card can be assigned to more than one person. Each assignee sees it in their My cards and, when its dates apply, in their Elastic day, and each can run their own timer on it.
-- **R4.5** Time spent can't be edited by hand. It's the sum of all timer time logged against the card, including a timer that's running right now.
+- **R4.5** Time spent can't be edited by hand. It's the sum of all timer time logged against the card, including a timer that's running right now. Beside it, Elastic's mark opens a short explanation of what Elastic is and how its timers reach the card, with a link to open it.
 
 ### 4.2 Custom fields
 
@@ -150,6 +150,12 @@ Every card has these fields.
 - **R4.24** A card also shows the cards that wait on it ("Holds up"). Tapping any of them opens that card.
 - **R4.25** A card can't wait on itself, or on a card that already waits on it, however far down; those aren't offered. Adding and removing one is logged on the card.
 
+### 4.7 The open card
+
+- **R4.26** Opening a card shows it in a large window in the middle of the screen on a computer, and as a tall sheet on a phone, with two tabs: **Details** and **History** (its log, grouped by day).
+- **R4.27** **Nothing a person changes on a card is saved until they press Save changes.** While there are unsaved changes, a bar offers Discard and Save changes, and closing the card (or opening another one from it) asks first. Comments, attachments, Mark done and Archive happen when tapped.
+- **R4.28** Values read as plain text and become editable when tapped. Status, column, people and emoji open in small balloons over the card, so nothing moves when they open.
+
 ## 5. Status and completion
 
 ### 5.1 Parts done
@@ -159,6 +165,7 @@ Every card has these fields.
 - **R5.3** When **every** assignee has finished their part, the card's status becomes **Completed** automatically.
 - **R5.4** If a part is marked not done again, or a new assignee is added to a Completed card, the status goes back to **In Progress**.
 - **R5.5** Anyone in the board can still change the status by hand at any time. Doing so doesn't change anyone's part.
+- **R5.5a** Marking your part done shows a message with **Undo** for a few seconds. Once it's done, the card offers **Mark not done** instead. Either takes the part back (R5.4).
 
 ### 5.2 Automation from Elastic
 
@@ -178,6 +185,8 @@ Every card has these fields.
   - status changed, by hand or automatically;
   - comment added;
   - attachment added or removed;
+  - a card it waits on added or removed (R4.25);
+  - deleted for good (R4.21);
   - time worked through Elastic (for example "worked 1h 20m").
 - **R6.3** All card logs together form one **project log** for the whole board, newest first, filterable by person and by card.
 - **R6.4** Logs can't be edited or deleted by anyone. They are written by the server, not by people's devices, so they can be trusted.
@@ -247,7 +256,7 @@ Every card has these fields.
 - **R9.5** When two people change the same card while offline, the most recent change to each field wins. Changes to different fields both survive. Comments, attachments, time and log entries are always kept, never overwritten.
 - **R9.6** Attachments added while offline are uploaded once back online.
 - **R9.7** When someone is removed from a board, it disappears from their devices, including any copy kept for offline use.
-- **R9.8** Boardo can be installed on a phone's home screen and works like an app.
+- **R9.8** Boardo can be installed on a phone's home screen and works like an app. An installed copy takes a new version at a quiet moment (on coming back to it or leaving it, never while something is open), and pulling down refreshes it, as in Elastic.
 
 ### 9.1 Invites
 
@@ -294,6 +303,7 @@ Every card has these fields.
 - **R11.10** Wording is short, plain and in sentence case. No em dashes, no filler.
 - **R11.11** Before screens are built, two or three design directions are shown and one is chosen.
 - **R11.12** It works well on a phone and on a computer.
+- **R11.13** Nothing a person changes anywhere in Boardo is saved automatically. Changes wait for Save, Add, Update or Comment, as in Elastic (R4.27, R3.1).
 
 ## 12. Assumptions to confirm
 
@@ -339,3 +349,12 @@ Each phase is released live before the next starts.
    - parts done and automatic completion;
    - connecting Elastic;
    - the Projects section in Elastic.
+
+Phases 1 to 3 went live on 22 October 2026. Refinements since, all live:
+- any colour for boards and status values, from a colour wheel;
+- the project log as a panel from the right; status optional and shown as a band across each card;
+- filters beside the board's name; deleting archived cards (R4.21);
+- passkeys (R9.1a); quiet updates and pull to refresh (R9.8);
+- board backgrounds and tiles (R3.1), profile photos and changing name and email (R2.2);
+- the open card redesigned (section 4.7), with Undo after Mark done (R5.5a);
+- dependencies (section 4.6).

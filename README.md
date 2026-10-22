@@ -10,10 +10,14 @@ Live at **[kaiserkhan.com/boardo](https://kaiserkhan.com/boardo/)**.
   people).
 - **Shared work:** each assignee finishes their own part, and a card completes when everyone's
   part is done.
+- **Dependencies:** a card can wait on other cards in its board, each shown with its status,
+  and shows the cards it holds up.
 - **Comments** with emoji, and **attachments** (images, PDFs and Office files).
 - **A log** of everything that happens, per card and for the whole board, written by the server
   so it can be trusted.
 - **My cards:** everything assigned to you, across all your boards, by deadline or by project.
+- **Your own look:** a colour or background image for each board, and a profile photo.
+- **Nothing saves on its own:** changes to a card or a setting wait until you press Save.
 - **Offline first:** every board you're in is kept on your device, works without a connection
   and syncs live with everyone else.
 - **Elastic:** connect [Elastic](https://kaiserkhan.com/planner/), a day planner, to see the
@@ -26,7 +30,7 @@ Live at **[kaiserkhan.com/boardo](https://kaiserkhan.com/boardo/)**.
 - The API is one Cloudflare Worker (`worker/`): D1 holds people, boards, members and invites;
   each board's content lives in its own Durable Object, which checks every change, applies the
   completion rule and writes the log; attachments go to R2.
-- Sign-in is by a 6-digit code sent by email (Resend).
+- Sign-in is by a 6-digit code sent by email (Resend), or a passkey once one is added.
 - `shared/` holds the data model and the rules both sides use.
 
 See [docs/PRD.md](docs/PRD.md) for the requirements and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)

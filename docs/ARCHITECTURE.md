@@ -83,13 +83,13 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
 
 | Kind | Fields | Written by |
 |---|---|---|
-| `board` | name, hue, maxUploadMB (default 30), background (`{hue}`, `{image: file id}` or none) | admins; an image only through an upload |
+| `board` | name, hue, maxUploadMB (default 30), background (`{hue}`, `{image: file id}` or none) | admins; a new image must be a background file already uploaded to the board |
 | `member` | userId, name, hue, role (a mirror of D1, pushed by the Worker) | server |
 | `column` | id, name, order | members |
 | `field` | id, key (`start`, `end`, `status` for built-ins, null for custom), name, type, options `[{id, label, hue, role?}]`, order | admins |
 | `card` | id, columnId, order, title, desc, values `{fieldId: value}`, assignees `[userId]`, done `{userId: ms}`, deps `[cardId]` (the cards it waits on; left out when none), archived, createdBy, created | members |
 | `comment` | id, cardId, userId, text, at, editedAt, deleted | members (their own only) |
-| `file` | id, cardId, name, mime, size, r2Key, thumbKey, by, at | server, after an upload |
+| `file` | id, cardId (`_board` for a background image), name, mime, size, by, at, thumb (a thumbnail was stored beside it); the bytes are at R2 `<board>/<id>` and `<board>/<id>.thumb` | server, after an upload |
 | `session` | id, cardId, userId, start ms, end ms or null, source | server, from Elastic ops |
 | `log` | id, cardId or null, userId, at, action, detail `{field, from, to, …}` | server only |
 
@@ -106,15 +106,17 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - nobody writes `log`, `session` or `file` directly;
   - a comment can only be changed by its author.
 - **Logs.** The DO writes log entries itself. It diffs each accepted change, so entries can't be forged (R6.4). Actions:
-  - created, archived, restored;
-  - moved (column);
+  - created, archived, restored, deleted (for good);
+  - moved (column), renamed, description changed;
   - field changed (from, to);
   - assigned, unassigned;
   - part done, part undone;
   - status changed (by hand or automatic);
+  - linked, unlinked (a card it waits on added or removed);
   - comment added;
   - file added, file removed;
-  - worked (duration, from Elastic).
+  - worked (duration, from Elastic);
+  - for the board: created, renamed, columns, fields, members and roles, background changed.
 - **Completion** runs after each change (R5.1 to R5.5):
   - when every assignee has a `done` entry and Status isn't `completed`, it sets `completed` and logs it;
   - when a part is undone or an assignee is added to a Completed card, it sets `in_progress`;
@@ -189,7 +191,7 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - Files added offline wait in IndexedDB (`uploads`) and go once there's a connection.
 
 **Backgrounds and photos**
-- `PUT /files?board=&background=1` (admins): a background image, made at most 2400 px on the device. Stored as a `file` record with `cardId: '_board'` (so it's on no card), it becomes `board.background = {image}`; a replaced or removed image's record and bytes go. Served by signed link like any file.
+- `PUT /files?board=&background=1` (admins): a background image, made at most 2400 px on the device. It's stored as a `file` record with `cardId: '_board'` (so it's on no card) and returned, but the board doesn't change: like every other setting it waits for Save, when the device writes `board.background = {image: id}`. The DO accepts a new image id only if it's such a file. Background files no longer in use (replaced, taken away, or uploaded and never saved) are swept, record and bytes, on each board write and each new upload. Served by signed link like any file.
 - `PUT /me/photo`: a profile photo, a 512 px square made on the device, at R2 `users/<user id>/<photo id>` (D1 `users.photo`, `0003_photos.sql`), mirrored to every board's `member.photo`. `GET /photos/<user id>/<photo id>` serves it without a token: the id is long and random, and the address changes with each new photo, so it's cached for a year. `/me/photo/remove` takes it away.
 
 **Connected apps and Elastic:** `/oauth/approve`, `/oauth/token`, `/apps`, `/apps/revoke`, `/elastic/cards`, `/elastic/ops` (section 5).
@@ -275,33 +277,35 @@ All of these are in Elastic's repository.
 
 **Screens**
 - **Sign in:** email, then a 6-digit code, then a name the first time.
-- **Home:** the person's boards (colour, name, their open cards), pending invites, My cards, New board.
+- **Home:** the person's boards as tiles, as in Trello (the board's background or colour across the top, then its name and their open cards), pending invites, and a New board tile.
 - **Board:**
   - columns side by side, scrolling sideways on a phone;
   - cards show title, assignees, status, dates and comment and attachment counts;
   - drag within and between columns;
   - filters by person and status.
-- **Card window** (a large window in the middle of the screen on a computer, as in Trello; a tall sheet from the bottom on a phone), with two tabs, Details and History (the card's log). Details:
-  - all fields;
-  - Time spent, in total and per person;
-  - attachments;
-  - comments with an emoji button;
-  - the card's log;
-  - "Mark done" (a green key) for assignees, to finish their own part.
+- **Card window** (`CardSheet.svelte`: a large window in the middle of the screen on a computer, as in Trello; a tall sheet from the bottom on a phone), with two tabs, Details and History.
+  - **Header:** tinted in the status's colour, with the title (text until tapped), the board and column (the column is a balloon), and "1 of 2 done" when several people share it.
+  - **Details, side column:** Starts, Due, People, Time, Status, then the custom fields. Values read as text and become editable when tapped; status, column and people open in a `Balloon` (a small popover over the page, so nothing shifts). Time shows Elastic's mark, which opens a balloon on what Elastic is, with a link to it. Then "Mark done" (green, full width) for assignees, or "Mark not done" (soft rose) once their part is done, and Archive.
+  - **Details, main column:** Description, Attachments, Dependencies (`Dependencies.svelte`: the cards it waits on along a rail, "This card", then the ones it holds up; picked from a balloon with a search, never offering a card that already waits on this one), Comments (the emoji picker is a balloon).
+  - **History** (`CardHistory.svelte`): the card's log as a timeline grouped by day, a coloured point for each kind of change.
+  - **Drafts.** Every edit is a draft until Save changes. A bar shows Unsaved changes with Discard and Save changes, and closing (or opening a linked card) with unsaved changes asks first. Mark done, Archive, comments and files act at once; Mark done shows a toast with Undo for 6 seconds.
 - **Activity:** the project log, filterable by person and card, in a panel that slides in from the right over the board (a tap outside closes it). A card opened from it stacks on top.
 - **Board settings** (admin):
-  - name and colour;
+  - Board: name, colour and background (none, a colour, or an image with Remove image), all saved together with one Save;
   - members and roles;
   - invites;
   - the fields editor;
   - the upload limit;
-  - delete board.
+  - archived cards, restored or deleted for good;
+  - leave or delete board.
 - **My cards:** grouped by deadline or by project.
-- **Settings:** profile, connected apps, sign out, theme.
+- **Account** (the person icon; far right on a computer, a tab on a phone): name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, delete account.
 
 **Interaction**
 - Drag uses press-and-hold on touch and a short move threshold with a mouse, with other cards sliding aside, as in Elastic.
-- Sheets slide up on a phone and in from the side on a computer.
+- Sheets slide up on a phone. On a computer the card opens in the middle and Activity slides in from the right.
+- Installed copies pick up a new build at quiet moments (on coming back to the app or leaving it, never while something is open), and pull down to refresh, as in Elastic (`freshness.svelte.ts`).
+- Nothing a person changes is saved until they press Save, Add, Update or Comment, as in Elastic (PRD R11.13).
 - Everything respects reduced motion.
 
 ## 8. Phases
@@ -335,7 +339,16 @@ All of these are in Elastic's repository.
 - OAuth, `/elastic/cards` and `/elastic/ops`.
 - The Elastic changes in section 6.
 
-Each phase is tested, deployed and pushed before the next starts.
+Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 shipped on 22 October 2026.
+
+**Since phase 3** (also 22 October 2026)
+- Any colour, from a colour wheel, as well as the five.
+- Activity as a side panel; status shown as a band across the card, and optional.
+- Filters beside the board's name; deleting archived cards.
+- Passkeys; quiet updates and pull to refresh; the Account tab.
+- Board backgrounds, board tiles, profile photos, changing name and email.
+- The card window redesign: drafts until Save, balloons, History as a timeline, Undo after Mark done, Status in the side column, the Elastic balloon.
+- Card dependencies.
 
 ## 9. Testing
 
@@ -345,7 +358,10 @@ Each phase is tested, deployed and pushed before the next starts.
 - **Logs:** the right entries come from each kind of change, and a client can't write `log`.
 - **OAuth:** PKCE verification, an unregistered redirect refused, a used or expired code refused, a revoked token refused.
 - **Files:** types checked by their first bytes, a renamed executable refused, the size limit and an admin raise.
-- **Merge:** per-field merges, and comments are never lost.
+- **Merge:** per-field merges, comments are never lost, and dependencies merge as a set (`merge.test.ts`).
+- **Checks:** a card's dependency list is kept once each, and refused if it holds the card itself or isn't ids (`checks.test.ts`).
+- **Backgrounds:** an upload alone never changes the board, only an uploaded image can be saved, and unsaved or replaced images are swept (`background.test.ts`).
+- **Deleting:** an archived card goes with its comments, files and time, by an admin or whoever made it (`board.test.ts`).
 - **Sync:** two people plus a non-member, each with their own fake IndexedDB, against an in-memory board DO over a fake WebSocket. It checks:
   - edits flow both ways;
   - offline edits merge;
