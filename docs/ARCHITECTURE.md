@@ -155,6 +155,7 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 
 **Auth and profile**
 - `/auth/code/send {email}`: rate-limited per email and per IP, and silent on unknown emails.
+- The routes that need no sign-in (`/auth/code/send`, `/auth/code/verify`, passkey sign-in, `/oauth/token`) also go through Cloudflare's rate limiter, 60 requests a minute per network (binding `LIMITER`, namespace 1002; Elastic's is 1001).
 - `/auth/code/verify {email, code}` → `{token, user}`: creates the account on first use.
 - `/auth/signout`
 - `/me/email/send {email}`, `/me/email/verify {email, code}`: change one's email. A code goes to the new address (refused if another account has it) and only that changes it; every board's member record follows.

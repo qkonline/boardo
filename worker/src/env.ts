@@ -14,6 +14,8 @@ export interface Env {
   RESEND_API_KEY?: string;
   /** Signs short-lived file links (a secret). */
   FILE_SIGNING_KEY?: string;
+  /** Requests per network to the routes that need no sign-in. Absent in tests. */
+  LIMITER?: RateLimit;
   /** Local development only: keep sent mail so tests can read the codes (`/dev/mail`). */
   DEV_MAIL?: string;
   /** Elastic's Worker (a service binding): told whose cards changed. Absent in tests. */

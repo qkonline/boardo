@@ -21,6 +21,13 @@ class_name = "Board"
 tag = "v1"
 new_sqlite_classes = ["Board"]
 
+# Requests per network to the routes that need no sign-in (index.ts, OPEN). Elastic's Worker
+# uses namespace 1001, so the two keep separate counts.
+[[ratelimits]]
+name = "LIMITER"
+namespace_id = "1002"
+simple = { limit = 60, period = 60 }
+
 [[d1_databases]]
 binding = "DB"
 database_name = "boardo"

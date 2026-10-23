@@ -48,6 +48,9 @@ import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken 
 
 export { Board, ElasticLink };
 
+/** Routes anyone can call without signing in: limited per network, on top of auth.ts's limits. */
+const OPEN = new Set(['/auth/code/send', '/auth/code/verify', '/auth/passkey/login/start', '/auth/passkey/login/finish', '/oauth/token']);
+
 const MAX_BODY = 64 * 1024;
 /** A put sent over /sync/http carries a batch of records (the app keeps a batch under 400 kB). */
 const MAX_SYNC_BODY = 1024 * 1024;
@@ -97,6 +100,10 @@ export default {
       }
     }
     if (req.method !== 'POST') return reply(404);
+    if (OPEN.has(pathname) && env.LIMITER) {
+      const { success } = await env.LIMITER.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' });
+      if (!success) return reply(429, { error: 'Too many requests. Try again in a minute.' });
+    }
 
     let body: Record<string, unknown>;
     try {
