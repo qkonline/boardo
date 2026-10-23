@@ -12,6 +12,7 @@ interface Device {
   sync: import('./sync').Sync;
   removed: string[];
   signedOut: boolean;
+  refused: number;
 }
 
 let server: FakeServer;
@@ -23,12 +24,13 @@ async function device(user: string, boards: string[]): Promise<Device> {
   const db = await import('./db');
   const { Sync } = await import('./sync');
   server.tokens.set(`t-${user}`, user);
-  const d: Device = { user, db, sync: null!, removed: [], signedOut: false };
+  const d: Device = { user, db, sync: null!, removed: [], signedOut: false, refused: 0 };
   d.sync = new Sync('http://api.test', {
     changed: () => {},
     status: () => {},
     signedOut: () => (d.signedOut = true),
     removed: (b) => d.removed.push(b),
+    refused: (_, n) => (d.refused += n),
   });
   d.sync.start(`t-${user}`, boards);
   devices.push(d);
@@ -148,6 +150,9 @@ describe('sync between people', () => {
     await put(bob, 'b1', 'field', 'status', { ...status, name: 'Mine now' });
     expect((await local<FieldRec>(bob, 'b1', 'field', 'status'))!.name).toBe('Status');
     expect(await bob.db.getOutbox()).toEqual([]);
+    // Bob is told, and his version is kept aside.
+    expect(bob.refused).toBe(1);
+    expect(await bob.db.getRefused('b1')).toMatchObject([{ id: 'b1/field/status', data: { name: 'Mine now' } }]);
     const ann = await device('ann', ['b1']);
     await put(ann, 'b1', 'field', 'status', { ...status, name: 'State' });
     expect((await local<FieldRec>(bob, 'b1', 'field', 'status'))!.name).toBe('State');
@@ -175,6 +180,51 @@ describe('sync between people', () => {
     expect((await bob.db.getRecords('b1')).filter((r) => r.kind === 'log').length).toBe(logs.length);
   });
 
+  it('refuses only the record that is wrong, not the rest sent with it', async () => {
+    const ann = await device('ann', ['b1']);
+    await ann.db.putLocal([
+      { board: 'b1', kind: 'card', key: 'k1', data: card('k1', 'ann') },
+      { board: 'b1', kind: 'card', key: 'k2', data: { ...card('k2', 'ann'), title: 7 } },
+    ]);
+    ann.sync.kick('b1');
+    await settle();
+    expect(((await server.records('b1', 'card')) as CardRec[]).map((c) => c.id)).toEqual(['k1']);
+    expect(await local(ann, 'b1', 'card', 'k1')).not.toBeNull();
+    expect(await local(ann, 'b1', 'card', 'k2')).toBeNull();
+    expect(ann.refused).toBe(1);
+  });
+
+  it('refuses a comment on a card that is gone, but takes one on a card sent with it', async () => {
+    const ann = await device('ann', ['b1']);
+    const c = { id: 'm1', cardId: 'k9', userId: 'ann', text: 'Hello', at: Date.now() };
+    await put(ann, 'b1', 'comment', 'm1', c);
+    expect(await server.records('b1', 'comment')).toEqual([]);
+    expect(ann.refused).toBe(1);
+    // The comment ahead of its card in one put.
+    await ann.db.putLocal([
+      { board: 'b1', kind: 'comment', key: 'm2', data: { ...c, id: 'm2', cardId: 'k2' } },
+      { board: 'b1', kind: 'card', key: 'k2', data: card('k2', 'ann') },
+    ]);
+    ann.sync.kick('b1');
+    await settle();
+    expect(((await server.records('b1', 'comment')) as { id: string }[]).map((x) => x.id)).toEqual(['m2']);
+  });
+
+  it('moves a card added offline to a column removed meanwhile into the first column', async () => {
+    const ann = await device('ann', ['b1']);
+    const bob = await device('bob', ['b1']);
+    await put(ann, 'b1', 'column', 'c0', { id: 'c0', name: 'First', order: 0 });
+    await put(ann, 'b1', 'column', 'c2', { id: 'c2', name: 'Doomed', order: 5 });
+    // Bob, offline, adds a card to Doomed while Ann removes it.
+    bob.sync.stop();
+    await bob.db.putLocal([{ board: 'b1', kind: 'card', key: 'k1', data: card('k1', 'bob', { columnId: 'c2' }) }]);
+    await put(ann, 'b1', 'column', 'c2', null);
+    bob.sync.start('t-bob', ['b1']);
+    await settle();
+    for (const d of [ann, bob]) expect((await local<CardRec>(d, 'b1', 'card', 'k1'))!.columnId).toBe('c0');
+    expect(bob.refused).toBe(0);
+  });
+
   it("lets only a comment's author change it", async () => {
     const ann = await device('ann', ['b1']);
     const bob = await device('bob', ['b1']);
@@ -194,7 +244,7 @@ describe('sync between people', () => {
     const db = await import('./db');
     const { Sync } = await import('./sync');
     let out = false;
-    const s = new Sync('http://api.test', { changed() {}, status() {}, signedOut: () => (out = true), removed() {} });
+    const s = new Sync('http://api.test', { changed() {}, status() {}, signedOut: () => (out = true), removed() {}, refused() {} });
     s.start('nope', ['b1']);
     devices.push({ user: 'x', db, sync: s, removed: [], signedOut: false });
     await settle();

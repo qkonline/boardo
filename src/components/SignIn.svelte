@@ -82,9 +82,14 @@
     if (!error) resent = true;
   }
 
-  // Six digits typed or pasted: check them straight away.
+  // Six digits typed or pasted: check them straight away, once (a wrong code isn't sent again
+  // by itself, which would use up its tries).
+  let tried = '';
   $effect(() => {
-    if (step === 'code' && code.replace(/\D/g, '').length === 6 && !busy) void verify();
+    const digits = code.replace(/\D/g, '');
+    if (step !== 'code' || digits.length !== 6 || digits === tried || busy) return;
+    tried = digits;
+    void verify();
   });
 </script>
 

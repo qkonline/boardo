@@ -115,6 +115,10 @@ export class App {
       },
       signedOut: () => void this.signedOut(),
       removed: (board) => this.boardGone(board),
+      refused: (board, n) => {
+        const name = this.boards.find((x) => x.id === board)?.name ?? 'the board';
+        this.say(n === 1 ? `A change in ${name} wasn't allowed, so it was undone.` : `${n} changes in ${name} weren't allowed, so they were undone.`);
+      },
     });
     whenSignedOut(() => void this.signedOut());
     const t = readLocal(THEME_KEY);

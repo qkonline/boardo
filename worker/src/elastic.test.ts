@@ -91,6 +91,26 @@ describe('Elastic', () => {
     expect(mine).toMatchObject({ completed: true, completedAt: T0 + 1000, myDone: T0 });
   });
 
+  it("never stops a session under another card's name", async () => {
+    const b = await server.board('b1');
+    put('b1', 'card', 'k5', card('k5'));
+    await b.elasticOps('ann', [op('o1', 'start', T0)]);
+    await b.elasticOps('ann', [op('o2', 'stop', T0 + 60_000, 'k5')]);
+    expect(((await server.records('b1', 'session')) as SessionRec[])[0].end).toBeNull();
+    expect(((await server.records('b1', 'log')) as LogRec[]).filter((l) => l.action === 'worked')).toHaveLength(0);
+    await b.elasticOps('ann', [op('o3', 'stop', T0 + 60_000)]);
+    expect(((await server.records('b1', 'log')) as LogRec[]).find((l) => l.action === 'worked')).toMatchObject({ cardId: 'k1' });
+  });
+
+  it('finds when each completed card was completed', async () => {
+    const b = await server.board('b1');
+    put('b1', 'card', 'k5', card('k5'));
+    await b.elasticOps('ann', [op('o1', 'done', T0), op('o2', 'done', T0 + 5, 'k5')]);
+    await b.elasticOps('bob', [op('o3', 'done', T0 + 1000, 'k5'), op('o4', 'done', T0 + 2000)]);
+    const mine = await b.myCards('ann', 'https://x/');
+    expect(Object.fromEntries(mine.map((c) => [c.id, c.completedAt]))).toEqual({ k1: T0 + 2000, k5: T0 + 1000 });
+  });
+
   it('refuses ops on cards the person is not assigned to', async () => {
     const b = await server.board('b1');
     const r = await b.elasticOps('ann', [op('o1', 'start', T0, 'k2')]);

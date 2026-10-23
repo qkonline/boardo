@@ -188,21 +188,31 @@ const MAX_CHANGES = 200;
 
 /**
  * The changes in a `put`, each checked and rebuilt, or null if the message is malformed. A
- * single record that doesn't pass comes back as `bad`, so the device can drop it.
+ * single record that doesn't pass (a kind devices can't write, a bad base or bad data) comes
+ * back as `bad` and is refused on its own: the rest of the put still counts.
  */
 export function changes(v: unknown): { list: Change[]; bad: Change[] } | null {
   if (!Array.isArray(v) || v.length > MAX_CHANGES) return null;
   const list: Change[] = [];
   const bad: Change[] = [];
   for (const c of v) {
-    if (!c || typeof c !== 'object') return null;
-    if (!CLIENT_KINDS.includes(c.kind) || !isId(c.key) || !Number.isInteger(c.base) || c.base < 0) return null;
+    // Without a kind and key there's no record to answer for.
+    if (!c || typeof c !== 'object' || typeof c.kind !== 'string' || !/^[a-z]{1,20}$/.test(c.kind) || !isId(c.key))
+      return null;
     const raw = c.data;
+    const refuse = () => bad.push({ kind: c.kind, key: c.key, base: 0, data: null });
+    if (!CLIENT_KINDS.includes(c.kind) || !Number.isInteger(c.base) || c.base < 0) {
+      refuse();
+      continue;
+    }
     if (raw === null) {
       list.push({ kind: c.kind, key: c.key, base: c.base, data: null });
       continue;
     }
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      refuse();
+      continue;
+    }
     const data = clean(c.kind, c.key, raw);
     (data ? list : bad).push({ kind: c.kind, key: c.key, base: c.base, data: data as Record<string, unknown> | null });
   }

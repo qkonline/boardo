@@ -259,6 +259,8 @@ Every card has these fields.
 - **R9.3** **Offline first:** every board a person belongs to is kept on their device. They can open boards, read cards and make changes without a connection.
 - **R9.4** Changes sync when the device is back online, and show up live on everyone else's devices while they're online.
 - **R9.5** When two people change the same card while offline, the most recent change to each field wins. Changes to different fields both survive. Comments, attachments, time and log entries are always kept, never overwritten.
+- **R9.5a** A change the board doesn't allow (made offline, say, by someone who has since stopped being an admin) is undone, and the person is told. A copy stays on the device.
+- **R9.5b** A card added while offline to a column that someone else removed meanwhile goes to the end of the first column, never missing.
 - **R9.6** Attachments added while offline are uploaded once back online.
 - **R9.7** When someone is removed from a board, it disappears from their devices, including any copy kept for offline use.
 - **R9.8** Boardo can be installed on a phone's home screen and works like an app. An installed copy takes a new version at a quiet moment (on coming back to it or leaving it, never while something is open), and pulling down refreshes it, as in Elastic.

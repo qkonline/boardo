@@ -14,6 +14,23 @@ const MAX_BOARDS = 200;
 
 export const boardStub = (env: Env, id: string) => env.BOARDS.get(env.BOARDS.idFromName(id));
 
+/**
+ * Pass a change in the directory on to the board, trying again if the call fails (each try
+ * with a new stub). If it still fails, the person asking sees an error, and asking again
+ * finishes the job: the steps below pass the change on even when the directory already has it.
+ */
+async function tellBoard(fn: () => Promise<unknown>): Promise<void> {
+  for (let i = 0; ; i++) {
+    try {
+      await fn();
+      return;
+    } catch (e) {
+      if (i >= 2) throw e;
+      await new Promise((r) => setTimeout(r, 200 * (i + 1)));
+    }
+  }
+}
+
 export async function roleIn(env: Env, boardId: unknown, userId: string): Promise<Role | null> {
   if (!isId(boardId)) return null;
   const row = await env.DB.prepare('SELECT role FROM members WHERE board_id = ? AND user_id = ?')
@@ -99,12 +116,11 @@ export async function deleteBoard(env: Env, userId: string, body: { board?: unkn
   ]);
 }
 
-async function admins(env: Env, boardId: string): Promise<number> {
-  const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM members WHERE board_id = ? AND role = 'admin'")
-    .bind(boardId)
-    .first<{ n: number }>();
-  return r?.n ?? 0;
-}
+/**
+ * Part of a statement that holds only while another admin stays. Checked in the same statement
+ * as the change, so two admins taking each other off at once can't leave a board with none.
+ */
+const ANOTHER_ADMIN = "(role <> 'admin' OR (SELECT COUNT(*) FROM members WHERE board_id = ? AND role = 'admin') > 1)";
 
 const LAST_ADMIN = 'A board needs at least one admin. Make someone else an admin first.';
 
@@ -113,13 +129,21 @@ export async function setRole(env: Env, userId: string, body: { board?: unknown;
   const role = body.role;
   if (role !== 'admin' && role !== 'member') throw new Refusal(400, 'Pick admin or member.');
   if (!isId(body.user)) throw new Refusal(400, 'Pick someone.');
-  const cur = await roleIn(env, boardId, body.user);
+  const target = body.user;
+  const cur = await roleIn(env, boardId, target);
   if (!cur) throw new Refusal(404, "They're not in this board any more.");
-  if (cur === role) return;
-  if (cur === 'admin' && (await admins(env, boardId)) <= 1) throw new Refusal(409, LAST_ADMIN);
-  await env.DB.prepare('UPDATE members SET role = ? WHERE board_id = ? AND user_id = ?').bind(role, boardId, body.user).run();
-  const u = await getUser(env, body.user);
-  if (u) await boardStub(env, boardId).setMember(memberRec(u, role), userId);
+  if (cur !== role) {
+    const r = await env.DB.prepare(`UPDATE members SET role = ? WHERE board_id = ? AND user_id = ? AND ${ANOTHER_ADMIN}`)
+      .bind(role, boardId, target, boardId)
+      .run();
+    if (!r.meta.changes) {
+      if (await roleIn(env, boardId, target)) throw new Refusal(409, LAST_ADMIN);
+      throw new Refusal(404, "They're not in this board any more.");
+    }
+  }
+  // Also when the directory has it already: an earlier try may not have reached the board.
+  const u = await getUser(env, target);
+  if (u) await tellBoard(() => boardStub(env, boardId).setMember(memberRec(u, role), userId));
 }
 
 /** Remove someone from a board (an admin), or leave it (anyone). */
@@ -127,12 +151,17 @@ export async function removeMember(env: Env, userId: string, body: { board?: unk
   const target = body.user ?? userId;
   if (!isId(target)) throw new Refusal(400, 'Pick someone.');
   const boardId = target === userId ? body.board : await mustAdmin(env, body.board, userId);
+  if (!isId(boardId)) return;
   const cur = await roleIn(env, boardId, target);
-  if (!cur) return;
-  if (cur === 'admin' && (await admins(env, boardId as string)) <= 1)
-    throw new Refusal(409, target === userId ? 'You\'re the only admin. Make someone else an admin, or delete the board.' : LAST_ADMIN);
-  await env.DB.prepare('DELETE FROM members WHERE board_id = ? AND user_id = ?').bind(boardId, target).run();
-  await boardStub(env, boardId as string).removeMember(target, userId);
+  if (cur) {
+    const r = await env.DB.prepare(`DELETE FROM members WHERE board_id = ? AND user_id = ? AND ${ANOTHER_ADMIN}`)
+      .bind(boardId, target, boardId)
+      .run();
+    if (!r.meta.changes && (await roleIn(env, boardId, target)))
+      throw new Refusal(409, target === userId ? "You're the only admin. Make someone else an admin, or delete the board." : LAST_ADMIN);
+  } else if (!(await env.DB.prepare('SELECT 1 FROM boards WHERE id = ?').bind(boardId).first())) return;
+  // Also when the directory has it already: an earlier try may not have reached the board.
+  await tellBoard(() => boardStub(env, boardId).removeMember(target, userId));
 }
 
 /** Someone changed their name or colour: every board they're in shows it. */
@@ -156,8 +185,12 @@ export async function leaveAll(env: Env, userId: string) {
   if (stuck)
     throw new Refusal(409, `You're the only admin of ${stuck.name}. Make someone else an admin, or delete the board, first.`);
   for (const r of rows.results) {
-    await env.DB.prepare('DELETE FROM members WHERE board_id = ? AND user_id = ?').bind(r.board_id, userId).run();
-    await boardStub(env, r.board_id).removeMember(userId, userId);
+    const res = await env.DB.prepare(`DELETE FROM members WHERE board_id = ? AND user_id = ? AND ${ANOTHER_ADMIN}`)
+      .bind(r.board_id, userId, r.board_id)
+      .run();
+    if (!res.meta.changes)
+      throw new Refusal(409, `You're the only admin of ${r.name}. Make someone else an admin, or delete the board, first.`);
+    await tellBoard(() => boardStub(env, r.board_id).removeMember(userId, userId));
   }
 }
 
@@ -246,12 +279,12 @@ export async function acceptInvite(env: Env, userId: string, body: { token?: unk
     throw new Refusal(403, `That invite is for ${row.email}. Sign in with that address to join.`);
   const already = await roleIn(env, row.board_id, userId);
   const now = Date.now();
-  if (!already) {
+  if (!already)
     await env.DB.prepare('INSERT INTO members (board_id, user_id, role, added_at) VALUES (?, ?, ?, ?)')
       .bind(row.board_id, userId, row.role, now)
       .run();
-    await boardStub(env, row.board_id).setMember(memberRec(user, row.role), userId);
-  }
+  // Also when they're in already: an earlier try may not have reached the board.
+  await tellBoard(() => boardStub(env, row!.board_id).setMember(memberRec(user, already ?? row!.role), userId));
   await env.DB.prepare('DELETE FROM invites WHERE id = ?').bind(row.id).run();
   const board = await env.DB.prepare('SELECT id, name, hue FROM boards WHERE id = ?').bind(row.board_id).first<{ id: string; name: string; hue: string }>();
   return { board: board ? { ...board, role: already ?? row.role } : null };

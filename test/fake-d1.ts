@@ -1,5 +1,5 @@
 // A D1 database on node:sqlite with the Worker's migrations applied, for tests of the parts of
-// the Worker that only need the directory (link.ts).
+// the Worker that only need the directory (link.ts, boards.ts, auth.ts).
 
 import { readdirSync, readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
@@ -24,8 +24,8 @@ export function fakeD1() {
       };
     },
     async run() {
-      db.prepare(query).run(...(args as never[]));
-      return {};
+      const r = db.prepare(query).run(...(args as never[]));
+      return { meta: { changes: Number(r.changes) } };
     },
   });
   return { db, d1: { prepare: (q: string) => statement(q) } };

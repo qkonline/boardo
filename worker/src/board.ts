@@ -306,8 +306,13 @@ export class Board extends DurableObject<Env> {
     };
     for (const c of parsed.bad) res.rejected.push(asNow(c.kind, c.key));
 
+    // Cards made in this same put are there for the comments on them, whatever the order.
+    const incoming = new Set(parsed.list.filter((c) => c.kind === 'card' && c.data).map((c) => c.key));
+
     this.ctx.storage.transactionSync(() => {
       let count: number | null = null;
+      const cards = new Set<string>();
+      const goneColumns = new Set<string>();
       for (const c of parsed.list) {
         const cur = this.current(c.kind, c.key);
         if ((cur?.rev ?? 0) !== c.base) {
@@ -315,7 +320,12 @@ export class Board extends DurableObject<Env> {
           continue;
         }
         const prev = cur?.data ?? null;
-        const data = this.allowed(c, prev, who, now);
+        let data = this.allowed(c, prev, who, now);
+        // A new comment needs its card (it may have been deleted for good meanwhile).
+        if (c.kind === 'comment' && !prev && data) {
+          const cardId = (data as CommentRec).cardId;
+          if (!this.get('card', cardId) && !incoming.has(cardId)) data = undefined;
+        }
         if (data === undefined) {
           res.rejected.push(asNow(c.kind, c.key));
           continue;
@@ -329,6 +339,8 @@ export class Board extends DurableObject<Env> {
         }
         const logs = this.logsFor(c.kind, prev, data, who.userId, now);
         const rec = this.write(c.kind, c.key, data);
+        if (c.kind === 'card') cards.add(c.key);
+        if (c.kind === 'column' && prev && !data) goneColumns.add(c.key);
         const adjusted = JSON.stringify(data) !== JSON.stringify(c.data);
         res.ok.push(adjusted ? { kind: c.kind, key: c.key, rev: rec.rev, data } : { kind: c.kind, key: c.key, rev: rec.rev });
         res.changed.push(rec);
@@ -345,8 +357,37 @@ export class Board extends DurableObject<Env> {
           }
         }
       }
+      for (const r of this.rehome(cards, goneColumns, who.userId, now)) {
+        res.changed.push(r);
+        res.extra.push(r);
+      }
     });
     return res;
+  }
+
+  /**
+   * Cards whose column isn't there (added to it on a device that was offline while someone
+   * removed it, or left in it when it was removed) go to the end of the first column, so none
+   * goes missing. Call inside a transaction.
+   */
+  private rehome(written: Set<string>, goneColumns: Set<string>, userId: string, now: number): Rec[] {
+    if (!written.size && !goneColumns.size) return [];
+    const columns = this.all('column').sort((a, b) => a.order - b.order);
+    if (!columns.length) return [];
+    const live = new Set(columns.map((c) => c.id));
+    const all = this.all('card');
+    const lost = all.filter((c) => !live.has(c.columnId) && (written.has(c.id) || goneColumns.has(c.columnId)));
+    if (!lost.length) return [];
+    const to = columns[0].id;
+    let order = Math.max(0, ...all.filter((c) => c.columnId === to).map((c) => c.order));
+    const out: Rec[] = [];
+    for (const card of lost) {
+      const next = { ...card, columnId: to, order: (order += 1) };
+      const logs = this.logsFor('card', card, next, userId, now);
+      out.push(this.write('card', card.id, next));
+      for (const l of logs) out.push(this.log(l.cardId, l.userId, l.entry, now));
+    }
+    return out;
   }
 
   /**
@@ -625,12 +666,14 @@ export class Board extends DurableObject<Env> {
     if (!board || !id || !this.get('member', userId)) return [];
     const status = this.get('field', 'status') ?? undefined;
     const done = optionWithRole(status, 'completed');
+    const cards = this.all('card').filter(
+      (c) => !c.archived && c.assignees.includes(userId) && (typeof c.values.start === 'string' || typeof c.values.end === 'string'),
+    );
+    const doneAt = done ? this.completedAt(new Set(cards.filter((c) => c.values.status === done.id).map((c) => c.id)), done.label) : new Map();
     const out: ElasticCard[] = [];
-    for (const c of this.all('card')) {
-      if (c.archived || !c.assignees.includes(userId)) continue;
+    for (const c of cards) {
       const start = typeof c.values.start === 'string' ? c.values.start : null;
       const end = typeof c.values.end === 'string' ? c.values.end : null;
-      if (!start && !end) continue;
       const opt = status?.options?.find((o) => o.id === c.values.status);
       const completed = !!done && c.values.status === done.id;
       out.push({
@@ -643,22 +686,27 @@ export class Board extends DurableObject<Env> {
         status: { label: opt?.label ?? null, role: opt?.role ?? null },
         myDone: c.done[userId] ?? null,
         completed,
-        completedAt: completed ? this.completedAt(c.id, done!.label) : null,
+        completedAt: completed ? (doneAt.get(c.id) ?? null) : null,
         url: `${appUrl.replace(/\/?$/, '/')}?card=${id}/${c.id}`,
       });
     }
     return out;
   }
 
-  /** When a card last became Completed, from its log. */
-  private completedAt(cardId: string, label: string): number | null {
+  /** When each of these cards last became Completed, from the log, read once, newest first. */
+  private completedAt(ids: Set<string>, label: string): Map<string, number> {
+    const out = new Map<string, number>();
+    if (!ids.size) return out;
     for (const r of this.sql.exec<{ data: string }>(
       "SELECT data FROM records WHERE kind = 'log' AND data IS NOT NULL ORDER BY rev DESC",
     )) {
       const l = JSON.parse(r.data) as LogRec;
-      if (l.cardId === cardId && l.action === 'status' && l.detail.to === label) return l.at;
+      if (l.cardId && ids.has(l.cardId) && !out.has(l.cardId) && l.action === 'status' && l.detail.to === label) {
+        out.set(l.cardId, l.at);
+        if (out.size === ids.size) break;
+      }
     }
-    return null;
+    return out;
   }
 
   /**
@@ -718,7 +766,8 @@ export class Board extends DurableObject<Env> {
       }
     } else if (op.type === 'stop') {
       const s = this.get('session', op.sessionId);
-      if (s && s.end == null && s.userId === userId) {
+      // The session must be this person's and this card's: a stop names both.
+      if (s && s.end == null && s.userId === userId && s.cardId === card.id) {
         const end = Math.max(s.start, op.at);
         out.push(this.write('session', s.id, { ...s, end }));
         out.push(this.log(card.id, userId, { action: 'worked', detail: { ms: end - s.start, from: 'elastic' } }, op.at));

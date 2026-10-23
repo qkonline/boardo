@@ -141,7 +141,7 @@ export async function upload(req: Request, env: Env): Promise<unknown> {
     const id = newId();
     await env.FILES.put(`${board}/${id}`, stream.pipeThrough(new FixedLengthStream(size)), { httpMetadata: { contentType: mime } });
     const file = { id, cardId: BOARD_FILE, name: `background.${k}`, mime, size, by: userId, at: Date.now(), thumb: false };
-    return { file: await stub.addBackground(file) };
+    return { file: await thenRecord(env, `${board}/${id}`, () => stub.addBackground(file)) };
   }
 
   const thumbOf = url.searchParams.get('thumb');
@@ -174,12 +174,27 @@ export async function upload(req: Request, env: Env): Promise<unknown> {
   await env.FILES.put(`${board}/${id}`, stream.pipeThrough(new FixedLengthStream(size)), {
     httpMetadata: { contentType: claimed.mime },
   });
-  const file = await stub.addFile(userId, { id, cardId: card, name, mime: claimed.mime, size, by: userId, at: Date.now(), thumb: false });
+  const file = await thenRecord(env, `${board}/${id}`, () =>
+    stub.addFile(userId, { id, cardId: card, name, mime: claimed.mime, size, by: userId, at: Date.now(), thumb: false }),
+  );
   if (!file) {
     await env.FILES.delete(`${board}/${id}`);
     throw new Refusal(404, 'That card was archived or removed.');
   }
   return { file };
+}
+
+/**
+ * Bytes just stored whose record comes next: if making the record fails, the bytes go too,
+ * so nothing is left in R2 that no record points at.
+ */
+async function thenRecord<T>(env: Env, key: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    await env.FILES.delete(key).catch(() => {});
+    throw e;
+  }
 }
 
 // ---------- signed links ----------
@@ -276,8 +291,11 @@ export async function putPhoto(req: Request, env: Env): Promise<{ photo: string 
   await env.FILES.put(`users/${userId}/${id}`, stream.pipeThrough(new FixedLengthStream(size)), {
     httpMetadata: { contentType: TYPES[k].mime },
   });
-  const old = await env.DB.prepare('SELECT photo FROM users WHERE id = ?').bind(userId).first<{ photo: string | null }>();
-  await env.DB.prepare('UPDATE users SET photo = ? WHERE id = ?').bind(id, userId).run();
+  const old = await thenRecord(env, `users/${userId}/${id}`, async () => {
+    const old = await env.DB.prepare('SELECT photo FROM users WHERE id = ?').bind(userId).first<{ photo: string | null }>();
+    await env.DB.prepare('UPDATE users SET photo = ? WHERE id = ?').bind(id, userId).run();
+    return old;
+  });
   if (old?.photo) await env.FILES.delete(`users/${userId}/${old.photo}`);
   return { photo: id };
 }

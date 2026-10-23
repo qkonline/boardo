@@ -149,6 +149,7 @@ export async function dropBoard(board: string): Promise<void> {
   tx.objectStore('synced').delete(range);
   tx.objectStore('outbox').delete(range);
   tx.objectStore('meta').delete(`rev:${board}`);
+  tx.objectStore('meta').delete(`refused:${board}`);
   const up = tx.objectStore('uploads');
   up.getAll().onsuccess = (e) => {
     for (const u of (e.target as IDBRequest<{ id: string; board: string }[]>).result) if (u.board === board) up.delete(u.id);
@@ -166,6 +167,26 @@ export async function putMeta(key: string, v: unknown): Promise<void> {
 
 export async function deleteMeta(key: string): Promise<void> {
   await done((await store('meta', 'readwrite')).delete(key));
+}
+
+/** A change the board refused, as it was here when it was undone. */
+export interface Refused {
+  id: string;
+  data: unknown;
+  at: number;
+}
+
+const REFUSED_KEPT = 50;
+
+/** Keep copies of changes the board refused (the newest few per board), so none is lost outright. */
+export async function keepRefused(board: string, recs: { id: string; data: unknown }[]): Promise<void> {
+  const at = Date.now();
+  const kept = [...(await getRefused(board)), ...recs.map((r) => ({ ...r, at }))];
+  await putMeta(`refused:${board}`, kept.slice(-REFUSED_KEPT));
+}
+
+export async function getRefused(board: string): Promise<Refused[]> {
+  return (await getMeta<Refused[]>(`refused:${board}`)) ?? [];
 }
 
 /** Signing out: nothing about any board stays on the device. */

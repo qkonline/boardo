@@ -63,14 +63,29 @@ export function sixDigits(): string {
  * sending codes, per address and per network.
  */
 export async function withinLimit(env: Env, key: string, max: number, now = Date.now()): Promise<boolean> {
-  const row = await env.DB.prepare('SELECT count, start FROM limits WHERE key = ?').bind(key).first<{ count: number; start: number }>();
-  if (!row || now - row.start > 3600_000) {
-    await env.DB.prepare('INSERT OR REPLACE INTO limits (key, count, start) VALUES (?, 1, ?)').bind(key, now).run();
-    return true;
-  }
-  if (row.count >= max) return false;
-  await env.DB.prepare('UPDATE limits SET count = count + 1 WHERE key = ?').bind(key).run();
-  return true;
+  // One statement, so many requests at once can't all read the count before any adds to it.
+  const row = await env.DB.prepare(
+    `INSERT INTO limits (key, count, start) VALUES (?1, 1, ?2)
+     ON CONFLICT (key) DO UPDATE SET
+       count = CASE WHEN ?2 - start > 3600000 THEN 1 ELSE count + 1 END,
+       start = CASE WHEN ?2 - start > 3600000 THEN ?2 ELSE start END
+     RETURNING count`,
+  )
+    .bind(key, now)
+    .first<{ count: number }>();
+  return (row?.count ?? 0) <= max;
+}
+
+/**
+ * Spend a try on a code and, when it's the right one, use it up. Each step is one statement, so
+ * asking many times at once can't get past the tries or use one code twice.
+ */
+async function takeCode(env: Env, key: string, hash: string): Promise<boolean> {
+  const row = await env.DB.prepare('UPDATE email_codes SET tries = tries + 1 WHERE email = ? AND tries < ? AND expires >= ? RETURNING hash')
+    .bind(key, CODE_TRIES, Date.now())
+    .first<{ hash: string }>();
+  if (!row || row.hash !== hash) return false;
+  return !!(await env.DB.prepare('DELETE FROM email_codes WHERE email = ? AND hash = ? RETURNING 1').bind(key, hash).first());
 }
 
 // ---------- sessions ----------
@@ -173,15 +188,7 @@ export async function verifyEmailChange(env: Env, userId: string, body: { email?
   const wrong = new Refusal(400, "That code isn't right, or it has expired.");
   if (!email || code.length !== 6) throw wrong;
   const key = changeKey(email);
-  const row = await env.DB.prepare('SELECT hash, expires, tries FROM email_codes WHERE email = ?')
-    .bind(key)
-    .first<{ hash: string; expires: number; tries: number }>();
-  if (!row || row.expires < Date.now() || row.tries >= CODE_TRIES) throw wrong;
-  if ((await sha256(`${key}|${userId}|${code}`)) !== row.hash) {
-    await env.DB.prepare('UPDATE email_codes SET tries = tries + 1 WHERE email = ?').bind(key).run();
-    throw wrong;
-  }
-  await env.DB.prepare('DELETE FROM email_codes WHERE email = ?').bind(key).run();
+  if (!(await takeCode(env, key, await sha256(`${key}|${userId}|${code}`)))) throw wrong;
   try {
     await env.DB.prepare('UPDATE users SET email = ? WHERE id = ?').bind(email, userId).run();
   } catch {
@@ -201,15 +208,7 @@ export async function verifyCode(
   const code = typeof body.code === 'string' ? body.code.replace(/\D/g, '') : '';
   const wrong = new Refusal(400, "That code isn't right, or it has expired.");
   if (!email || code.length !== 6) throw wrong;
-  const row = await env.DB.prepare('SELECT hash, expires, tries FROM email_codes WHERE email = ?')
-    .bind(email)
-    .first<{ hash: string; expires: number; tries: number }>();
-  if (!row || row.expires < Date.now() || row.tries >= CODE_TRIES) throw wrong;
-  if ((await sha256(`${email}|${code}`)) !== row.hash) {
-    await env.DB.prepare('UPDATE email_codes SET tries = tries + 1 WHERE email = ?').bind(email).run();
-    throw wrong;
-  }
-  await env.DB.prepare('DELETE FROM email_codes WHERE email = ?').bind(email).run();
+  if (!(await takeCode(env, email, await sha256(`${email}|${code}`)))) throw wrong;
   let user = await env.DB.prepare('SELECT id, email, name, hue, photo FROM users WHERE email = ?').bind(email).first<User>();
   let fresh = false;
   if (!user) {

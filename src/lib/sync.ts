@@ -30,6 +30,8 @@ export interface SyncHooks {
   signedOut(): void;
   /** This person was removed from the board, or it was deleted. Its data is already gone here. */
   removed(board: string): void;
+  /** The board refused `n` changes made here: they were undone, and a copy kept (db.getRefused). */
+  refused(board: string, n: number): void;
 }
 
 interface Remote {
@@ -240,7 +242,7 @@ export class Sync {
       this.queue(async () => {
         c.rev = (await db.getMeta<number>(`rev:${c.board}`)) ?? 0;
         this.send(c, { t: 'hello', since: c.rev });
-      });
+      }, c);
       c.ping = setInterval(() => this.visible && c.ws?.readyState === 1 && c.ws.send('ping'), PING_MS);
     };
     ws.onmessage = (e) => {
@@ -251,7 +253,7 @@ export class Sync {
       } catch {
         return;
       }
-      this.queue(() => this.onMessage(c, m));
+      this.queue(() => this.onMessage(c, m), c);
     };
     ws.onclose = (e) => {
       if (stuck) clearTimeout(stuck);
@@ -312,9 +314,19 @@ export class Sync {
     return true;
   }
 
-  /** Messages are handled one at a time, in order (each one reads and writes IndexedDB). */
-  private queue(fn: () => Promise<void>): void {
-    this.chain = this.chain.then(fn).catch((e) => console.error('Sync', e));
+  /**
+   * Messages are handled one at a time, in order (each one reads and writes IndexedDB). If one
+   * fails part way (saving here, most likely), the board's connection starts again: it catches
+   * up from the last point saved, and what's waiting to go is sent again.
+   */
+  private queue(fn: () => Promise<void>, c?: Conn): void {
+    this.chain = this.chain.then(fn).catch((e) => {
+      console.error('Sync', e);
+      if (!c?.ws || this.conns.get(c.board) !== c) return;
+      this.close(c);
+      this.setStatus(c.board, 'offline');
+      this.later(c);
+    });
   }
 
   /** Wait for everything queued so far (tests). */
@@ -368,20 +380,28 @@ export class Sync {
       }
       for (const r of (m.conflicts ?? []) as Remote[])
         if (await this.take(c.board, r, true, new Set())) changed.push(rid(c.board, r.kind, r.key));
-      // Refused (not allowed, or damaged): the board's version stands.
+      // Refused (not allowed, or damaged): the board's version stands. What was here is kept
+      // aside first, and the person is told, so a change never goes without a word.
+      const refused: { id: string; data: unknown }[] = [];
       for (const r of (m.rejected ?? []) as Remote[]) {
         const id = rid(c.board, r.kind, r.key);
+        const mine = await db.getRecord(id);
+        if (!same(mine, r.data)) refused.push({ id, data: mine });
         await db.putSynced(id, r.data, { rev: r.rev, data: r.data }, false);
         changed.push(id);
       }
       if (m.error)
         for (const id of sent.keys()) {
           const agreed = (await db.getSynced(id)) ?? { rev: 0, data: null };
+          const mine = await db.getRecord(id);
+          if (!same(mine, agreed.data)) refused.push({ id, data: mine });
           await db.putSynced(id, agreed.data, agreed, false);
           changed.push(id);
         }
+      if (refused.length) await db.keepRefused(c.board, refused);
       await db.putMeta(`rev:${c.board}`, c.rev);
       this.announce(c.board, changed);
+      if (refused.length) this.hooks.refused(c.board, refused.length);
       return this.sendOutbox(c);
     }
   }
@@ -418,7 +438,7 @@ export class Sync {
   kick(board: string): void {
     if (!this.leader) return this.tell({ t: 'kick', board });
     const c = this.conns.get(board);
-    if (c?.ready) this.queue(() => this.sendOutbox(c));
+    if (c?.ready) this.queue(() => this.sendOutbox(c), c);
   }
 
   private async sendOutbox(c: Conn): Promise<void> {

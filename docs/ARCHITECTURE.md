@@ -105,6 +105,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - members can't write `board`, `field` or `member`;
   - nobody writes `log`, `session` or `file` directly;
   - a comment can only be changed by its author.
+- **Relations.** A new comment needs its card, either on the board or in the same put. A card whose column isn't there (added offline to a column someone removed, or left in one when it was removed) goes to the end of the first column, logged as moved (R9.5b).
 - **Logs.** The DO writes log entries itself. It diffs each accepted change, so entries can't be forged (R6.4). Actions:
   - created, archived, restored, deleted (for good);
   - moved (column), renamed, description changed;
@@ -134,7 +135,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
 - **One leader tab** (`navigator.locks` lock `boardo-sync`) holds one WebSocket per board: `GET /sync?board=<id>`, with the token as the second subprotocol. Other tabs follow over a BroadcastChannel. The tab in front takes the lead (it steals the lock on opening and on coming to the front), because a browser can put a background tab to sleep while it still holds the lock; the tab it was taken from closes its sockets and follows. On a network that lets requests through but not WebSockets (two that never open, or one held up for 8 s), boards sync over `POST /sync/http {board, m}` instead: the same `hello` and `put` messages, answered by `Board.httpSync` with the replies a socket would get, and a `hello` from the last point reached every 4 s while the app is in front (`src/lib/pollsocket.ts`).
 - **Protocol:**
   - `hello{since}` → `changes{recs, more}` chunks, ending with `done`;
-  - `put{id, recs:[{kind, key, base, data}]}` → `ack{id, ok, conflicts, rejected}`. An `ok` entry carries `data` when the board stored something other than what was sent (the completion rule moved the status, or someone else's part was kept as it was); `rejected` holds changes the sender wasn't allowed to make, with the board's version, which replaces the local copy;
+  - `put{id, recs:[{kind, key, base, data}]}` → `ack{id, ok, conflicts, rejected}`. An `ok` entry carries `data` when the board stored something other than what was sent (the completion rule moved the status, or someone else's part was kept as it was); `rejected` holds changes the sender wasn't allowed to make, or that didn't pass the checks, with the board's version, which replaces the local copy. Each record is checked on its own, so one bad record never sinks the rest of a put. The device keeps what it had aside (the newest 50 per board, in `meta` `refused:<board>`) and says so in a toast (R9.5a);
   - the log entries a change produced go back to the sender as a `changes` message too;
   - accepted changes are broadcast to the board's other sockets.
 - **Conflicts.** A put whose `base` rev is stale comes back in `conflicts`. The device then merges field by field with `fields()` against its `synced` base and sends again, so the latest change wins per field (R9.5). Comments, files, sessions and logs are separate records, so they never conflict.
@@ -167,7 +168,7 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 
 **Boards and members**
 - `/boards`, `/boards/create`, `/boards/delete` (admin)
-- `/members/role`, `/members/remove` (admin; at least one admin always remains)
+- `/members/role`, `/members/remove` (admin; at least one admin always remains, checked in the same D1 statement as the change, so two admins taking each other off at once can't leave none). D1 changes first; the board DO is then told, with two more tries if the call fails. Asking again passes the change on even when D1 already has it, so a failed call is finished by trying again.
 - `/invites/create {board, email, role}`: emails `https://kaiserkhan.com/boardo/?invite=<token>` through Resend. (A query string rather than a path, so the static host needs no rewrites.)
 - `/invites {board}` (admin): the invites waiting in a board.
 - `/invites/accept {token}` or `{id}` (from the invites on Home): the signed-in email must match the invite.
@@ -384,7 +385,10 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
   - offline edits merge;
   - the non-member never receives the board;
   - removal wipes the local copy.
-- **Auth:** code tries, the resend wait, silence on unknown emails, and rate limits.
+- **Auth:** code tries, the resend wait, silence on unknown emails, and rate limits. The limits and a code's tries hold with many requests at once, and a code signs in only once (`auth.test.ts`; each is one D1 statement).
+- **Members:** the last admin stays when two admins take each other off at once, and a change the board DO didn't get is finished by asking again (`boards.test.ts`).
+- **Refused changes:** one bad record is refused alone, the device keeps a copy and is told, a comment on a card that's gone is refused, and a card added offline to a removed column lands in the first one (`sync.test.ts`, `checks.test.ts`).
+- **Elastic:** a stop counts only for the session's own card (`elastic.test.ts`).
 
 **Elastic unit tests**
 - `cardsFor`:
