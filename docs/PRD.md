@@ -100,6 +100,7 @@ Every card has these fields.
 
 - **R4.1** Title, Description, Start date, End date, Status, Assignees and Time spent are on every card in every board.
 - **R4.2** An admin can change a date field from date to date and time, and back.
+- **R4.2a** Setting a due date on a card with no start date fills the start with the day before (at the due time, or 9:00, when the start has a time). A start already set is left alone. Like any change, it waits for Save.
 - **R4.3** An admin can rename Status values and add new ones. The values that mean "in progress" and "completed" can be renamed but not removed, because the Elastic connection relies on them.
 - **R4.4** A card can be assigned to more than one person, and anyone in the board can take someone off it (each person has a remove key, a draft until Save). Each assignee sees it in their My cards and, when its dates apply, in their Elastic day, and each can run their own timer on it.
 - **R4.5** Time spent can't be edited by hand. It's the sum of all timer time logged against the card, including a timer that's running right now. Beside it, Elastic's mark opens a short explanation of what Elastic is and how its timers reach the card, with a link to open it.
