@@ -16,6 +16,8 @@
   import { freshness } from './lib/freshness.svelte';
   import PullIndicator from './components/PullIndicator.svelte';
   import SaveError from './components/SaveError.svelte';
+  import Moving from './components/Moving.svelte';
+  import { MOVED_TO } from './lib/move';
   import Icon from './components/Icon.svelte';
 
   // Another app asking to connect (`?connect&client_id=...`): kept until answered.
@@ -38,7 +40,10 @@
   const s = $derived(app.screen);
 </script>
 
-{#if !app.ready}
+{#if MOVED_TO}
+  <!-- The last build at the old address: it hands this copy over to the new one. -->
+  <Moving />
+{:else if !app.ready}
   <div class="loading" aria-busy="true"></div>
 {:else if !app.user}
   <SignIn />

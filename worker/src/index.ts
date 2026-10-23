@@ -29,6 +29,8 @@ import {
 import {
   deleteUser,
   getUser,
+  handoffFinish,
+  handoffStart,
   Refusal,
   sendCode,
   sendEmailChange,
@@ -49,7 +51,14 @@ import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken 
 export { Board, ElasticLink };
 
 /** Routes anyone can call without signing in: limited per network, on top of auth.ts's limits. */
-const OPEN = new Set(['/auth/code/send', '/auth/code/verify', '/auth/passkey/login/start', '/auth/passkey/login/finish', '/oauth/token']);
+const OPEN = new Set([
+  '/auth/code/send',
+  '/auth/code/verify',
+  '/auth/passkey/login/start',
+  '/auth/passkey/login/finish',
+  '/auth/handoff',
+  '/oauth/token',
+]);
 
 const MAX_BODY = 64 * 1024;
 /** A put sent over /sync/http carries a batch of records (the app keeps a batch under 400 kB). */
@@ -75,11 +84,16 @@ export default {
       });
 
     if (req.method === 'OPTIONS') return reply(allowed ? 204 : 403);
-    const { pathname } = new URL(req.url);
+    // On the app's own address (boardo.kaiserkhan.com) the API is under /api, and everything
+    // else is the app's files (served before this runs). On workers.dev, which app versions from
+    // before the move call, it's at the root.
+    let { pathname } = new URL(req.url);
+    const prefix = pathname.startsWith('/api/') ? '/api' : '';
+    if (prefix) pathname = pathname.slice(prefix.length);
     // Signed file links are opened by <img> tags and downloads, which send no Origin: the
     // signature is the check.
-    if (req.method === 'GET' && pathname.startsWith('/files/')) return serveFile(req, env);
-    if (req.method === 'GET' && pathname.startsWith('/photos/')) return servePhoto(req, env);
+    if (req.method === 'GET' && pathname.startsWith('/files/')) return serveFile(req, env, pathname);
+    if (req.method === 'GET' && pathname.startsWith('/photos/')) return servePhoto(req, env, pathname);
     if (!allowed) return reply(403);
 
     if (pathname === '/sync') return connect(req, env);
@@ -145,6 +159,10 @@ export default {
           return reply(204);
         case '/auth/code/verify':
           return reply(200, await verifyCode(env, body));
+        case '/auth/handoff':
+          return reply(200, await handoffFinish(env, body));
+        case '/account/handoff':
+          return reply(200, await handoffStart(env, await mustUser()));
         case '/auth/passkey/login/start':
           return reply(200, await loginStart(env, origin));
         case '/auth/passkey/login/finish':
@@ -234,7 +252,7 @@ export default {
           return reply(204);
 
         case '/files/links':
-          return reply(200, await links(env, await mustUser(), body, new URL(req.url).origin));
+          return reply(200, await links(env, await mustUser(), body, new URL(req.url).origin + prefix));
         case '/files/delete':
           await removeFile(env, await mustUser(), body);
           return reply(204);

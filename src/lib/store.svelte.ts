@@ -22,6 +22,7 @@ import { BoardState } from './board.svelte';
 import * as db from './db';
 import { splitRid } from './db';
 import { Files } from './files.svelte';
+import { arrival, type Carried, MOVED_TO, moveUrl } from './move';
 import { addPasskey, passkeySignIn, passkeysAvailable } from './passkeys';
 import { Sync } from './sync';
 
@@ -104,6 +105,8 @@ export class App {
   private unsaved: { board: string; kind: Kind; key: string; data: unknown }[] = [];
   private saving = false;
   private saveRetry: ReturnType<typeof setTimeout> | null = null;
+  /** The last build at the old address, handing this copy over (moveHome()). */
+  moving = $state<'saving' | 'offline' | 'going' | null>(null);
   /** My cards: group by deadline or by project. */
   myCardsBy = $state<'deadline' | 'project'>('deadline');
 
@@ -181,8 +184,68 @@ export class App {
         }
       });
     }
+    // Arrived from the app's old address: this device's settings, and its sign-in (move.ts).
+    const came = arrival();
+    if (came) await this.arrive(came);
     this.ready = true;
     void db.requestPersistence();
+  }
+
+  /** Arrived from the old address with its device settings and, if signed in there, a sign-in code. */
+  private async arrive(came: NonNullable<ReturnType<typeof arrival>>): Promise<void> {
+    if (came.settings.theme) this.setTheme(came.settings.theme);
+    if (came.settings.passkeyAsk) writeLocal(PASSKEY_ASK_KEY, came.settings.passkeyAsk);
+    if (!came.code || this.token) return;
+    try {
+      await this.signedIn(await call<{ token: string; user: User }>('/auth/handoff', { code: came.code }));
+    } catch (e) {
+      this.say((e as Error).message);
+    }
+  }
+
+  /** This device's own settings, to carry to a new address. */
+  private carried(): Carried {
+    return { theme: this.theme, ...(readLocal(PASSKEY_ASK_KEY) === 'no' ? { passkeyAsk: 'no' as const } : {}) };
+  }
+
+  /**
+   * The last build left at the old address (`MOVED_TO`): once everything changed here has reached
+   * the boards (saved on this device, uploaded, synced), go to the new address, taking this
+   * sign-in (a one-time code) and this device's settings. Offline it waits, and says so.
+   */
+  async moveHome(): Promise<void> {
+    if (!MOVED_TO || this.moving === 'going') return;
+    this.moving = 'saving';
+    // The sign-in has to be loaded first, or this would leave without it.
+    while (!this.ready) await new Promise((r) => setTimeout(r, 100));
+    const since = Date.now();
+    for (;;) {
+      const signedIn = !!this.token;
+      this.retrySaves();
+      void this.files.pump();
+      const saved = !this.hasUnsaved && this.files.queue.length === 0;
+      const live = this.boards.every((b) => this.data[b.id]?.status === 'live');
+      // Records a board won't take stay behind rather than keep everyone waiting.
+      const synced = (await this.sync.drained()) || (live && Date.now() - since > 30_000);
+      if (!signedIn || (saved && synced)) {
+        try {
+          const code = signedIn ? (await call<{ code: string }>('/account/handoff')).code : null;
+          this.moving = 'going';
+          location.replace(moveUrl(code, this.carried()));
+          return;
+        } catch (e) {
+          // Signed out meanwhile: go anyway, to sign in there.
+          if (e instanceof ApiError && e.status === 401) {
+            this.moving = 'going';
+            location.replace(moveUrl(null, this.carried()));
+            return;
+          }
+        }
+      }
+      const offline = !this.online || this.boards.some((b) => this.data[b.id]?.status === 'offline');
+      this.moving = offline ? 'offline' : 'saving';
+      await new Promise((r) => setTimeout(r, 1000));
+    }
   }
 
   private async loadLocal(): Promise<void> {

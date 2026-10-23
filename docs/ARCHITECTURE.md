@@ -74,6 +74,7 @@ Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](
 | `passkeys` | id PK (the credential id), user_id, public_key, counter, transports, label (the device), created, used (`0002_passkeys.sql`) |
 | `challenges` | id, challenge, user_id, purpose (`add` or `login`), expires: each answered once, within 5 minutes |
 | `limits` | key PK, count, start (an hour-long window; rate limiting per email and per IP) |
+| `handoffs` | code_hash PK, user_id, expires (a sign-in carried to the app's new address: one use, two minutes) |
 
 Sessions, codes, invite tokens, OAuth codes and app tokens are only ever stored as SHA-256 hashes.
 
@@ -146,6 +147,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
 - **Another account.** A device notes whose data it holds (`owner`). Signing out clears everything; if that was cut short and a different account signs in, everything is cleared first, so nothing of the last person's reaches the new one or is sent as theirs (R9.2a).
 - **Failed saves.** When IndexedDB refuses a write (out of storage, say), the change stays on screen and waits in memory, in order, behind any already waiting. A banner says so and offers the waiting changes as a JSON backup. Saving is tried again every 5 s, on coming back online and on coming to the front; once it works the changes go out as usual. Quiet updates and pull to refresh never reload while changes are waiting (R9.3a).
 - **Refused changes** are listed in Account under Undone changes, from the copies kept in `refused:<board>`, with Copy for their text and Clear the list (R9.5a).
+- **Moving to a new address** (kaiserkhan.com/boardo/ → boardo.kaiserkhan.com, `src/lib/move.ts`, as Elastic did). The last build left at the old address (`VITE_MOVED_TO` set) shows only "Boardo has moved" (`Moving.svelte`). It waits until every change has been saved on the device, uploaded and synced (`Sync.drained()`; a board that stays live but won't take something is left after 30 s), then asks for a one-time code and opens the new address with the code and this device's settings (theme, the passkey offer) in the fragment, which never reaches a server. The new address takes them off the address bar and signs in with the code. Offline it waits and says so; signed out it goes straight there. A Home Screen copy asks first, since its icon keeps the old address.
 - **Offline attachments** wait in `uploads` and are sent once back online. Files already viewed are cached by the service worker.
 - **Scale.** This approach is comfortable up to about 20 boards per person (R11.8). Beyond that, a per-user Durable Object could multiplex boards over one socket.
 
@@ -157,6 +159,8 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - `/auth/code/send {email}`: rate-limited per email and per IP, and silent on unknown emails.
 - The routes that need no sign-in (`/auth/code/send`, `/auth/code/verify`, passkey sign-in, `/oauth/token`) also go through Cloudflare's rate limiter, 60 requests a minute per network (binding `LIMITER`, namespace 1002; Elastic's is 1001).
 - `/auth/code/verify {email, code}` → `{token, user}`: creates the account on first use.
+- `/account/handoff` (signed in) → `{code}`, and `/auth/handoff {code}` → `{token, user, fresh}`: carry a sign-in from the app's old address to its new one. The code is stored only as a hash, works once, and lasts two minutes; `/auth/handoff` is rate-limited like the other open routes.
+- On the app's own address the API is under `/api` (the Worker strips it, and signed file links keep it); on workers.dev, which app versions from before the move call, it's at the root.
 - `/auth/signout`
 - `/me/email/send {email}`, `/me/email/verify {email, code}`: change one's email. A code goes to the new address (refused if another account has it) and only that changes it; every board's member record follows.
 - `/me {name?, hue?}`

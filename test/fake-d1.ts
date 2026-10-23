@@ -28,5 +28,11 @@ export function fakeD1() {
       return { meta: { changes: Number(r.changes) } };
     },
   });
-  return { db, d1: { prepare: (q: string) => statement(q) } };
+  type Statement = ReturnType<typeof statement>;
+  const batch = async (list: Statement[]) => {
+    const out = [];
+    for (const st of list) out.push(await st.run());
+    return out;
+  };
+  return { db, d1: { prepare: (q: string) => statement(q), batch } };
 }

@@ -224,6 +224,36 @@ export async function verifyCode(
   return { token: await newSession(env, user.id), user, fresh };
 }
 
+// ---------- moving to a new address ----------
+
+const HANDOFF_MS = 2 * 60_000;
+
+/**
+ * A one-time code for this sign-in to carry over to the app's new address (another origin, so
+ * it has none of this one's storage). Good for two minutes; it makes a new session there.
+ */
+export async function handoffStart(env: Env, userId: string): Promise<{ code: string }> {
+  const code = randomToken(24);
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM handoffs WHERE expires < ?').bind(now),
+    env.DB.prepare('INSERT INTO handoffs (code_hash, user_id, expires) VALUES (?, ?, ?)').bind(await sha256(code), userId, now + HANDOFF_MS),
+  ]);
+  return { code };
+}
+
+/** Sign in with a code from the old address: once, within two minutes. */
+export async function handoffFinish(env: Env, body: { code?: unknown }): Promise<{ token: string; user: User; fresh: boolean }> {
+  const gone = new Refusal(400, 'That link has expired. Sign in here instead.');
+  if (typeof body.code !== 'string' || body.code.length > 64) throw gone;
+  const row = await env.DB.prepare('DELETE FROM handoffs WHERE code_hash = ? AND expires >= ? RETURNING user_id')
+    .bind(await sha256(body.code), Date.now())
+    .first<{ user_id: string }>();
+  const user = row ? await getUser(env, row.user_id) : null;
+  if (!user) throw gone;
+  return { token: await newSession(env, user.id), user, fresh: false };
+}
+
 /** Change one's name or colour. */
 export async function updateMe(env: Env, userId: string, body: { name?: unknown; hue?: unknown }): Promise<User> {
   const user = await getUser(env, userId);

@@ -231,9 +231,10 @@ export async function links(env: Env, userId: string, body: { board?: unknown; f
 }
 
 /** `GET /files/<board>/<id>[/thumb]?exp=&sig=`: a signed link, opened. */
-export async function serve(req: Request, env: Env): Promise<Response> {
+/** `pathname`: the request's path without the /api prefix it has on the app's own address. */
+export async function serve(req: Request, env: Env, pathname = new URL(req.url).pathname): Promise<Response> {
   const url = new URL(req.url);
-  const [, , board, id, part] = url.pathname.split('/');
+  const [, , board, id, part] = pathname.split('/');
   const thumb = part === 'thumb';
   const exp = Number(url.searchParams.get('exp'));
   const sig = url.searchParams.get('sig') ?? '';
@@ -307,8 +308,8 @@ export async function removePhoto(env: Env, userId: string): Promise<void> {
 }
 
 /** `GET /photos/<user id>/<photo id>`: a profile photo. Its address never changes, so it's cached long. */
-export async function servePhoto(req: Request, env: Env): Promise<Response> {
-  const [, , userId, id] = new URL(req.url).pathname.split('/');
+export async function servePhoto(req: Request, env: Env, pathname = new URL(req.url).pathname): Promise<Response> {
+  const [, , userId, id] = pathname.split('/');
   if (!isId(userId) || !isId(id)) return new Response(null, { status: 404 });
   const obj = await env.FILES.get(`users/${userId}/${id}`);
   if (!obj) return new Response(null, { status: 404 });

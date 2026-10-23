@@ -1,7 +1,7 @@
 // Sign-in codes and their limits (auth.ts), with many requests arriving at once.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeD1 } from '../../test/fake-d1';
-import { sha256, verifyCode, withinLimit } from './auth';
+import { handoffFinish, handoffStart, sessionUser, sha256, verifyCode, withinLimit } from './auth';
 
 let db: ReturnType<typeof fakeD1>['db'];
 let env: any;
@@ -37,5 +37,30 @@ describe('sign-in codes', () => {
     const wrong = Array.from({ length: 10 }, (_, i) => verifyCode(env, { email: 'ann@x.com', code: String(100000 + i) }));
     await Promise.allSettled(wrong);
     await expect(verifyCode(env, { email: 'ann@x.com', code: '123456' })).rejects.toThrow(/isn't right/);
+  });
+});
+
+describe('carrying a sign-in to a new address', () => {
+  beforeEach(() => db.exec(`INSERT INTO users (id, email, name, created) VALUES ('ann', 'ann@x.com', 'Ann', 1)`));
+
+  it('signs in once with the code, as the same person', async () => {
+    const { code } = await handoffStart(env, 'ann');
+    const res = await handoffFinish(env, { code });
+    expect(res.user.id).toBe('ann');
+    expect(res.fresh).toBe(false);
+    expect(await sessionUser(env, res.token)).toBe('ann');
+    await expect(handoffFinish(env, { code })).rejects.toThrow(/expired/);
+  });
+
+  it('refuses a made-up code, or one more than two minutes old', async () => {
+    await expect(handoffFinish(env, { code: 'nope' })).rejects.toThrow(/expired/);
+    const { code } = await handoffStart(env, 'ann');
+    db.prepare('UPDATE handoffs SET expires = ?').run(Date.now() - 1);
+    await expect(handoffFinish(env, { code })).rejects.toThrow(/expired/);
+  });
+
+  it('keeps only the code, never stored as it is', async () => {
+    const { code } = await handoffStart(env, 'ann');
+    expect(db.prepare('SELECT code_hash FROM handoffs').get()).toEqual({ code_hash: await sha256(code) });
   });
 });

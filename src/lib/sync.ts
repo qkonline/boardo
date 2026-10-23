@@ -434,6 +434,19 @@ export class Sync {
     return !same(next, mine);
   }
 
+  /**
+   * Everything changed here has reached the boards: this tab leads, every board is connected
+   * with nothing on its way, and the outbox is empty. (Moving to a new address waits for this.)
+   */
+  async drained(): Promise<boolean> {
+    if (!this.token || !this.leader) return false;
+    for (const b of this.wanted) {
+      const c = this.conns.get(b);
+      if (!c?.ready || c.inflight) return false;
+    }
+    return (await db.getOutbox()).length === 0;
+  }
+
   /** Something was saved here: send it as soon as the board's connection is ready. */
   kick(board: string): void {
     if (!this.leader) return this.tell({ t: 'kick', board });
