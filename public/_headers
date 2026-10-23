@@ -1,0 +1,11 @@
+# Cache rules on boardo.kaiserkhan.com (Cloudflare reads this file; it isn't served). The page,
+# sw.js, version.json and the manifest keep Cloudflare's default: checked with the server every
+# time, so a new build is seen at once.
+
+# Build files have their content's hash in the name, so they never change.
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Icons with fixed names may change between releases (their links carry ?v=N): a day.
+/icon*
+  Cache-Control: public, max-age=86400

@@ -23,7 +23,16 @@ function fromB64url(s: string): Uint8Array<ArrayBuffer> {
   return out;
 }
 
-const rpOf = (origin: string) => ({ rpID: new URL(origin).hostname, origin });
+/**
+ * The passkey site: RP_ID (kaiserkhan.com) for the page on it or any of its subdomains, so a
+ * passkey made at kaiserkhan.com/boardo/ works at boardo.kaiserkhan.com; otherwise the page's
+ * own host (localhost in development).
+ */
+function rpOf(env: Env, origin: string) {
+  const host = new URL(origin).hostname;
+  const root = env.RP_ID;
+  return { rpID: root && (host === root || host.endsWith('.' + root)) ? root : host, origin };
+}
 
 async function saveChallenge(env: Env, challenge: string, userId: string, purpose: 'add' | 'login') {
   const id = randomToken(16);
@@ -61,7 +70,7 @@ export async function registerStart(env: Env, origin: string, userId: string) {
   if (keys.results.length >= MAX_KEYS) throw new Refusal(400, 'This account has as many passkeys as it can. Remove one first.');
   const options = await generateRegistrationOptions({
     rpName: 'Boardo',
-    rpID: rpOf(origin).rpID,
+    rpID: rpOf(env, origin).rpID,
     userName: `Boardo: ${user.email}`,
     userDisplayName: `Boardo: ${user.name ?? user.email}`,
     userID: new TextEncoder().encode(`boardo:${userId}`) as Uint8Array<ArrayBuffer>,
@@ -97,7 +106,7 @@ export async function registerFinish(
       response: body.response as Parameters<typeof verifyRegistrationResponse>[0]['response'],
       expectedChallenge: ch.challenge,
       expectedOrigin: origin,
-      expectedRPID: rpOf(origin).rpID,
+      expectedRPID: rpOf(env, origin).rpID,
       requireUserVerification: false,
     });
   } catch {
@@ -126,7 +135,7 @@ export async function registerFinish(
 
 /** Options for signing in: any passkey made for this site can answer. */
 export async function loginStart(env: Env, origin: string) {
-  const options = await generateAuthenticationOptions({ rpID: rpOf(origin).rpID, userVerification: 'preferred' });
+  const options = await generateAuthenticationOptions({ rpID: rpOf(env, origin).rpID, userVerification: 'preferred' });
   return { challengeId: await saveChallenge(env, options.challenge, '', 'login'), options };
 }
 
@@ -155,7 +164,7 @@ export async function loginFinish(
       response,
       expectedChallenge: ch.challenge,
       expectedOrigin: origin,
-      expectedRPID: rpOf(origin).rpID,
+      expectedRPID: rpOf(env, origin).rpID,
       credential: {
         id: id!,
         publicKey: fromB64url(key.public_key),

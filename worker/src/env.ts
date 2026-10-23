@@ -4,6 +4,8 @@ export interface Env {
   DB: D1Database;
   BOARDS: DurableObjectNamespace<Board>;
   FILES: R2Bucket;
+  /** The passkey site for this domain and its subdomains (kaiserkhan.com). */
+  RP_ID?: string;
   /** Comma-separated origins allowed to call this Worker. */
   ALLOWED_ORIGINS: string;
   /** Where the app lives, for links in emails, e.g. https://kaiserkhan.com/boardo/ */

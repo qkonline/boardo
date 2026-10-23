@@ -1,5 +1,6 @@
 node_modules
 dist
+dist-farewell
 .DS_Store
 *.local
 .deploy.env

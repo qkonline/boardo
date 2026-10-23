@@ -27,7 +27,10 @@ function serviceWorker(): Plugin {
         if (name !== 'index.html' && !name.endsWith('.map') && !name.endsWith('.woff')) files.push(name);
       }
       // Top-level files only.
-      const pub = readdirSync(here('./public')).filter((f) => !f.startsWith('.') && statSync(here(`./public/${f}`)).isFile());
+      // Not _headers and the dot files: host settings, never served.
+      const pub = readdirSync(here('./public')).filter(
+        (f) => !f.startsWith('.') && !f.startsWith('_') && statSync(here(`./public/${f}`)).isFile(),
+      );
       for (const name of pub.sort()) {
         hash.update(name).update(readFileSync(here(`./public/${name}`)));
         files.push(name);
@@ -45,9 +48,11 @@ function serviceWorker(): Plugin {
   };
 }
 
-// Served from kaiserkhan.com/boardo/, so every asset URL is prefixed with /boardo/.
-export default defineConfig({
-  base: '/boardo/',
+// Served at the root of boardo.kaiserkhan.com. The `farewell` build is the last one left at
+// kaiserkhan.com/boardo/, where the app lived until October 2026: it hands each copy over to the
+// new address (src/lib/move.ts).
+export default defineConfig(({ mode }) => ({
+  base: mode === 'farewell' ? '/boardo/' : '/',
   plugins: [svelte(), serviceWorker()],
   server: { port: 5174, strictPort: true },
   preview: { port: 4174, strictPort: true },
@@ -55,4 +60,4 @@ export default defineConfig({
     include: ['src/**/*.test.ts', 'worker/src/**/*.test.ts', 'shared/**/*.test.ts'],
     alias: { 'cloudflare:workers': here('./test/cloudflare-workers.ts') },
   },
-});
+}));

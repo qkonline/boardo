@@ -18,7 +18,7 @@
   import Dependencies from './Dependencies.svelte';
   import ElasticMark from './ElasticMark.svelte';
 
-  const ELASTIC_URL = 'https://kaiserkhan.com/planner/';
+  const ELASTIC_URL = 'https://elastic.kaiserkhan.com/';
 
   /**
    * A card, opened. It reads as the card itself: its status band across the top, its title, and

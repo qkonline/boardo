@@ -5,12 +5,25 @@ name = "boardo-api"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 workers_dev = true
+# The app lives at boardo.kaiserkhan.com, served by this Worker with the API under /api (since
+# 23 Oct 2026; before, the app was at kaiserkhan.com/boardo/ on Hostinger). workers.dev stays on
+# for app versions from before, which call the API there at the root.
+routes = [{ pattern = "boardo.kaiserkhan.com", custom_domain = true }]
+
+# The built app (`npm run build` first). /api/* always reaches the Worker; any other path that
+# isn't one of the app's files does too (the old root API paths on workers.dev).
+[assets]
+directory = "../dist"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
 
 [vars]
-# www.kaiserkhan.com serves the same files; the app moves itself to kaiserkhan.com, but copies
-# already opened on www still need to reach the API.
-ALLOWED_ORIGINS = "https://kaiserkhan.com,https://www.kaiserkhan.com,http://localhost:5174,http://localhost:4174,http://localhost:5173,http://localhost:4173"
-APP_URL = "https://kaiserkhan.com/boardo/"
+# boardo.kaiserkhan.com is the app; kaiserkhan.com (and www) is the old address, whose last build
+# hands each copy over to the new one and still calls the API meanwhile.
+ALLOWED_ORIGINS = "https://boardo.kaiserkhan.com,https://kaiserkhan.com,https://www.kaiserkhan.com,http://localhost:5174,http://localhost:4174,http://localhost:5173,http://localhost:4173,http://localhost:8788"
+APP_URL = "https://boardo.kaiserkhan.com/"
+# Passkeys belong to kaiserkhan.com, so the ones made at kaiserkhan.com/boardo/ keep working here.
+RP_ID = "kaiserkhan.com"
 MAIL_FROM = "Boardo <boardo@kaiserkhan.com>"
 
 [[durable_objects.bindings]]
