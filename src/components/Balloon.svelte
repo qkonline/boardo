@@ -4,6 +4,9 @@
   /**
    * A small floating balloon beside the control that opened it (status, column, people, emoji).
    * It sits over the page, so nothing moves when it opens. Closes on Escape or a tap outside.
+   * It opens to the side asked for, then slides along as far as it must to stay inside the
+   * window it's in (or the screen), its point still on the control, so it never makes the
+   * window scroll sideways.
    */
   let {
     open = $bindable(false),
@@ -24,6 +27,9 @@
   } = $props();
 
   let root: HTMLElement | null = $state(null);
+  let box: HTMLElement | null = $state(null);
+  /** Where it sits from the control's left edge, and where its point goes, once measured. */
+  let shift = $state<{ x: number; point: number } | null>(null);
   const close = () => (open = false);
   // Tell the owner when it closes, however it closed.
   let was = false;
@@ -32,6 +38,33 @@
     was = open;
   });
   const toggle = () => (open = !open);
+
+  /** The nearest box that clips or scrolls the balloon, or the screen. */
+  function bounds(el: HTMLElement): { left: number; right: number } {
+    for (let p = el.parentElement; p; p = p.parentElement) {
+      const o = getComputedStyle(p);
+      if (o.overflowX !== 'visible' || o.overflowY !== 'visible') {
+        const r = p.getBoundingClientRect();
+        return { left: r.left, right: r.left + p.clientWidth };
+      }
+    }
+    return { left: 0, right: document.documentElement.clientWidth };
+  }
+
+  $effect(() => {
+    if (!open || !box || !root) return;
+    const room = bounds(root);
+    const w = box.getBoundingClientRect().width;
+    const a = root.getBoundingClientRect();
+    const GAP = 8;
+    const want = align === 'start' ? a.left : a.right - w;
+    const x = Math.max(room.left + GAP, Math.min(want, room.right - GAP - w));
+    const point = Math.max(10, Math.min(a.left + Math.min(a.width / 2, 22) - x - 5, w - 22));
+    shift = x === want ? null : { x: x - a.left, point };
+  });
+  $effect(() => {
+    if (!open) shift = null;
+  });
 
   $effect(() => {
     if (!open) return;
@@ -58,7 +91,15 @@
 <span class="anchor" bind:this={root}>
   {@render trigger({ toggle, open })}
   {#if open}
-    <div class="balloon {place} {align}" role="dialog" aria-label={label}>
+    <div
+      class="balloon {place} {align}"
+      class:shifted={shift}
+      style:--x={shift ? `${shift.x}px` : null}
+      style:--point={shift ? `${shift.point}px` : null}
+      role="dialog"
+      aria-label={label}
+      bind:this={box}
+    >
       {@render children(close)}
     </div>
   {/if}
@@ -72,7 +113,7 @@
   .balloon {
     position: absolute;
     z-index: 20;
-    min-width: 220px;
+    min-width: 168px;
     max-width: min(320px, 86vw);
     padding: 6px;
     background: var(--raised);
@@ -120,6 +161,15 @@
   }
   .end::before {
     right: 16px;
+  }
+  /* Slid along to stay inside the window: placed from the control's left edge, point kept on it. */
+  .shifted {
+    left: var(--x);
+    right: auto;
+  }
+  .shifted::before {
+    left: var(--point);
+    right: auto;
   }
   @keyframes pop {
     from {

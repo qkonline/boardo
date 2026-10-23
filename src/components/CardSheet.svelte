@@ -664,7 +664,8 @@
     display: grid;
     gap: 8px;
     padding: 8px 8px 6px;
-    max-width: 280px;
+    /* A set width: a balloon of text would otherwise shrink to its narrowest. */
+    width: min(264px, 74vw);
     font-size: 13.5px;
     line-height: 1.45;
   }
