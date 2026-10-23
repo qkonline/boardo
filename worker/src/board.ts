@@ -38,6 +38,7 @@ import {
 import { cardChanges, type LogEntry, optionWithRole, settle } from '../../shared/rules';
 import { type Change, changes } from './checks';
 import type { Env } from './env';
+import { notifyElastic } from './notify';
 
 /** A record as it goes out to devices. `data` null: deleted. */
 export interface Rec {
@@ -80,6 +81,8 @@ interface Attachment {
 }
 
 /** Big first syncs go out in pieces of about this size. */
+/** The records whose changes can change what Elastic shows. */
+const SHOWN_IN_ELASTIC = new Set<Kind>(['card', 'board', 'field', 'member']);
 const CHUNK = 400_000;
 const MAX_RECORDS = 100_000;
 /** Edits to the same field of a card by the same person this close together log as one. */
@@ -192,6 +195,7 @@ export class Board extends DurableObject<Env> {
 
   private broadcast(recs: Rec[], except: WebSocket | null): void {
     if (!recs.length) return;
+    this.tellElastic(recs);
     const msg = JSON.stringify({ t: 'changes', recs, rev: this.rev() });
     for (const ws of this.ctx.getWebSockets()) {
       if (ws === except) continue;
@@ -201,6 +205,17 @@ export class Board extends DurableObject<Env> {
         /* gone; it will catch up when it reconnects */
       }
     }
+  }
+
+  /**
+   * Something Elastic shows may have changed (a card, a status, the board's name or colour, who's
+   * in it): tell Elastic, for everyone in the board and anyone just taken out of it.
+   */
+  private tellElastic(recs: Rec[]): void {
+    if (!this.env.ELASTIC || !recs.some((r) => SHOWN_IN_ELASTIC.has(r.kind))) return;
+    const users = new Set(this.all('member').map((m) => m.userId));
+    for (const r of recs) if (r.kind === 'member') users.add(r.key);
+    this.ctx.waitUntil(notifyElastic(this.env, [...users]));
   }
 
   // ---------- records ----------

@@ -42,10 +42,11 @@ import type { Env } from './env';
 import { links, putPhoto, remove as removeFile, removePhoto, serve as serveFile, servePhoto, upload } from './files';
 import { devOutbox } from './mail';
 import { elasticCards, elasticOps } from './elastic';
+import { ElasticLink } from './link';
 import { listPasskeys, loginFinish, loginStart, registerFinish, registerStart, removePasskey } from './passkeys';
 import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken } from './oauth';
 
-export { Board };
+export { Board, ElasticLink };
 
 const MAX_BODY = 64 * 1024;
 /** A put sent over /sync/http carries a batch of records (the app keeps a batch under 400 kB). */
@@ -128,7 +129,9 @@ export default {
           const m = body.m;
           if (!m || typeof m !== 'object' || Array.isArray(m)) return reply(400);
           if (!role) return reply(200, { msgs: [{ t: 'removed' }] });
-          return reply(200, { msgs: await boardStub(env, body.board as string).httpSync(userId, role, m as Record<string, unknown>) });
+          return reply(200, {
+            msgs: await boardStub(env, body.board as string).httpSync(userId, role, m as Record<string, unknown>),
+          });
         }
         case '/auth/code/send':
           await sendCode(env, body, req.headers.get('cf-connecting-ip') ?? 'local');

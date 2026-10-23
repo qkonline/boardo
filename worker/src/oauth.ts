@@ -57,8 +57,8 @@ export async function approve(env: Env, userId: string, body: Record<string, unk
   return { redirect: back(redirect, { code, state }) };
 }
 
-/** Swap a code and its PKCE verifier for a token. A code works once, for 5 minutes. */
-export async function token(env: Env, body: Record<string, unknown>) {
+/** Check a one-time code and its PKCE verifier, and use it up: whose it was, and for what. */
+export async function redeem(env: Env, body: Record<string, unknown>) {
   const bad = new Refusal(400, 'That code has expired or was already used. Connect again.');
   if (typeof body.code !== 'string' || typeof body.verifier !== 'string' || body.code.length > 100) throw bad;
   if (!/^[A-Za-z0-9._~-]{43,128}$/.test(body.verifier)) throw bad;
@@ -70,15 +70,27 @@ export async function token(env: Env, body: Record<string, unknown>) {
   if ((await sha256(body.verifier)) !== row.challenge) throw bad;
   const user = await getUser(env, row.user_id);
   if (!user) throw bad;
+  return { user, clientId: row.client_id, scope: row.scope };
+}
+
+/** Swap a code and its PKCE verifier for a token. A code works once, for 5 minutes. */
+export async function token(env: Env, body: Record<string, unknown>) {
+  const { user, clientId, scope } = await redeem(env, body);
+  const access = await issue(env, user.id, clientId, scope, null);
+  return { access_token: access, token_type: 'Bearer', scope, user: { email: user.email, name: user.name } };
+}
+
+/** A new app token, stored hashed. `ext`: the account in the app it belongs to, if known. */
+export async function issue(env: Env, userId: string, clientId: string, scope: string, ext: string | null): Promise<string> {
   const access = randomToken(32);
   const now = Date.now();
-  const label = CLIENTS[row.client_id]?.name ?? row.client_id;
+  const label = CLIENTS[clientId]?.name ?? clientId;
   await env.DB.prepare(
-    'INSERT INTO app_tokens (hash, id, user_id, client_id, scope, label, created, used) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO app_tokens (hash, id, user_id, client_id, scope, label, created, used, ext) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
   )
-    .bind(await sha256(access), randomToken(12), row.user_id, row.client_id, row.scope, label, now, now)
+    .bind(await sha256(access), randomToken(12), userId, clientId, scope, label, now, now, ext)
     .run();
-  return { access_token: access, token_type: 'Bearer', scope: row.scope, user: { email: user.email, name: user.name } };
+  return access;
 }
 
 /** Whose app token this is, for a scope; null if it isn't one. */

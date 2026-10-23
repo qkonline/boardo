@@ -206,19 +206,20 @@ Every card has these fields.
 
 ### 8.1 Connecting
 
-- **R8.1** In Elastic's settings, a person connects their Boardo account. Boardo asks them to sign in if needed and to approve what Elastic may do.
+- **R8.1** When the email on someone's Elastic account also has a Boardo account in at least one board, Elastic offers to show their Boardo cards, and one tap links the two. Both apps confirmed that email with a code, so it's the same person. A Boardo account with another email connects from Elastic's settings instead: Boardo asks them to sign in if needed and to approve what Elastic may do.
 - **R8.2** What Elastic is allowed:
   - **see** the cards assigned to that person, with only what it needs: title, project name and colour, status, dates, and whether their part or the card is done;
   - **record** that a timer started or stopped, and that their part is done.
 - **R8.3** Elastic never sees comments, attachments, custom fields, other people's cards or boards the person isn't in.
-- **R8.4** The connection can be revoked at any time from Boardo's settings, and disconnected from Elastic's settings.
-- **R8.5** The connection is made per device and kept on that device. Elastic's own server never holds it.
+- **R8.4** The connection can be revoked at any time from Boardo's settings, and disconnected from Elastic's settings. Disconnecting ends it on every device, and Elastic doesn't offer it again on its own.
+- **R8.5** The connection belongs to the Elastic account (since 23 October 2026; before, it was made on each device). Every device signed in to that account gets Projects without connecting again, and signing out of Elastic ends it on that device. Elastic's server holds the link and talks to Boardo's server directly; devices never hold Boardo's token.
+- **R8.5a** A change in Boardo to a card Elastic shows (its title, dates, status, people, the board's name or colour) reaches the person's open Elastic devices within seconds.
 
 ### 8.2 The Projects section in Elastic
 
 - **R8.6** Elastic's day shows a folding **Projects** section, like its Checklist and habits section, listing the person's project cards for that day.
 - **R8.7** The section only appears if the person is in at least one board. Otherwise there's no such section.
-- **R8.8** Like Elastic's other sections, it folds once it has more than 3 entries, showing the first 3 with the third fading out, and remembers whether it's folded on each device.
+- **R8.8** Like Elastic's other sections, it has a title bar (icon, name, how many are done) and folds once it has more than 3 entries: it always opens folded, showing the first 3 with the third fading out above a Show all link.
 - **R8.9** Cards aren't dragged into the plan. They live in this section.
 - **R8.10** Each row shows:
   - the card's title;
@@ -241,7 +242,7 @@ Every card has these fields.
 
 - **R8.19** Each row has a Start button. Like other tasks in Elastic, it waits until the person has started their day.
 - **R8.20** Starting runs a **timer that counts up, with no limit**. There's no time's-up alert.
-- **R8.21** The running card takes its place in the day like any task that's been started: it goes at the current point, shows in the day strip, and pushes the rest of the plan later as time passes.
+- **R8.21** The running card takes its place in the day like any task that's been started: it goes at the current point, shows in the ribbon of tasks at the top of the day, and pushes the rest of the plan later as time passes.
 - **R8.22** Starting sets the card to **In Progress** in Boardo (R5.6).
 - **R8.23** Pause stops the clock, and resuming continues it. Postpone stops it for now, keeping the time worked.
 - **R8.24** Starting another task while a card runs stops the card's timer and keeps the time worked. It does **not** mark the card done. The same goes for End my day.

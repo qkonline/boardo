@@ -48,7 +48,7 @@ Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](
 | In Elastic | In Boardo |
 |---|---|
 | `worker/src/index.ts`: JSON-only POST routes, `Refusal` errors, CORS allow-list echo, Bearer tokens | `worker/src/index.ts` |
-| `worker/src/auth.ts`: email codes (`sixDigits()`, `sha256(email\|code)`, 10 min life, 5 tries, 60 s resend wait, silent on unknown emails), hashed session tokens | `worker/src/auth.ts`. Mail goes through one `sendMail(env, to, subject, text, html?)` that calls Resend |
+| `worker/src/auth.ts`: email codes (`sixDigits()`, `sha256(email\|code)`, 10 min life, 5 tries, 60 s resend wait), hashed session tokens | `worker/src/auth.ts`. Mail goes through one `sendMail(env, to, subject, text, html?)` that calls Resend. Since 22 Oct 2026 this went the other way too: Elastic's accounts are made by email code like Boardo's, and its `worker/src/mail.ts` and hourly `limits` are copied from here |
 | `worker/src/account.ts`: a DO with SQLite `records(kind, key, rev, data)`, hibernating sockets, `sendSince` chunks, `put` → `ack{ok, conflicts}` inside `transactionSync`, broadcast, ping auto-response | `worker/src/board.ts` |
 | `worker/src/checks.ts`: record validation and caps | `worker/src/checks.ts` |
 | `src/lib/db.ts`: IndexedDB with `synced` and `outbox` stores, writes noted in the outbox in the same transaction | `src/lib/db.ts` |
@@ -217,7 +217,22 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
    - The token is stored hashed in `app_tokens`.
    - It's listed in Boardo → Settings → Connected apps, where it can be removed.
    - It works on `/elastic/*` only, and a session token never works there.
-5. Elastic keeps the token **on that device only**, in IndexedDB (`meta['boardo']`). It's never synced through Elastic's account, so Elastic's server never holds it (R8.5). `/elastic/disconnect` (with the token) removes it from Boardo's side.
+5. Until 23 October 2026 Elastic kept this token on the device (IndexedDB `meta['boardo']`) and called `/elastic/*` with it. Those routes and tokens still work for app versions from before, and a device that has one hands it to its account (section 5.4).
+
+### 5.4 One link per Elastic account (since 23 October 2026)
+
+The link belongs to the Elastic account, so every device signed in to it has Projects (R8.5). Elastic's Worker (`elastic-day-push`) holds it and talks to Boardo's over **service bindings**, which only Workers on the same Cloudflare account can call:
+
+- Elastic binds `BOARDO` to this Worker's `ElasticLink` entrypoint (`worker/src/link.ts`); this Worker binds `ELASTIC` to Elastic's `BoardoHooks` entrypoint.
+- Link tokens have scope **`elastic-link`** and carry `ext`, the Elastic account they belong to (`app_tokens.ext`, migration 0004). They work over the binding only; `/elastic/*` takes only `elastic` tokens. One link per Elastic account: making one deletes any other with the same `ext`. They're listed in Connected apps as Elastic and can be revoked there.
+- `ElasticLink` methods:
+  - `lookup(email)` → `{boards}` or null: whether a Boardo account has that email. Elastic calls it with its account's verified email, to offer the link (R8.1); nothing outside the binding can ask;
+  - `linkByEmail(email, ext)`: the link for the Boardo account with that email;
+  - `exchange({code, verifier, redirect_uri}, ext)`: the connect page's code (section 5.1), swapped by Elastic's Worker rather than the app. Errors come back as `{error}`;
+  - `adopt(token, ext)`: a device's `elastic` token becomes the account's link, and is revoked;
+  - `cards(token)` and `ops(token, ops)`: the same as `/elastic/cards` and `/elastic/ops` (sections 5.2 and 5.3), or null once the link is revoked;
+  - `revoke(token)`.
+- **Live changes.** Whenever a board broadcasts a change to a card, field, member or the board itself, `Board.tellElastic()` collects everyone in the board (and anyone just taken out) and `notifyElastic()` (`worker/src/notify.ts`) calls `ELASTIC.cardsChanged(exts)` with the Elastic accounts linked to them. Elastic's account sends `{t: 'boardo'}` over its devices' sync sockets, and they fetch the cards again (R8.5a).
 
 ### 5.2 Reading cards
 
@@ -247,13 +262,15 @@ Comments, files, custom fields and other people's cards are never returned (R8.3
 
 All of these are in Elastic's repository.
 
-- **`src/lib/boardo.svelte.ts` (new)** holds the `Boardo` class the store keeps as `P.boardo`:
-  - the connect flow, with PKCE through WebCrypto, and picking up `?code&state` when the page loads;
-  - `refresh()`, which runs on start, and every 5 minutes while the app is visible; the result is cached in IndexedDB so it works offline;
-  - an ops outbox (`meta['boardoOps']`), flushed when the device is online;
-  - `disconnect()`.
+- **`worker/src/boardo.ts`** (Elastic's Worker, since 23 October 2026) holds the account's link in D1 `boardo_links (user_id, token, email, name, declined)` and answers the app, as the signed-in account (set up with a name and an email): `/boardo` (linked as whom, or `match {email, boards}`, and `declined`), `/boardo/link`, `/boardo/connect`, `/boardo/adopt`, `/boardo/cards`, `/boardo/ops`, `/boardo/disconnect`, `/boardo/decline`. Linking, connecting, adopting and disconnecting tell the account's other devices at once. Deleting the Elastic account revokes the link. `BoardoHooks.cardsChanged(accounts)` passes Boardo's changes to each account's devices.
+- **`src/lib/boardo.svelte.ts`** holds the `Boardo` class the store keeps as `P.boardo`:
+  - `load()` shows the cards kept in IndexedDB as soon as a signed-in device opens (it works offline); `online()` runs once the account's sync connection is up: it hands an old device token to the account, finishes a connect-page return (`?code&state`, PKCE through WebCrypto), asks `/boardo` and fetches the cards;
+  - `nudge()` fetches again when the sync connection says `{t: 'boardo'}` or reconnects, plus a fallback every 15 minutes while visible;
+  - the offer: `match` shows a card on Today ("See your Boardo cards here?", Show my cards / No thanks) and a button in Settings; `link()`, `decline()`, `connect()` (another email), `disconnect()`;
+  - an ops outbox (`meta['boardoOps']`), flushed through Elastic's Worker when online;
+  - signing out hides it all; another account signing in on the device wipes what was kept.
 
-  Boardo's API address comes from `VITE_BOARDO_URL` and its connect page from `VITE_BOARDO_APP`. Without them, Projects stays off.
+  The connect page comes from `VITE_BOARDO_APP`; without it, or without Elastic accounts, Projects stays off.
 - **`cardsFor(dayKey, cards, today, clock24)`** is a pure function that applies R8.12 to R8.18 and builds the deadline labels, read from the day being looked at: Overdue, Due today (with the time if there is one), Due tomorrow, a weekday within the next 6 days, otherwise a short date. An overdue In progress card shows on every day after its end up to today.
 - **`src/components/Projects.svelte` (new):**
   - built on Elastic's `Collapsible` component (R8.8);
@@ -271,7 +288,7 @@ All of these are in Elastic's repository.
   - **Postpone** sets it aside (`stop`), without asking where to;
   - **Done** sends `stop` and then `done`.
 - **Starting another task, or ending the day, while a card runs** sets the card item aside as partly done (`postponed`, "worked … · set aside"): the time worked is kept and the session stops. The card is **not** marked done and stays in Projects (R8.24).
-- **Settings → Projects:** Connect Boardo, or (connected) the Boardo account, Check for new cards and Disconnect.
+- **Settings → Projects:** connected, the Boardo account, Check for new cards and Disconnect; otherwise Show my Boardo cards (when the email matches) and Use another Boardo account, or Connect Boardo.
 
 ## 7. App structure (Boardo)
 

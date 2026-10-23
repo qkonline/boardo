@@ -6,3 +6,10 @@ export class DurableObject<Env = unknown> {
     protected env: Env,
   ) {}
 }
+
+export class WorkerEntrypoint<Env = unknown> {
+  constructor(
+    protected ctx: any,
+    protected env: Env,
+  ) {}
+}

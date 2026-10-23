@@ -16,4 +16,6 @@ export interface Env {
   FILE_SIGNING_KEY?: string;
   /** Local development only: keep sent mail so tests can read the codes (`/dev/mail`). */
   DEV_MAIL?: string;
+  /** Elastic's Worker (a service binding): told whose cards changed. Absent in tests. */
+  ELASTIC?: { cardsChanged(accounts: string[]): Promise<void> };
 }

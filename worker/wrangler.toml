@@ -31,5 +31,12 @@ migrations_dir = "migrations"
 binding = "FILES"
 bucket_name = "boardo-files"
 
+# Elastic's Worker, told whose cards changed (src/notify.ts). It calls back through its own
+# binding to the ElasticLink entrypoint (src/link.ts).
+[[services]]
+binding = "ELASTIC"
+service = "elastic-day-push"
+entrypoint = "BoardoHooks"
+
 [observability]
 enabled = true
