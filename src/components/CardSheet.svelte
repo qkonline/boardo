@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { CardRec, FieldRec } from '../../shared/model';
   import { allPartsDone } from '../../shared/rules';
-  import { deadline, duration, fromLocalInput, longDate, toLocalInput, when } from '../lib/dates';
+  import { dayBefore, deadline, duration, fromLocalInput, longDate, toLocalInput, when } from '../lib/dates';
   import { hueColor, statusColors } from '../lib/hue';
   import { app } from '../lib/store.svelte';
   import Attachments from './Attachments.svelte';
@@ -168,7 +168,10 @@
   function pickDate(field: 'start' | 'end', e: Event) {
     const el = e.currentTarget as HTMLInputElement;
     const f = field === 'start' ? startF : endF;
-    setValue(field, f?.type === 'datetime' ? fromLocalInput(el.value) : el.value || null);
+    const v = f?.type === 'datetime' ? fromLocalInput(el.value) : el.value || null;
+    setValue(field, v);
+    // A due date on a card with no start: it starts the day before.
+    if (field === 'end' && v && !view?.values.start) setValue('start', dayBefore(v, startF?.type === 'datetime'));
   }
   /** A custom field's value as text (dropdowns and people are drawn separately). */
   function shown(f: FieldRec, v: Value | undefined): string | null {

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { deadline, fromLocalInput, range, toLocalInput } from './dates';
+import { describe, expect, it, vi } from 'vitest';
+import { dayBefore, deadline, fromLocalInput, range, toLocalInput } from './dates';
 
 const now = new Date(2026, 9, 22, 10, 0).getTime(); // Thursday 22 Oct 2026, 10 am
 
@@ -31,5 +31,23 @@ describe('date and time fields', () => {
     expect(range('2026-10-24', '2026-10-28', now)).toBe('24 Oct to 28 Oct');
     expect(range(null, '2026-10-28', now)).toBe('28 Oct');
     expect(range(undefined, undefined, now)).toBe('');
+  });
+});
+
+describe('a start the day before a due date', () => {
+  it('for a date, across a month and a year', () => {
+    expect(dayBefore('2026-10-23', false)).toBe('2026-10-22');
+    expect(dayBefore('2026-03-01', false)).toBe('2026-02-28');
+    expect(dayBefore('2027-01-01', false)).toBe('2026-12-31');
+  });
+  it('for a date and time: the same time a day earlier, or 9:00 when the due date has none', () => {
+    expect(toLocalInput(dayBefore(fromLocalInput('2026-10-23T17:30')!, true))).toBe('2026-10-22T17:30');
+    expect(toLocalInput(dayBefore('2026-10-23', true))).toBe('2026-10-22T09:00');
+    expect(dayBefore(fromLocalInput('2026-10-23T17:30')!, false)).toBe('2026-10-22');
+  });
+  it('keeps the clock time across a change to winter time', () => {
+    vi.stubEnv('TZ', 'Europe/London');
+    expect(toLocalInput(dayBefore(fromLocalInput('2026-10-26T10:00')!, true))).toBe('2026-10-25T10:00');
+    vi.unstubAllEnvs();
   });
 });

@@ -26,6 +26,18 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((dateOf(b).getTime() - dateOf(a).getTime()) / DAY_MS);
 }
 
+/**
+ * The day before a due date, as a start date: a date, or with `withTime` a date and time (the
+ * due time if it has one, 9:00 otherwise), in the person's own time.
+ */
+export function dayBefore(end: string, withTime: boolean): string | null {
+  const d = dateOf(dayOf(end));
+  d.setDate(d.getDate() - 1);
+  if (!withTime) return keyOf(d);
+  const at = hasTime(end) ? toLocalInput(end).slice(11) : '09:00';
+  return fromLocalInput(`${keyOf(d)}T${at}`);
+}
+
 /** For a datetime-local field: the value in local time, 'YYYY-MM-DDTHH:mm'. */
 export function toLocalInput(v: string | null | undefined): string {
   if (!v) return '';
