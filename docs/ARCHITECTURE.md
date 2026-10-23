@@ -130,7 +130,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - `records`, keyed `board:kind:key`;
   - `synced` (the last agreed version, used as the merge base);
   - `outbox`;
-  - `meta` (session, board list, revs per board);
+  - `meta` (session, board list, revs per board, `owner`: whose data the device holds, and `refused:<board>`: copies of refused changes);
   - `uploads` (file blobs queued while offline).
 - **One leader tab** (`navigator.locks` lock `boardo-sync`) holds one WebSocket per board: `GET /sync?board=<id>`, with the token as the second subprotocol. Other tabs follow over a BroadcastChannel. The tab in front takes the lead (it steals the lock on opening and on coming to the front), because a browser can put a background tab to sleep while it still holds the lock; the tab it was taken from closes its sockets and follows. On a network that lets requests through but not WebSockets (two that never open, or one held up for 8 s), boards sync over `POST /sync/http {board, m}` instead: the same `hello` and `put` messages, answered by `Board.httpSync` with the replies a socket would get, and a `hello` from the last point reached every 4 s while the app is in front (`src/lib/pollsocket.ts`).
 - **Protocol:**
@@ -143,6 +143,9 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - Joining a board opens its socket.
   - Removal closes the socket with code 4003, and the device deletes that board's local data (R9.7).
 - **Reconnect.** Backoff steps are 1, 2, 5, 10 and 30 s. The app reconnects at once on `online` and when it becomes visible, and pings every 20 s while visible.
+- **Another account.** A device notes whose data it holds (`owner`). Signing out clears everything; if that was cut short and a different account signs in, everything is cleared first, so nothing of the last person's reaches the new one or is sent as theirs (R9.2a).
+- **Failed saves.** When IndexedDB refuses a write (out of storage, say), the change stays on screen and waits in memory, in order, behind any already waiting. A banner says so and offers the waiting changes as a JSON backup. Saving is tried again every 5 s, on coming back online and on coming to the front; once it works the changes go out as usual. Quiet updates and pull to refresh never reload while changes are waiting (R9.3a).
+- **Refused changes** are listed in Account under Undone changes, from the copies kept in `refused:<board>`, with Copy for their text and Clear the list (R9.5a).
 - **Offline attachments** wait in `uploads` and are sent once back online. Files already viewed are cached by the service worker.
 - **Scale.** This approach is comfortable up to about 20 boards per person (R11.8). Beyond that, a per-user Durable Object could multiplex boards over one socket.
 

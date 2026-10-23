@@ -189,6 +189,10 @@ export async function getRefused(board: string): Promise<Refused[]> {
   return (await getMeta<Refused[]>(`refused:${board}`)) ?? [];
 }
 
+export async function clearRefused(board: string): Promise<void> {
+  await deleteMeta(`refused:${board}`);
+}
+
 /** Signing out: nothing about any board stays on the device. */
 export async function clearAll(): Promise<void> {
   const tx = (await open()).transaction(['records', 'synced', 'outbox', 'meta', 'uploads'], 'readwrite');

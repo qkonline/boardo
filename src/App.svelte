@@ -15,6 +15,7 @@
   import { app } from './lib/store.svelte';
   import { freshness } from './lib/freshness.svelte';
   import PullIndicator from './components/PullIndicator.svelte';
+  import SaveError from './components/SaveError.svelte';
   import Icon from './components/Icon.svelte';
 
   // Another app asking to connect (`?connect&client_id=...`): kept until answered.
@@ -70,6 +71,7 @@
 {/if}
 
 <PullIndicator />
+<SaveError />
 
 {#if app.toast}
   {#key app.toast.id}

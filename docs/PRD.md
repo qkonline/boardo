@@ -256,10 +256,12 @@ Every card has these fields.
 - **R9.1b** Someone who already has a code (asked for on another device, say) can choose "I already have a code" after typing their email, and type it without a new one being sent.
 - **R9.1a** Once signed in, a person can add a passkey on each device (Face ID, Touch ID or the device's screen lock), and then sign in with it instead of a code. Boardo offers this after a sign-in with a code. Passkeys are listed in Account, where they can be removed.
 - **R9.2** A person stays signed in on a device until they sign out.
+- **R9.2a** When a different person signs in on a device, nothing of the last person's boards stays on it.
 - **R9.3** **Offline first:** every board a person belongs to is kept on their device. They can open boards, read cards and make changes without a connection.
+- **R9.3a** If the device can't save (it's out of storage, say), changes stay on screen and a banner says so, with a backup to download. Boardo keeps trying, and never reloads for an update while changes are waiting.
 - **R9.4** Changes sync when the device is back online, and show up live on everyone else's devices while they're online.
 - **R9.5** When two people change the same card while offline, the most recent change to each field wins. Changes to different fields both survive. Comments, attachments, time and log entries are always kept, never overwritten.
-- **R9.5a** A change the board doesn't allow (made offline, say, by someone who has since stopped being an admin) is undone, and the person is told. A copy stays on the device.
+- **R9.5a** A change the board doesn't allow (made offline, say, by someone who has since stopped being an admin) is undone, and the person is told. A copy stays on the device, listed in Account under Undone changes, where its text can be copied.
 - **R9.5b** A card added while offline to a column that someone else removed meanwhile goes to the end of the first column, never missing.
 - **R9.6** Attachments added while offline are uploaded once back online.
 - **R9.7** When someone is removed from a board, it disappears from their devices, including any copy kept for offline use.

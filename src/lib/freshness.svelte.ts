@@ -29,7 +29,8 @@ class Freshness {
   private busy(): boolean {
     const typing = document.activeElement?.matches('input, textarea, select, [contenteditable]');
     const uploading = app.files.queue.length > 0 && app.online;
-    return !!(app.open || app.sheet || app.activity || drag.card || typing || uploading);
+    // Changes this device couldn't store yet live only in this window: a reload would lose them.
+    return !!(app.open || app.sheet || app.activity || drag.card || typing || uploading || app.hasUnsaved);
   }
 
   private reloadIfQuiet(): void {
@@ -106,7 +107,10 @@ class Freshness {
       if (!tracking) return;
       tracking = false;
       this.pulling = false;
-      if (mode === 'pull' && this.pull >= PULL) {
+      if (mode === 'pull' && this.pull >= PULL && app.hasUnsaved) {
+        this.pull = 0;
+        app.say("Not refreshing: some changes aren't saved on this device yet.");
+      } else if (mode === 'pull' && this.pull >= PULL) {
         this.refreshing = true;
         this.pull = PULL;
         void reloadToUpdate();

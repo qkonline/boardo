@@ -2,6 +2,8 @@
   import type { Hue } from '../../shared/model';
   import { call } from '../lib/api';
   import { when } from '../lib/dates';
+  import type { CardRec, ColumnRec, CommentRec, FieldRec } from '../../shared/model';
+  import { splitRid } from '../lib/db';
   import { cancelled, passkeysAvailable } from '../lib/passkeys';
   import { app, type Theme } from '../lib/store.svelte';
   import Avatar from './Avatar.svelte';
@@ -163,6 +165,42 @@
     }
   }
 
+  // Changes a board refused (not allowed any more, say): undone there, with a copy kept here.
+  let undone = $state<Awaited<ReturnType<typeof app.undoneChanges>>>([]);
+  void app.undoneChanges().then((u) => (undone = u));
+
+  /** What an undone change was, in a few words, and the text in it worth copying. */
+  function describe(id: string, data: unknown): { what: string; text: string } {
+    const kind = splitRid(id)[1];
+    if (data == null) return { what: `Deleted ${kind}`, text: '' };
+    if (kind === 'card') {
+      const c = data as CardRec;
+      return { what: `Card: ${c.title || 'Untitled'}`, text: c.desc ? `${c.title}\n\n${c.desc}` : c.title };
+    }
+    if (kind === 'comment') {
+      const c = data as CommentRec;
+      return { what: `Comment: ${c.text.length > 60 ? c.text.slice(0, 60) + '…' : c.text}`, text: c.text };
+    }
+    if (kind === 'column') return { what: `Column: ${(data as ColumnRec).name}`, text: (data as ColumnRec).name };
+    if (kind === 'field') return { what: `Field: ${(data as FieldRec).name}`, text: (data as FieldRec).name };
+    return { what: 'Board settings', text: '' };
+  }
+
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      app.say('Copied.');
+    } catch {
+      app.say("Couldn't copy here.");
+    }
+  }
+
+  async function clearUndone() {
+    armed = null;
+    await app.clearUndone();
+    undone = [];
+  }
+
   const themes: { id: Theme; label: string; icon: 'auto' | 'sun' | 'moon' }[] = [
     { id: 'auto', label: 'Device', icon: 'auto' },
     { id: 'light', label: 'Light', icon: 'sun' },
@@ -172,6 +210,30 @@
 
 <main class="page">
   <h1>Account</h1>
+
+  {#if undone.length}
+    <section>
+      <h2>Undone changes</h2>
+      <p class="note">A board didn't allow these changes, often because your role changed while you were offline, so they were undone there. Copy anything you need, then clear the list.</p>
+      <ul class="card list">
+        {#each undone as u (u.id + u.at)}
+          {@const d = describe(u.id, u.data)}
+          <li>
+            <span class="who"><b>{d.what}</b><small>{u.boardName}, {when(u.at)}</small></span>
+            {#if d.text}<button class="btn" onclick={() => copy(d.text)}>Copy</button>{/if}
+          </li>
+        {/each}
+      </ul>
+      <div class="row">
+        {#if armed === 'undone'}
+          <button class="btn danger" onclick={clearUndone}>Clear</button>
+          <button class="btn ghost" onclick={() => (armed = null)}>Keep</button>
+        {:else}
+          <button class="btn" onclick={() => (armed = 'undone')}>Clear the list</button>
+        {/if}
+      </div>
+    </section>
+  {/if}
 
   <section>
     <h2>You</h2>

@@ -98,6 +98,12 @@ export class App {
   inviteToken: string | null = null;
   /** Just signed in with a code on a device that can hold a passkey, and none is set up yet. */
   offerPasskey = $state(false);
+  /** Saving on this device is failing ('full': out of storage): changes wait here, shown, until it works. */
+  saveError = $state<'full' | 'failed' | null>(null);
+  /** Changes made here that this device hasn't managed to store yet, oldest first. */
+  private unsaved: { board: string; kind: Kind; key: string; data: unknown }[] = [];
+  private saving = false;
+  private saveRetry: ReturnType<typeof setTimeout> | null = null;
   /** My cards: group by deadline or by project. */
   myCardsBy = $state<'deadline' | 'project'>('deadline');
 
@@ -117,7 +123,11 @@ export class App {
       removed: (board) => this.boardGone(board),
       refused: (board, n) => {
         const name = this.boards.find((x) => x.id === board)?.name ?? 'the board';
-        this.say(n === 1 ? `A change in ${name} wasn't allowed, so it was undone.` : `${n} changes in ${name} weren't allowed, so they were undone.`);
+        this.say(
+          n === 1
+            ? `A change in ${name} wasn't allowed, so it was undone. A copy is in Account.`
+            : `${n} changes in ${name} weren't allowed, so they were undone. Copies are in Account.`,
+        );
       },
     });
     whenSignedOut(() => void this.signedOut());
@@ -136,6 +146,8 @@ export class App {
     if (invite || cardLink) history.replaceState(null, '', location.pathname);
     const session = await db.getMeta<{ token: string; user: User }>('session');
     if (session) {
+      // Devices signed in before the owner was noted: note it now.
+      if (!(await db.getMeta('owner'))) await db.putMeta('owner', session.user.id);
       this.token = session.token;
       this.user = session.user;
       setToken(session.token);
@@ -154,6 +166,7 @@ export class App {
     if (typeof addEventListener === 'function') {
       addEventListener('online', () => {
         this.online = true;
+        this.retrySaves();
         void this.refresh();
         void this.files.pump();
       });
@@ -162,6 +175,7 @@ export class App {
         const v = !document.hidden;
         this.sync.setVisible(v);
         if (v) {
+          this.retrySaves();
           void this.refresh();
           void this.files.pump();
         }
@@ -296,10 +310,17 @@ export class App {
   }
 
   private async signedIn(res: { token: string; user: User }): Promise<void> {
+    // Anything left on this device from someone else (sign-out normally clears it, but it can be
+    // cut short) goes first, so none of it reaches this account or is sent as theirs.
+    if ((await db.getMeta('owner')) !== res.user.id) {
+      await db.clearAll();
+      this.files.clear();
+    }
     this.token = res.token;
     this.user = res.user;
     setToken(res.token);
     await db.putMeta('session', { token: res.token, user: res.user });
+    await db.putMeta('owner', res.user.id);
     this.boards = [];
     this.data = {};
     this.screen = { name: 'home' };
@@ -359,6 +380,8 @@ export class App {
     setToken(null);
     await db.clearAll();
     this.files.clear();
+    this.unsaved = [];
+    this.saveError = null;
     this.user = null;
     this.boards = [];
     this.invites = [];
@@ -448,23 +471,104 @@ export class App {
 
   // ---------- changing records ----------
 
-  /** Save changes to a board's records: shown at once, stored, then sent. */
+  /**
+   * Save changes to a board's records: shown at once, stored, then sent. If this device can't
+   * store them, they stay shown and wait in `unsaved`, behind any already waiting, while a
+   * banner says so and saving is tried again.
+   */
   async put(board: string, changes: { kind: Kind; key: string; data: unknown }[]): Promise<void> {
     const b = this.data[board];
     if (!b || !changes.length) return;
     b.apply(changes);
-    const ids = changes.map((c) => db.rid(board, c.kind, c.key));
-    for (const id of ids) this.pending.set(id, (this.pending.get(id) ?? 0) + 1);
-    try {
-      await db.putLocal(changes.map((c) => ({ board, ...c })));
-    } finally {
-      for (const id of ids) {
-        const n = (this.pending.get(id) ?? 1) - 1;
-        if (n > 0) this.pending.set(id, n);
-        else this.pending.delete(id);
-      }
+    const recs = changes.map((c) => ({ board, ...c }));
+    this.hold(recs);
+    if (this.unsaved.length || this.saving) {
+      this.unsaved.push(...recs);
+      return;
     }
+    try {
+      await db.putLocal(recs);
+    } catch (e) {
+      this.unsaved.push(...recs);
+      this.saveFailed(e);
+      return;
+    }
+    this.letGo(recs);
     this.sync.kick(board);
+  }
+
+  /** Changes being stored: news from the board doesn't replace them on screen meanwhile. */
+  private hold(recs: { board: string; kind: Kind; key: string }[]): void {
+    for (const r of recs) {
+      const id = db.rid(r.board, r.kind, r.key);
+      this.pending.set(id, (this.pending.get(id) ?? 0) + 1);
+    }
+  }
+
+  private letGo(recs: { board: string; kind: Kind; key: string }[]): void {
+    for (const r of recs) {
+      const id = db.rid(r.board, r.kind, r.key);
+      const n = (this.pending.get(id) ?? 1) - 1;
+      if (n > 0) this.pending.set(id, n);
+      else this.pending.delete(id);
+    }
+  }
+
+  private saveFailed(e: unknown): void {
+    console.error('Saving', e);
+    this.saveError = (e as DOMException)?.name === 'QuotaExceededError' ? 'full' : 'failed';
+    if (!this.saveRetry) this.saveRetry = setTimeout(() => ((this.saveRetry = null), this.retrySaves()), 5000);
+  }
+
+  /** Try again to store the changes waiting here, in the order they were made. */
+  private retrySaves(): void {
+    if (this.saving || !this.unsaved.length) return;
+    this.saving = true;
+    const batch = this.unsaved.splice(0);
+    void db.putLocal(batch).then(
+      () => {
+        this.saving = false;
+        this.letGo(batch);
+        for (const board of new Set(batch.map((r) => r.board))) this.sync.kick(board);
+        if (this.unsaved.length) return this.retrySaves();
+        this.saveError = null;
+      },
+      (e) => {
+        this.saving = false;
+        this.unsaved.unshift(...batch);
+        this.saveFailed(e);
+      },
+    );
+  }
+
+  /** Whether changes made here are still waiting to be stored (a reload now would lose them). */
+  get hasUnsaved(): boolean {
+    return this.unsaved.length > 0 || this.saving;
+  }
+
+  /** The changes that couldn't be stored, as a file to keep. */
+  downloadUnsaved(): void {
+    const names = new Map(this.boards.map((b) => [b.id, b.name]));
+    const out = this.unsaved.map((r) => ({ board: names.get(r.board) ?? r.board, kind: r.kind, data: r.data }));
+    const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `boardo-unsaved-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ---------- changes the board refused ----------
+
+  /** Copies of changes the board refused, on every board, newest first, with the board's name. */
+  async undoneChanges(): Promise<(db.Refused & { board: string; boardName: string })[]> {
+    const out: (db.Refused & { board: string; boardName: string })[] = [];
+    for (const b of this.boards) for (const r of await db.getRefused(b.id)) out.push({ ...r, board: b.id, boardName: b.name });
+    return out.sort((a, b) => b.at - a.at);
+  }
+
+  async clearUndone(): Promise<void> {
+    for (const b of this.boards) await db.clearRefused(b.id);
   }
 
   private card(board: string, id: string): CardRec | undefined {
