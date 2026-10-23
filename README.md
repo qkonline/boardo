@@ -3,7 +3,7 @@
 Shared project boards. Each project gets a board with columns of cards; the people working on it
 are invited as admins or members, and each person only sees the boards they're in.
 
-Live at **[kaiserkhan.com/boardo](https://kaiserkhan.com/boardo/)**.
+Live at **[boardo.kaiserkhan.com](https://boardo.kaiserkhan.com/)**.
 
 - **Cards** have a title, description, start and end dates, a status, assignees and the time
   spent on them, plus any fields an admin adds (text, numbers, dates, dropdowns, checkboxes,
@@ -20,7 +20,7 @@ Live at **[kaiserkhan.com/boardo](https://kaiserkhan.com/boardo/)**.
 - **Nothing saves on its own:** changes to a card or a setting wait until you press Save.
 - **Offline first:** every board you're in is kept on your device, works without a connection
   and syncs live with everyone else.
-- **Elastic:** connect [Elastic](https://kaiserkhan.com/planner/), a day planner, to see the
+- **Elastic:** connect [Elastic](https://elastic.kaiserkhan.com/), a day planner, to see the
   cards assigned to you in your day and time your work on them.
 
 ## How it's built

@@ -32,7 +32,7 @@ Afterwards:
 
 ### 1.4 Relationship to Elastic
 
-- Boardo is a **separate product**: its own app, its own data and its own server. It lives at kaiserkhan.com/boardo, next to Elastic at kaiserkhan.com/planner.
+- Boardo is a **separate product**: its own app, its own data and its own server. It lives at boardo.kaiserkhan.com, next to Elastic at elastic.kaiserkhan.com.
 - Elastic stays a personal planner. Nothing personal (tasks, checklists, habits, goals, reviews) is ever shared through Boardo.
 - The two connect through a secure, revocable link that each person sets up themselves. Elastic only ever sees the cards assigned to that person.
 - Both apps work offline and sync when back online.
@@ -276,8 +276,8 @@ Every card has these fields.
 
 ## 10. Platform and hosting
 
-- **R10.1** Boardo is hosted at **kaiserkhan.com/boardo**.
-- **R10.2** The app is a static web app, served from the same Hostinger site as Elastic.
+- **R10.1** Boardo is hosted at **boardo.kaiserkhan.com** (since 23 October 2026; before, at kaiserkhan.com/boardo, which now hands each copy over to the new address, signed in).
+- **R10.2** The app is a web app served by the same Cloudflare Worker as its API, on its own address, so no other site's pages can read its storage.
 - **R10.3** The server runs on **Cloudflare**: a Worker for the API, a database for accounts and access, one live data store per board, and file storage for attachments.
 - **R10.4** Email (sign-in codes and invites) is sent through **Resend**, on its free tier.
 - **R10.5** Free tiers are preferred for everything, as long as they cover the use.

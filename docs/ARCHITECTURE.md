@@ -7,7 +7,7 @@ This document describes how Boardo is built and how it connects to Elastic. What
 ## 1. Overview
 
 ```
- kaiserkhan.com/boardo (static PWA, Hostinger)     kaiserkhan.com/planner (Elastic)
+ boardo.kaiserkhan.com (PWA, served by the Worker)  elastic.kaiserkhan.com (Elastic)
           │  HTTPS + WebSocket                                │ HTTPS (OAuth token, scope "elastic")
           ▼                                                   ▼
  boardo-api.qaisarkhans.workers.dev  ── Worker "boardo-api" ──────────────────────
@@ -18,7 +18,7 @@ This document describes how Boardo is built and how it connects to Elastic. What
    └─ Resend HTTP API: sign-in codes, invites
 ```
 
-- **The app** is a static Svelte 5 + TypeScript + Vite PWA, served from kaiserkhan.com/boardo (the same Hostinger site as Elastic, uploaded with rsync over SSH). It keeps every board the person belongs to in IndexedDB, works offline and syncs live.
+- **The app** is a static Svelte 5 + TypeScript + Vite PWA, served by the Worker at boardo.kaiserkhan.com (since 23 Oct 2026; before, from kaiserkhan.com/boardo on Hostinger). It keeps every board the person belongs to in IndexedDB, works offline and syncs live.
 - **Same origin as Elastic.** Both apps are on https://kaiserkhan.com, so everything stored in the browser is named apart: IndexedDB `boardo`, `localStorage` keys `boardo:*`, the `boardo-sync` lock, the `boardo` BroadcastChannel, the service worker scope `/boardo/` and caches `boardo-*`.
 - **D1 is the directory.** It holds:
   - who exists;
@@ -39,7 +39,7 @@ This document describes how Boardo is built and how it connects to Elastic. What
 | Server | Cloudflare Workers, D1, Durable Objects (SQLite storage, hibernation API), R2 |
 | Tooling | Wrangler ^4.141, @cloudflare/workers-types (Wrangler needs Node 22) |
 | Email | Resend HTTP API |
-| Hosting | The app on Hostinger at kaiserkhan.com/boardo (`npm run deploy`: tests, build, rsync); the API on Cloudflare (`wrangler deploy`) |
+| Hosting | The app and the API on one Cloudflare Worker at boardo.kaiserkhan.com, API under /api (`npm run deploy`: tests, build, `wrangler deploy`) |
 
 ### 1.2 Patterns carried over from Elastic
 
@@ -177,7 +177,7 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 **Boards and members**
 - `/boards`, `/boards/create`, `/boards/delete` (admin)
 - `/members/role`, `/members/remove` (admin; at least one admin always remains, checked in the same D1 statement as the change, so two admins taking each other off at once can't leave none). D1 changes first; the board DO is then told, with two more tries if the call fails. Asking again passes the change on even when D1 already has it, so a failed call is finished by trying again.
-- `/invites/create {board, email, role}`: emails `https://kaiserkhan.com/boardo/?invite=<token>` through Resend. (A query string rather than a path, so the static host needs no rewrites.)
+- `/invites/create {board, email, role}`: emails `https://boardo.kaiserkhan.com/?invite=<token>` (`APP_URL`) through Resend. (A query string rather than a path, so the static host needs no rewrites.)
 - `/invites {board}` (admin): the invites waiting in a board.
 - `/invites/accept {token}` or `{id}` (from the invites on Home): the signed-in email must match the invite.
 - `/invites/decline {id}`: the invitee turns it down.
@@ -216,10 +216,10 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 ### 5.1 Connecting
 
 1. In Elastic: Settings → Projects → **Connect Boardo**. Elastic creates a PKCE verifier and challenge (S256) and a `state`, keeps them in `sessionStorage`, then opens:
-   `https://kaiserkhan.com/boardo/?connect&client_id=elastic&redirect_uri=https://kaiserkhan.com/planner/&code_challenge=…&code_challenge_method=S256&state=…`
+   `https://boardo.kaiserkhan.com/?connect&client_id=elastic&redirect_uri=https://elastic.kaiserkhan.com/&code_challenge=…&code_challenge_method=S256&state=…`
 2. Boardo signs the person in if needed, then asks "Connect Elastic?", listing what Elastic may and may never see. The options are **Allow** and **Cancel**.
 3. **Allow** calls `/oauth/approve`, which:
-   - checks `client_id` and `redirect_uri` against the clients registered in the Worker (`worker/src/oauth.ts`: `https://kaiserkhan.com/planner/`, and `http://localhost:5173/planner/` and `:4173` for development);
+   - checks `client_id` and `redirect_uri` against the clients registered in the Worker (`worker/src/oauth.ts`: `https://elastic.kaiserkhan.com/`, and `http://localhost:5173/` and `:4173/` for development; the old `/planner/` ones still listed);
    - stores a one-time code, hashed, valid for 5 minutes;
    - answers with `redirect_uri?code=…&state=…` for the app to go to. **Cancel** answers with `redirect_uri?error=access_denied&state=…`.
 4. Elastic checks `state` and calls `/oauth/token {code, verifier, client_id, redirect_uri}`. It receives `{access_token, token_type: 'Bearer', scope: 'elastic', user: {email, name}}`.
@@ -250,7 +250,7 @@ The link belongs to the Elastic account, so every device signed in to it has Pro
 - `board {id, name, hue}`;
 - `status {label, role}` (`role` is `in_progress`, `completed` or null);
 - `myDone` (when the person's part was done, ms, or null), `completed`, `completedAt` (ms, from the log);
-- `url`, the card's own link in Boardo: `https://kaiserkhan.com/boardo/?card=<board>/<card>`.
+- `url`, the card's own link in Boardo: `https://boardo.kaiserkhan.com/?card=<board>/<card>` (`APP_URL`).
 
 Elastic uses `boards` to decide whether to show the Projects section at all (R8.7).
 
@@ -338,10 +338,10 @@ All of these are in Elastic's repository.
 
 **Phase 0: setup**
 - Repository `qkonline/boardo` (public, MIT).
-- The app is served from kaiserkhan.com/boardo (Hostinger, beside Elastic); the Worker from `boardo-api.qaisarkhans.workers.dev`.
-- Resend sends from `boardo@kaiserkhan.com`. Its SPF and DKIM records go in kaiserkhan.com's DNS at Hostinger, on Resend's own names (`send.kaiserkhan.com`, `resend._domainkey`), so they don't touch the domain's existing mail.
+- The app and the API are served by the Worker at boardo.kaiserkhan.com (and `boardo-api.qaisarkhans.workers.dev`, root paths); until 23 Oct 2026 the app was on Hostinger at kaiserkhan.com/boardo.
+- Resend sends from `boardo@kaiserkhan.com`. Its SPF and DKIM records go in kaiserkhan.com's DNS (Hostinger's until 23 Oct 2026, Cloudflare's since), on Resend's own names (`send.kaiserkhan.com`, `resend._domainkey`), so they don't touch the domain's existing mail.
 - Create D1 `boardo`, R2 `boardo-files` and the Worker `boardo-api`. Set the secrets.
-- Scaffold the app with Svelte, Vite, Vitest, Prettier and svelte-check. `npm run deploy` runs the tests and checks, builds and uploads to Hostinger.
+- Scaffold the app with Svelte, Vite, Vitest, Prettier and svelte-check. `npm run deploy` runs the tests and checks, builds and deploys the Worker with the app.
 - Confirm the free tiers still cover the plan: SQLite-backed Durable Objects, D1, R2 (10 GB) and Resend (3,000 emails a month, 100 a day).
 
 **Phase 1: accounts and boards**
