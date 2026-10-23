@@ -6,9 +6,9 @@ import { API, ApiError, call, getToken, unreachable } from './api';
 import * as db from './db';
 import { type Upload } from './db';
 
-const TYPES = /\.(jpe?g|png|gif|webp|pdf|docx?|xlsx?|pptx?)$/i;
+const TYPES = /\.(jpe?g|png|gif|webp|pdf|csv|docx?|xlsx?|pptx?)$/i;
 export const ACCEPT =
-  '.jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/jpeg,image/png,image/gif,image/webp,application/pdf';
+  '.jpg,.jpeg,.png,.gif,.webp,.pdf,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx,image/jpeg,image/png,image/gif,image/webp,application/pdf,text/csv';
 
 export const isImageName = (n: string) => /\.(jpe?g|png|gif|webp)$/i.test(n);
 
@@ -72,7 +72,7 @@ export class Files {
   async add(board: string, card: string, files: File[], maxMB: number): Promise<void> {
     for (const f of files) {
       if (!TYPES.test(f.name)) {
-        this.say(`${f.name} can't be attached. Images, PDFs and Word, Excel or PowerPoint files only.`);
+        this.say(`${f.name} can't be attached. Images, PDFs, CSV and Word, Excel or PowerPoint files only.`);
         continue;
       }
       if (f.size > maxMB * 1024 * 1024) {

@@ -526,6 +526,15 @@ export class App {
     if (done) this.say('Marked done', () => void this.markPart(board, id, false));
   }
 
+  /** An admin takes someone else's done mark off their part (the board refuses anyone else). */
+  async undoPart(board: string, id: string, userId: string): Promise<void> {
+    const prev = this.card(board, id);
+    if (!prev || prev.done[userId] == null) return;
+    const parts = { ...prev.done };
+    delete parts[userId];
+    await this.updateCard(board, id, { done: parts });
+  }
+
   /** Move a card into a column, between two neighbours (ids, or null at either end). */
   async moveCard(board: string, id: string, columnId: string, beforeId: string | null, afterId: string | null) {
     const b = this.data[board];

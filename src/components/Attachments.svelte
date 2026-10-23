@@ -99,7 +99,7 @@
   {/each}
 
   {#if !files.length && !waiting.length}
-    <p class="none">Images, PDFs and Office files, up to {b.board?.maxUploadMB ?? 30} MB each.</p>
+    <p class="none">Images, PDFs, CSV and Office files, up to {b.board?.maxUploadMB ?? 30} MB each.</p>
   {/if}
 </section>
 

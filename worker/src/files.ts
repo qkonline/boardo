@@ -1,7 +1,7 @@
 // Attachments (R4.14 to R4.19). Files go to R2 under `<board>/<file id>` (and `.thumb` for an
-// image's thumbnail, made on the device). Only images, PDFs and Office documents are taken,
-// and a file's type is decided by its first bytes as well as its name, so a renamed file of
-// another kind is refused. Files are served only through short-lived signed links, which a
+// image's thumbnail, made on the device). Only images, PDFs, CSV and Office documents are
+// taken, and a file's type is decided by its first bytes as well as its name, so a renamed file
+// of another kind is refused (CSV has no signature: it must read as text). Files are served only through short-lived signed links, which a
 // member gets from `/files/links`; anything that isn't an image always downloads.
 
 import { BOARD_FILE, MAX_UPLOAD_MB, newId } from '../../shared/model';
@@ -10,7 +10,7 @@ import { boardStub, roleIn } from './boards';
 import { isId } from './checks';
 import type { Env } from './env';
 
-export type FileKind = 'jpg' | 'png' | 'gif' | 'webp' | 'pdf' | 'ooxml' | 'ole';
+export type FileKind = 'jpg' | 'png' | 'gif' | 'webp' | 'pdf' | 'ooxml' | 'ole' | 'text';
 
 const TYPES: Record<string, { kind: FileKind; mime: string }> = {
   jpg: { kind: 'jpg', mime: 'image/jpeg' },
@@ -25,6 +25,7 @@ const TYPES: Record<string, { kind: FileKind; mime: string }> = {
   doc: { kind: 'ole', mime: 'application/msword' },
   xls: { kind: 'ole', mime: 'application/vnd.ms-excel' },
   ppt: { kind: 'ole', mime: 'application/vnd.ms-powerpoint' },
+  csv: { kind: 'text', mime: 'text/csv' },
 };
 
 const starts = (b: Uint8Array, sig: number[], at = 0) => sig.every((x, i) => b[at + i] === x);
@@ -44,6 +45,16 @@ export function sniff(b: Uint8Array): FileKind | null {
     if (/^(\[Content_Types\]\.xml|_rels\/|docProps\/|word\/|xl\/|ppt\/)/.test(name)) return 'ooxml';
   }
   return null;
+}
+
+/**
+ * Whether a file's first bytes read as text: none of the kinds above, and no control characters
+ * but tabs and line breaks. Any encoding passes (Excel on Windows saves CSV in Windows-1252).
+ */
+export function plainText(b: Uint8Array): boolean {
+  if (sniff(b)) return false;
+  for (const x of b) if (x < 0x20 && x !== 0x09 && x !== 0x0a && x !== 0x0d && x !== 0x0c) return false;
+  return true;
 }
 
 /** The type a file's name claims, if it's one that's taken. */
@@ -152,11 +163,11 @@ export async function upload(req: Request, env: Env): Promise<unknown> {
   if (!isId(card) || !name) throw new Refusal(400, 'Pick a file to attach.');
   const claimed = typeOf(name);
   if (!claimed)
-    throw new Refusal(415, 'Only images (JPG, PNG, WebP, GIF), PDFs and Word, Excel or PowerPoint files can be attached.');
+    throw new Refusal(415, 'Only images (JPG, PNG, WebP, GIF), PDFs, CSV and Word, Excel or PowerPoint files can be attached.');
   const limit = Math.min(await stub.maxUploadMB(), MAX_UPLOAD_MB);
   if (size > limit * 1024 * 1024) throw new Refusal(413, `Files can be up to ${limit} MB in this board.`);
-  const { head, stream } = await peek(req.body, 64);
-  if (sniff(head) !== claimed.kind)
+  const { head, stream } = await peek(req.body, claimed.kind === 'text' ? 4096 : 64);
+  if (claimed.kind === 'text' ? !plainText(head) : sniff(head) !== claimed.kind)
     throw new Refusal(415, `That file isn't really a ${name.split('.').pop()!.toUpperCase()} file, so it can't be attached.`);
   if (!(await stub.cardOpen(card))) throw new Refusal(404, 'That card was archived or removed.');
   const id = newId();

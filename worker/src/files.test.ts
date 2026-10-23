@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sniff, typeOf } from './files';
+import { plainText, sniff, typeOf } from './files';
 
 const bytes = (...b: (number | string)[]) =>
   new Uint8Array(b.flatMap((x) => (typeof x === 'string' ? [...x].map((c) => c.charCodeAt(0)) : [x])));
@@ -34,5 +34,13 @@ describe('file types by their first bytes (R4.16)', () => {
     expect(typeOf('photo.jpeg')?.mime).toBe('image/jpeg');
     expect(typeOf('setup.exe')).toBeNull();
     expect(typeOf('noextension')).toBeNull();
+  });
+  it('takes CSV that reads as text, in any encoding, and nothing else under that name', () => {
+    expect(typeOf('Budget.CSV')).toEqual({ kind: 'text', mime: 'text/csv' });
+    expect(plainText(bytes('name,amount\r\nCafé,4.50\n'))).toBe(true);
+    expect(plainText(bytes('Caf', 0xe9, ',4\n'))).toBe(true);
+    expect(plainText(bytes('MZ', 0x90, 0x00, 0x03))).toBe(false);
+    expect(plainText(bytes('%PDF-1.7'))).toBe(false);
+    expect(plainText(zip('[Content_Types].xml'))).toBe(false);
   });
 });

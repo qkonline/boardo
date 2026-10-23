@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { CardRec, FieldRec } from '../../shared/model';
   import { allPartsDone } from '../../shared/rules';
-  import { deadline, duration, fromLocalInput, longDate, toLocalInput } from '../lib/dates';
+  import { deadline, duration, fromLocalInput, longDate, toLocalInput, when } from '../lib/dates';
   import { hueColor, statusColors } from '../lib/hue';
   import { app } from '../lib/store.svelte';
   import Attachments from './Attachments.svelte';
@@ -33,6 +33,7 @@
   const b = $derived(app.data[board]);
   const card = $derived(b?.card.get(id));
   const me = $derived(app.user?.id ?? '');
+  const admin = $derived(b?.role(me) === 'admin');
 
   // ---------- the draft ----------
 
@@ -346,10 +347,34 @@
                 {#each view.assignees as u (u)}
                   {@const m = b.member.get(u)}
                   {@const name = m?.name ?? 'Someone who left'}
-                  <span class="person" class:done={card.done[u] != null} title={card.done[u] != null ? 'Their part is done' : undefined}>
-                    <Avatar person={m} size={22} />
+                  {@const done = card.done[u] != null}
+                  {#snippet who()}
+                    <span class="av"
+                      ><Avatar person={m} size={22} />{#if done}<span class="tick" aria-hidden="true"><Icon name="check" size={9} plain /></span>{/if}</span
+                    >
                     <span class="pn">{name}</span>
-                    {#if card.done[u] != null}<Icon name="check" size={13} />{/if}
+                  {/snippet}
+                  <span class="person" class:done>
+                    {#if done && admin && u !== me}
+                      <!-- An admin can take someone's done mark off: their name opens a balloon. -->
+                      <Balloon label="{name}'s part" align="end">
+                        {#snippet trigger({ toggle, open })}
+                          <button class="who" aria-expanded={open} aria-label="{name}'s part is done" title="Their part is done" onclick={toggle}
+                            >{@render who()}</button
+                          >
+                        {/snippet}
+                        {#snippet children(close)}
+                          <div class="about">
+                            <p>{name} marked their part done.<br /><span class="muted">{when(card.done[u]!)}</span></p>
+                            <button class="key undo-key" onclick={() => (app.undoPart(board, id, u), close())}
+                              ><Icon name="undo" plain /> Mark their part not done</button
+                            >
+                          </div>
+                        {/snippet}
+                      </Balloon>
+                    {:else}
+                      <span class="who" title={done ? 'Their part is done' : undefined}>{@render who()}</span>
+                    {/if}
                     <button
                       class="unassign"
                       aria-label="Take {name} off this card"
@@ -942,6 +967,7 @@
   }
   .people {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     justify-items: start;
     align-items: center;
   }
@@ -960,6 +986,50 @@
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+  .who {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+  .person > :global(.anchor) {
+    min-width: 0;
+  }
+  button.who {
+    min-height: 32px;
+    padding: 0 6px;
+    margin-left: -6px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    button.who:hover {
+      background: var(--sunk);
+    }
+  }
+  /* A done part: a green tick on the person's avatar. */
+  .av {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+  }
+  .tick {
+    position: absolute;
+    right: -4px;
+    bottom: -3px;
+    width: 13px;
+    height: 13px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--s-lime);
+    color: #fff;
+    box-shadow: 0 0 0 2px var(--bg);
+  }
   .unassign {
     flex: none;
     width: 30px;
@@ -973,7 +1043,23 @@
     color: var(--faint);
     cursor: pointer;
   }
+  /* With a mouse, the remove key shows when pointing at the person, over the end of the row,
+     so names keep the narrow column's whole width. On touch it's always there. */
   @media (hover: hover) {
+    .person {
+      position: relative;
+    }
+    .unassign {
+      position: absolute;
+      right: 0;
+      opacity: 0;
+      background: var(--bg);
+      box-shadow: -10px 0 8px -2px var(--bg);
+    }
+    .person:hover .unassign,
+    .unassign:focus-visible {
+      opacity: 1;
+    }
     .unassign:hover {
       background: var(--sunk);
       color: var(--redT);
@@ -981,6 +1067,7 @@
   }
   @media (pointer: coarse) {
     .person,
+    button.who,
     .prop.people-row.top .pl {
       min-height: 44px;
     }
@@ -993,9 +1080,7 @@
   .people > :global(:last-child) {
     margin: 4px 0;
   }
-  .person.done :global(svg) {
-    color: var(--s-lime);
-  }
+
   .add-person {
     min-height: 32px;
     min-width: 32px;

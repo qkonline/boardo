@@ -59,3 +59,22 @@ describe('deleting an archived card', () => {
     expect(await server.records('b1', 'card')).toHaveLength(1);
   });
 });
+
+describe("someone else's part", () => {
+  const save = async (userId: string, role: 'admin' | 'member', data: CardRec) => {
+    const ctx = server.boards.get('b1')!.ctx;
+    const base = Number(ctx.storage.sql.exec("SELECT rev FROM records WHERE kind = 'card' AND key = 'k1'").toArray()[0].rev);
+    await (await server.board('b1')).httpSync(userId, role, { t: 'put', id: 1, recs: [{ kind: 'card', key: 'k1', base, data }] });
+    return ((await server.records('b1', 'card')) as CardRec[])[0].done;
+  };
+  const shared = (done: Record<string, number>): CardRec => ({ ...card(false), assignees: ['bob', 'cy'], done });
+
+  it('stays as it was when a member changes it', async () => {
+    put('card', 'k1', shared({ bob: 5 }));
+    expect(await save('cy', 'member', shared({}))).toEqual({ bob: 5 });
+  });
+  it('can be marked not done by an admin, but never done for them', async () => {
+    put('card', 'k1', shared({ bob: 5 }));
+    expect(await save('ann', 'admin', shared({ cy: 9 }))).toEqual({});
+  });
+});

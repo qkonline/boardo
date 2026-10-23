@@ -384,9 +384,10 @@ export class Board extends DurableObject<Env> {
         // Only members can be assigned.
         const members = new Set(this.all('member').map((m) => m.userId));
         const assignees = next.assignees.filter((u) => members.has(u) || before?.assignees.includes(u));
-        // Each person marks their own part; everyone else's stays as it was.
+        // Each person marks their own part; everyone else's stays as it was, except that an admin
+        // can take someone's done mark off (never put one on for them).
         const done: Record<string, number> = {};
-        for (const [u, at] of Object.entries(before?.done ?? {})) if (u !== who.userId) done[u] = at;
+        for (const [u, at] of Object.entries(before?.done ?? {})) if (u !== who.userId && !(admin && next.done[u] == null)) done[u] = at;
         if (next.done[who.userId] != null) done[who.userId] = before?.done[who.userId] ?? Math.min(next.done[who.userId], now);
         next = { ...next, assignees, done };
         return settle(before, next, this.get('field', 'status') ?? undefined).card;
