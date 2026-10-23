@@ -375,14 +375,14 @@
               </span>
             </div>
 
-            <div class="prop">
+            <!-- The total, whether a timer runs and Elastic's mark on one line; who put in how much
+                 below it, once more than one person has. -->
+            <div class="prop" class:top={time && time.by.size > 1}>
               <span class="pl"><Icon name="clock" size={16} /> Time</span>
               <span class="pv info">
+                <span class="line">
                 {#if time && time.total > 0}
                   <b>{duration(time.total)}</b>{#if time.running}<span class="live">running</span>{/if}
-                  <span class="by">
-                    {#each [...time.by] as [u, ms] (u)}<span><Avatar person={b.member.get(u)} size={16} /> {duration(ms)}</span>{/each}
-                  </span>
                 {/if}
                 <Balloon label="About Elastic" align="end">
                   {#snippet trigger({ toggle, open })}
@@ -400,6 +400,12 @@
                     </div>
                   {/snippet}
                 </Balloon>
+                </span>
+                {#if time && time.by.size > 1}
+                  <span class="by">
+                    {#each [...time.by] as [u, ms] (u)}<span><Avatar person={b.member.get(u)} size={16} /> {duration(ms)}</span>{/each}
+                  </span>
+                {/if}
               </span>
             </div>
 
@@ -939,11 +945,22 @@
     cursor: pointer;
   }
   .info {
+    display: grid;
+    gap: 2px;
+  }
+  .info .line {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 6px;
-    padding: 4px 0;
+    min-height: 40px;
+  }
+  /* With a second line, the label sits level with the first. */
+  .prop.top {
+    align-items: start;
+  }
+  .prop.top .pl {
+    min-height: 40px;
   }
   .info b {
     font-weight: 600;
@@ -952,7 +969,7 @@
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
-    width: 100%;
+    padding-bottom: 8px;
     color: var(--muted);
     font-size: 12.5px;
   }
