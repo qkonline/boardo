@@ -17,7 +17,15 @@ interface Client {
 export const CLIENTS: Record<string, Client> = {
   elastic: {
     name: 'Elastic',
-    redirects: ['https://kaiserkhan.com/planner/', 'http://localhost:5173/planner/', 'http://localhost:4173/planner/'],
+    // Elastic lives at elastic.kaiserkhan.com since 23 Oct 2026; the /planner/ ones are its old address.
+    redirects: [
+      'https://elastic.kaiserkhan.com/',
+      'http://localhost:5173/',
+      'http://localhost:4173/',
+      'https://kaiserkhan.com/planner/',
+      'http://localhost:5173/planner/',
+      'http://localhost:4173/planner/',
+    ],
     scope: 'elastic',
   },
 };
