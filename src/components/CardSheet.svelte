@@ -337,15 +337,23 @@
               {/if}
             </div>
 
-            <div class="prop">
+            <!-- One person to a row, each with a way off the card; the add key below, in line. -->
+            <div class="prop people-row" class:top={view.assignees.length > 0}>
               <span class="pl"><Icon name="people" size={16} /> People</span>
               <span class="pv people">
                 {#each view.assignees as u (u)}
                   {@const m = b.member.get(u)}
+                  {@const name = m?.name ?? 'Someone who left'}
                   <span class="person" class:done={card.done[u] != null} title={card.done[u] != null ? 'Their part is done' : undefined}>
                     <Avatar person={m} size={22} />
-                    <span>{m?.name ?? 'Someone who left'}</span>
+                    <span class="pn">{name}</span>
                     {#if card.done[u] != null}<Icon name="check" size={13} />{/if}
+                    <button
+                      class="unassign"
+                      aria-label="Take {name} off this card"
+                      title="Take off this card"
+                      onclick={() => setDraft('assignees', view.assignees.filter((x) => x !== u))}><Icon name="close" size={13} /></button
+                    >
                   </span>
                 {/each}
                 <Balloon label="People" align="end">
@@ -916,17 +924,57 @@
     color: var(--t-rose);
   }
   .people {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    justify-items: start;
     align-items: center;
-    gap: 6px;
   }
   .person {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 7px;
+    width: 100%;
+    min-height: 40px;
     font-size: 13.5px;
     font-weight: 500;
+  }
+  .person .pn {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .unassign {
+    flex: none;
+    width: 30px;
+    height: 30px;
+    margin-left: auto;
+    display: grid;
+    place-items: center;
+    border: none;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--faint);
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .unassign:hover {
+      background: var(--sunk);
+      color: var(--redT);
+    }
+  }
+  @media (pointer: coarse) {
+    .person,
+    .prop.people-row.top .pl {
+      min-height: 44px;
+    }
+    .unassign {
+      width: 44px;
+      height: 44px;
+      margin-right: -7px;
+    }
+  }
+  .people > :global(:last-child) {
+    margin: 4px 0;
   }
   .person.done :global(svg) {
     color: var(--s-lime);
