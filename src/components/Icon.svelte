@@ -36,7 +36,12 @@
     | 'lock'
     | 'account'
     | 'file'
-    | 'image';
+    | 'image'
+    | 'bold'
+    | 'italic'
+    | 'strike'
+    | 'bullets'
+    | 'numbers';
 </script>
 
 <script lang="ts">
@@ -171,6 +176,23 @@
     <path d="M5 2.5h6.5l3.5 3.5v11.5H5z" stroke={a} />
     <path d="M11.5 2.5V6H15" stroke={a} />
     <path d="M7.5 11h5M7.5 14h3" stroke={r} />
+  {:else if name === 'bold'}
+    <path d="M6.5 4h4.2a3 3 0 0 1 0 6H6.5zM6.5 10h5a3 3 0 0 1 0 6h-5z" stroke={a} stroke-width="2" />
+  {:else if name === 'italic'}
+    <path d="M11.8 4 8.2 16" stroke={a} stroke-width="1.8" />
+    <path d="M9 4h6M5 16h6" stroke={r} />
+  {:else if name === 'strike'}
+    <path d="M13.8 6.4C13.3 5 11.9 4 10 4 7.8 4 6.3 5.2 6.3 6.8c0 1 .5 1.7 1.4 2.2M12.9 11.6c.6.5.9 1.1.9 1.9 0 1.6-1.6 2.5-3.8 2.5-2 0-3.5-.9-4-2.4" stroke={a} />
+    <path d="M3.5 10h13" stroke={r} />
+  {:else if name === 'bullets'}
+    <circle cx="4.8" cy="6" r="1.3" fill={r} stroke="none" />
+    <circle cx="4.8" cy="10" r="1.3" fill={r} stroke="none" />
+    <circle cx="4.8" cy="14" r="1.3" fill={r} stroke="none" />
+    <path d="M8.5 6h8M8.5 10h8M8.5 14h8" stroke={a} />
+  {:else if name === 'numbers'}
+    <path d="M4 4.6 5.2 4v4" stroke={r} stroke-width="1.3" />
+    <path d="M3.8 11.6c.2-.6.7-.9 1.3-.9.7 0 1.2.4 1.2 1 0 .9-2.5 1.9-2.5 3.1h2.6" stroke={r} stroke-width="1.3" />
+    <path d="M9 6h7.5M9 10.5h7.5M9 15h7.5" stroke={a} />
   {:else if name === 'image'}
     <rect x="3" y="4" width="14" height="12" rx="1.5" stroke={a} />
     <circle cx="7.5" cy="8" r="1.3" fill={r} stroke="none" />

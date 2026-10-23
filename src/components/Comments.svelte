@@ -2,12 +2,14 @@
   import type { BoardState } from '../lib/board.svelte';
   import { when } from '../lib/dates';
   import { app } from '../lib/store.svelte';
-  import { EMOJI, linkify } from '../lib/text';
+  import { EMOJI } from '../lib/text';
   import Avatar from './Avatar.svelte';
   import Balloon from './Balloon.svelte';
+  import FormatBar, { formatKey } from './FormatBar.svelte';
   import Icon from './Icon.svelte';
+  import Rich from './Rich.svelte';
 
-  /** A card's comments (R4.10 to R4.13): plain text with emoji, editable by their author only. */
+  /** A card's comments (R4.10 to R4.13): text with emoji and light formatting, editable by their author only. */
   let { b, cardId }: { b: BoardState; cardId: string } = $props();
   const list = $derived(b.commentsOn(cardId));
 
@@ -16,6 +18,7 @@
   let box: HTMLTextAreaElement | null = $state(null);
   let editing = $state<string | null>(null);
   let editText = $state('');
+  let editBox: HTMLTextAreaElement | null = $state(null);
   let armed = $state<string | null>(null);
 
   async function post(e?: Event) {
@@ -62,17 +65,24 @@
           <span class="when">{when(c.at)}{c.editedAt ? ', edited' : ''}</span>
         </div>
         {#if editing === c.id}
-          <textarea class="field" rows="3" bind:value={editText} maxlength="5000"></textarea>
+          <div class="editor">
+            <FormatBar el={editBox} />
+            <textarea
+              class="field"
+              rows="3"
+              aria-label="Edit the comment"
+              bind:value={editText}
+              bind:this={editBox}
+              onkeydown={(e) => editBox && formatKey(editBox, e)}
+              maxlength="5000"
+            ></textarea>
+          </div>
           <div class="row">
             <button class="key ink" disabled={!editText.trim()} onclick={() => saveEdit(c.id)}>Save</button>
             <button class="btn ghost" onclick={() => (editing = null)}>Cancel</button>
           </div>
         {:else}
-          <p class="text">
-            {#each linkify(c.text) as p, i (i)}{#if p.href}<a href={p.href} target="_blank" rel="noopener noreferrer nofollow"
-                  >{p.text}</a
-                >{:else}{p.text}{/if}{/each}
-          </p>
+          <div class="text"><Rich text={c.text} /></div>
           {#if mine}
             <div class="mine">
               {#if armed === c.id}
@@ -91,6 +101,7 @@
   {/each}
 
   <form class="compose" onsubmit={post}>
+    <FormatBar el={box} />
     <textarea
       class="field"
       rows="2"
@@ -101,6 +112,7 @@
       bind:this={box}
       onkeydown={(e) => {
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void post();
+        else if (box) formatKey(box, e);
       }}
     ></textarea>
     <div class="tools">
@@ -165,9 +177,30 @@
     font-size: 12.5px;
   }
   .text {
-    margin: 0;
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
+  }
+  /* The comment box and the edit box: formatting keys along the top, a hairline under them. */
+  .compose :global(.bar),
+  .editor :global(.bar) {
+    border-bottom: 1px solid var(--border);
+  }
+  .editor {
+    border: 1px solid var(--line);
+    border-radius: var(--r-ctl);
+    background: var(--raised);
+  }
+  .editor:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    border-color: transparent;
+  }
+  .editor textarea {
+    border: none;
+    background: transparent;
+    resize: none;
+  }
+  .editor textarea:focus {
+    outline: none;
   }
   .mine {
     display: flex;

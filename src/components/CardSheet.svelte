@@ -4,14 +4,15 @@
   import { deadline, duration, fromLocalInput, longDate, toLocalInput } from '../lib/dates';
   import { hueColor, statusColors } from '../lib/hue';
   import { app } from '../lib/store.svelte';
-  import { linkify } from '../lib/text';
   import Attachments from './Attachments.svelte';
   import Avatar from './Avatar.svelte';
   import Balloon from './Balloon.svelte';
   import CardHistory from './CardHistory.svelte';
   import Comments from './Comments.svelte';
   import FieldInput from './FieldInput.svelte';
+  import FormatBar, { formatKey } from './FormatBar.svelte';
   import Icon from './Icon.svelte';
+  import Rich from './Rich.svelte';
   import Sheet from './Sheet.svelte';
   import StatusChip from './StatusChip.svelte';
   import Dependencies from './Dependencies.svelte';
@@ -128,6 +129,7 @@
   /** The value being edited in place: 'title', 'desc', 'start', 'end' or a field's id. */
   let editing = $state<string | null>(null);
   let armedArchive = $state(false);
+  let descEl = $state<HTMLTextAreaElement | null>(null);
   let armedDelete = $state(false);
 
   const focusIn = (el: HTMLElement) => {
@@ -518,23 +520,38 @@
             <section class="sect">
               <h2><Icon name="log" size={16} /> Description</h2>
               {#if editing === 'desc'}
-                <textarea
-                  class="field desc-edit"
-                  rows="4"
-                  maxlength="20000"
-                  aria-label="Description"
-                  placeholder="What's this card about?"
-                  value={view.desc}
-                  oninput={(e) => setDraft('desc', e.currentTarget.value)}
-                  onblur={() => (editing = null)}
-                  {@attach focusIn}
-                  {@attach autosize}
-                ></textarea>
+                <!-- Open until focus leaves the box and its formatting keys together. -->
+                <div
+                  class="editor"
+                  onfocusout={(e) => !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node | null) && (editing = null)}
+                >
+                  <FormatBar el={descEl} />
+                  <textarea
+                    class="field desc-edit"
+                    rows="4"
+                    maxlength="20000"
+                    aria-label="Description"
+                    placeholder="What's this card about?"
+                    value={view.desc}
+                    bind:this={descEl}
+                    oninput={(e) => setDraft('desc', e.currentTarget.value)}
+                    onkeydown={(e) => descEl && formatKey(descEl, e)}
+                    {@attach focusIn}
+                    {@attach autosize}
+                  ></textarea>
+                </div>
               {:else if view.desc.trim()}
-                <button class="desc" onclick={(e) => !(e.target as Element).closest('a') && (editing = 'desc')}>
-                  {#each linkify(view.desc) as p, i (i)}{#if p.href}<a href={p.href} target="_blank" rel="noopener noreferrer nofollow">{p.text}</a
-                      >{:else}{p.text}{/if}{/each}
-                </button>
+                <!-- A block, not a button: lists and paragraphs can't go in a button. -->
+                <div
+                  class="desc"
+                  role="button"
+                  tabindex="0"
+                  aria-label="Edit the description"
+                  onclick={(e) => !(e.target as Element).closest('a') && (editing = 'desc')}
+                  onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && (e.preventDefault(), (editing = 'desc'))}
+                >
+                  <Rich text={view.desc} />
+                </div>
               {:else}
                 <button class="desc empty" onclick={() => (editing = 'desc')}>Add a description</button>
               {/if}
@@ -1122,9 +1139,11 @@
     color: var(--text);
     font: 400 14px/1.55 var(--font);
     text-align: left;
-    white-space: pre-wrap;
     overflow-wrap: anywhere;
     cursor: text;
+  }
+  .desc:focus-visible {
+    outline: 2px solid var(--accent);
   }
   .desc.empty {
     width: 100%;
@@ -1136,11 +1155,30 @@
       background: var(--sunk);
     }
   }
+  /* One box: the formatting keys along its top, the text below. */
+  .editor {
+    border: 1px solid var(--line);
+    border-radius: var(--r-ctl);
+    background: var(--raised);
+  }
+  .editor:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    border-color: transparent;
+  }
+  .editor :global(.bar) {
+    border-bottom: 1px solid var(--border);
+  }
   .desc-edit {
     min-height: 110px;
     font-size: 14px;
     line-height: 1.55;
     resize: none;
+    border: none;
+    background: transparent;
+  }
+  .desc-edit:focus {
+    outline: none;
   }
 
   .archived {
