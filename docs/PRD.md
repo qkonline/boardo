@@ -101,7 +101,7 @@ Every card has these fields.
 - **R4.1** Title, Description, Start date, End date, Status, Assignees and Time spent are on every card in every board.
 - **R4.2** An admin can change a date field from date to date and time, and back.
 - **R4.3** An admin can rename Status values and add new ones. The values that mean "in progress" and "completed" can be renamed but not removed, because the Elastic connection relies on them.
-- **R4.4** A card can be assigned to more than one person. Each assignee sees it in their My cards and, when its dates apply, in their Elastic day, and each can run their own timer on it.
+- **R4.4** A card can be assigned to more than one person, and anyone in the board can take someone off it (each person has a remove key, a draft until Save). Each assignee sees it in their My cards and, when its dates apply, in their Elastic day, and each can run their own timer on it.
 - **R4.5** Time spent can't be edited by hand. It's the sum of all timer time logged against the card, including a timer that's running right now. Beside it, Elastic's mark opens a short explanation of what Elastic is and how its timers reach the card, with a link to open it.
 
 ### 4.2 Custom fields
@@ -124,7 +124,7 @@ Every card has these fields.
 - **R4.10** Members can post comments on cards.
 - **R4.11** Comments support emoji, both typed from the keyboard and picked from an emoji button.
 - **R4.12** A person can edit or delete their own comments only.
-- **R4.13** Comments are plain text. Links are made clickable. No formatting markup is interpreted, so nothing harmful can be injected.
+- **R4.13** Comments and descriptions take light formatting: bold, italic, strikethrough, bulleted and numbered lists, from keys over the text box or ⌘B, ⌘I, ⌘⇧X, ⌘⇧8 and ⌘⇧7. Enter carries a list on. They're kept as plain text with marks (`**bold**`, `*italic*`, `~~struck~~`, `- `, `1. `) and shown as formatting, built from elements, never HTML, so nothing harmful can be injected. Links are made clickable.
 
 ### 4.4 Attachments
 
@@ -132,8 +132,9 @@ Every card has these fields.
 - **R4.15** Allowed formats only:
   - images: JPG, PNG, WebP, GIF;
   - PDF;
+  - CSV;
   - Office documents: Word, Excel, PowerPoint.
-- **R4.16** A file's type is checked from its contents, not just its name, so a renamed file of another kind is refused.
+- **R4.16** A file's type is checked from its contents, not just its name, so a renamed file of another kind is refused. CSV has no signature, so it must read as text (any encoding) and be none of the other kinds.
 - **R4.17** Each file can be up to **30 MB** by default. An admin can raise the limit in project settings, up to 100 MB.
 - **R4.18** Images show as thumbnails and open in a viewer. Other files download.
 - **R4.19** Files are only reachable by members of the board.
@@ -166,6 +167,7 @@ Every card has these fields.
 - **R5.4** If a part is marked not done again, or a new assignee is added to a Completed card, the status goes back to **In Progress**.
 - **R5.5** Anyone in the board can still change the status by hand at any time. Doing so doesn't change anyone's part.
 - **R5.5a** Marking your part done shows a message with **Undo** for a few seconds. Once it's done, the card offers **Mark not done** instead. Either takes the part back (R5.4).
+- **R5.5b** An admin can mark someone else's part not done (from that person's name in the card's People), but never mark it done for them.
 
 ### 5.2 Automation from Elastic
 
