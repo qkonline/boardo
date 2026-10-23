@@ -357,7 +357,7 @@ Each phase is released live before the next starts.
 
 Phases 1 to 3 went live on 22 October 2026. Refinements since, all live:
 - any colour for boards and status values, from a colour wheel;
-- the project log as a panel from the right; status optional and shown as a band across each card;
+- the project log as a panel from the right; status optional and shown as a chip in each card's foot row, beside its date, with a green tick on each person whose part is done;
 - filters beside the board's name; deleting archived cards (R4.21);
 - passkeys (R9.1a); quiet updates and pull to refresh (R9.8);
 - board backgrounds and tiles (R3.1), profile photos and changing name and email (R2.2);

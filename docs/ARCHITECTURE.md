@@ -360,7 +360,7 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
 
 **Since phase 3** (also 22 October 2026)
 - Any colour, from a colour wheel, as well as the five.
-- Activity as a side panel; status shown as a band across the card, and optional.
+- Activity as a side panel; status shown as a chip in the card's foot row, and optional; done parts as ticks on the avatars.
 - Filters beside the board's name; deleting archived cards.
 - Passkeys; quiet updates and pull to refresh; the Account tab.
 - Board backgrounds, board tiles, profile photos, changing name and email.
