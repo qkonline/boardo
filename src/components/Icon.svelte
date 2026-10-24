@@ -7,6 +7,7 @@
     | 'chat'
     | 'clip'
     | 'boards'
+    | 'bell'
     | 'mine'
     | 'gear'
     | 'log'
@@ -97,6 +98,9 @@
     <circle cx="12" cy="8.8" r="0.9" fill={r} stroke="none" />
   {:else if name === 'clip'}
     <path d="M13 6.5 7.6 11.9a1.7 1.7 0 0 0 2.4 2.4l6-6a3.4 3.4 0 0 0-4.8-4.8l-6 6a5 5 0 0 0 7.1 7.1l4.2-4.2" stroke={a} />
+  {:else if name === 'bell'}
+    <path d="M5 14.5V9a5 5 0 0 1 10 0v5.5l1.5 1.5h-13z" stroke={a} />
+    <path d="M8.3 17.2a1.9 1.9 0 0 0 3.4 0" stroke={r} />
   {:else if name === 'boards'}
     <rect x="3" y="3.5" width="4" height="13" rx="1" stroke={a} />
     <rect x="8.5" y="3.5" width="4" height="9" rx="1" stroke={a} />

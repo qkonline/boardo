@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Bell from './Bell.svelte';
   import type { BoardRec, Hue, Role } from '../../shared/model';
   import { call } from '../lib/api';
   import { when } from '../lib/dates';
@@ -147,6 +148,7 @@
         <p class="crumb">{b.board?.name}</p>
         <h1>Board settings</h1>
       </div>
+      <span class="bellat"><Bell where="head" /></span>
     </header>
 
     <section>
@@ -361,6 +363,9 @@
     align-items: center;
     gap: 6px;
     margin-left: -10px;
+  }
+  .bellat {
+    margin-left: auto;
   }
   .crumb {
     margin: 0;

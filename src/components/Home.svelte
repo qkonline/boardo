@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Bell from './Bell.svelte';
   import { allPartsDone, statusOption } from '../../shared/rules';
   import { bgImage, tileBackground } from '../lib/background';
   import { hueColor } from '../lib/hue';
@@ -65,6 +66,7 @@
   <header class="head">
     <h1>Boards</h1>
     <button class="key ink" onclick={() => (app.sheet = 'newBoard')}><Icon name="plus" plain /> New board</button>
+    <Bell where="head" />
   </header>
 
   {#if app.offerPasskey}
@@ -144,9 +146,11 @@
   .head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 12px;
     margin-bottom: 18px;
+  }
+  .head h1 {
+    flex: 1;
   }
   h1 {
     margin: 0;

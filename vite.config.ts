@@ -14,10 +14,14 @@ const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * the app checks to notice that a newer build is out (src/lib/update.ts).
  */
 function serviceWorker(): Plugin {
+  let api = '';
   return {
     name: 'boardo-sw',
     apply: 'build',
     enforce: 'post',
+    configResolved(c) {
+      api = String(c.env.VITE_API_URL ?? '').replace(/\/$/, '');
+    },
     generateBundle(_, bundle) {
       const hash = createHash('sha256');
       const files: string[] = [];
@@ -38,7 +42,8 @@ function serviceWorker(): Plugin {
       const version = hash.digest('hex').slice(0, 12);
       const source = readFileSync(here('./src/sw.js'), 'utf8')
         .replace('__VERSION__', version)
-        .replace('__ASSETS__', JSON.stringify(files.sort()));
+        .replace('__ASSETS__', JSON.stringify(files.sort()))
+        .replace('__API__', JSON.stringify(api));
       this.emitFile({ type: 'asset', fileName: 'sw.js', source });
       this.emitFile({ type: 'asset', fileName: 'version.json', source: JSON.stringify({ v: version }) });
       const html = bundle['index.html'];

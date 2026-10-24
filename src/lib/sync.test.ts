@@ -31,6 +31,7 @@ async function device(user: string, boards: string[]): Promise<Device> {
     signedOut: () => (d.signedOut = true),
     removed: (b) => d.removed.push(b),
     refused: (_, n) => (d.refused += n),
+    noted: () => {},
   });
   d.sync.start(`t-${user}`, boards);
   devices.push(d);
@@ -244,7 +245,7 @@ describe('sync between people', () => {
     const db = await import('./db');
     const { Sync } = await import('./sync');
     let out = false;
-    const s = new Sync('http://api.test', { changed() {}, status() {}, signedOut: () => (out = true), removed() {}, refused() {} });
+    const s = new Sync('http://api.test', { changed() {}, status() {}, signedOut: () => (out = true), removed() {}, refused() {}, noted() {} });
     s.start('nope', ['b1']);
     devices.push({ user: 'x', db, sync: s, removed: [], signedOut: false });
     await settle();

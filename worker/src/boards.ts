@@ -7,6 +7,7 @@ import { DEFAULT_UPLOAD_MB } from '../../shared/model';
 import { getUser, randomToken, Refusal, sha256, type User } from './auth';
 import { cleanEmail, isHue, isId, text } from './checks';
 import type { Env } from './env';
+import { dropBoardNotes } from './inbox';
 import { sendMail } from './mail';
 
 const INVITE_MS = 14 * 24 * 3600_000;
@@ -109,6 +110,7 @@ export async function deleteBoard(env: Env, userId: string, body: { board?: unkn
   const keys = await stub.fileKeys();
   for (let i = 0; i < keys.length; i += 1000) await env.FILES.delete(keys.slice(i, i + 1000));
   await stub.erase();
+  await dropBoardNotes(env, id);
   await env.DB.batch([
     env.DB.prepare('DELETE FROM members WHERE board_id = ?').bind(id),
     env.DB.prepare('DELETE FROM invites WHERE board_id = ?').bind(id),

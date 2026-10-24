@@ -215,3 +215,44 @@ export function between(before: number | null | undefined, after: number | null 
   if (after == null) return before + 1;
   return (before + after) / 2;
 }
+
+/**
+ * What an update in the bell is about. The board decides who gets which (worker/src/notes.ts):
+ * mentions; being put on or taken off a card; comments, status, completion and due dates on
+ * cards someone is on or made; a card they wait on being done; joining, a new role, leaving.
+ */
+export type NoteKind =
+  | 'mention'
+  | 'assigned'
+  | 'unassigned'
+  | 'comment'
+  | 'status'
+  | 'completed'
+  | 'due'
+  | 'unblocked'
+  | 'added'
+  | 'role'
+  | 'removed';
+
+/** One update for one person, as the bell shows it. Names are kept as they were at the time. */
+export interface Note {
+  id: string;
+  board: string;
+  /** The card it's about, or null for the board itself. */
+  card: string | null;
+  kind: NoteKind;
+  at: number;
+  read: boolean;
+  /** Who did it, as they were then; null when it happened by itself (the completion rule). */
+  by: { userId: string; name: string; hue: Hue; photo: string | null } | null;
+  boardName: string;
+  boardHue: string;
+  /** The card's title. */
+  title?: string;
+  /** A comment, or the line of a description that mentions them. */
+  quote?: string;
+  /** What it became: a status's name, a due date (as stored), or a role. */
+  to?: string | null;
+  /** The card that was done, for `unblocked`. */
+  dep?: string;
+}

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Bell from './Bell.svelte';
   import { app } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
 
@@ -36,6 +37,7 @@
         ><Icon name="offline" size={16} /> Offline</span
       >
     {/if}
+    <Bell where="bar" />
     <button
       class="tab account"
       aria-current={at === 'settings' ? 'page' : undefined}
@@ -179,6 +181,16 @@
     }
     .off + .account {
       margin-left: 8px;
+    }
+    /* The bell takes the far right with Account, apart from the screens. */
+    .tabs :global(.bell) {
+      margin-left: auto;
+    }
+    .off + :global(.bell) {
+      margin-left: 8px;
+    }
+    :global(.bell) + .account {
+      margin-left: 4px;
     }
   }
 </style>

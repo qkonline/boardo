@@ -1,10 +1,12 @@
 <script lang="ts">
+  import Bell from './Bell.svelte';
   import type { Hue } from '../../shared/model';
   import { call } from '../lib/api';
   import { when } from '../lib/dates';
   import type { CardRec, ColumnRec, CommentRec, FieldRec } from '../../shared/model';
   import { splitRid } from '../lib/db';
   import { cancelled, passkeysAvailable } from '../lib/passkeys';
+  import { alertsOff, alertsOn, alertState, type AlertState } from '../lib/push';
   import { app, type Theme } from '../lib/store.svelte';
   import Avatar from './Avatar.svelte';
   import HuePicker from './HuePicker.svelte';
@@ -165,6 +167,32 @@
     }
   }
 
+  // Notifications on this device for updates in the bell (push.ts), worded as in Elastic.
+  let alerts = $state<AlertState | null>(null);
+  let alertBusy = $state(false);
+  void alertState().then((s) => (alerts = s));
+  const alertText = $derived(
+    alerts === 'install'
+      ? 'On iPhone and iPad, notifications work once Boardo is on your Home Screen.'
+      : alerts === 'unsupported'
+        ? "This browser can't show notifications. Updates still show in the bell."
+        : alerts === 'blocked'
+          ? "Notifications are blocked for this site. Allow them in your browser's site settings to turn them on here."
+          : alerts === 'on'
+            ? "You'll get one for each update in the bell, even with Boardo closed or your phone locked."
+            : "Get a notification for each update in the bell, even when you're not looking at Boardo.",
+  );
+  async function toggleAlerts() {
+    alertBusy = true;
+    try {
+      alerts = alerts === 'on' ? await alertsOff() : await alertsOn();
+    } catch (e) {
+      app.say((e as Error).message);
+    } finally {
+      alertBusy = false;
+    }
+  }
+
   // Changes a board refused (not allowed any more, say): undone there, with a copy kept here.
   let undone = $state<Awaited<ReturnType<typeof app.undoneChanges>>>([]);
   void app.undoneChanges().then((u) => (undone = u));
@@ -209,7 +237,10 @@
 </script>
 
 <main class="page">
-  <h1>Account</h1>
+  <div class="title">
+    <h1>Account</h1>
+    <Bell where="head" />
+  </div>
 
   {#if undone.length}
     <section>
@@ -308,6 +339,27 @@
     </div>
   </section>
 
+  {#if alerts}
+    <section>
+      <h2>Notifications</h2>
+      <div class="card alert">
+        <div class="aw">
+          <span class="ct">On this device</span>
+          <span class="muted">{alertText}</span>
+        </div>
+        <button
+          class="switch"
+          class:on={alerts === 'on'}
+          role="switch"
+          aria-checked={alerts === 'on'}
+          aria-label="Notifications on this device"
+          disabled={alertBusy || alerts === 'install' || alerts === 'unsupported' || alerts === 'blocked'}
+          onclick={toggleAlerts}><span></span></button
+        >
+      </div>
+    </section>
+  {/if}
+
   {#if passkeysAvailable() || keys?.length}
     <section>
       <h2>Passkeys</h2>
@@ -394,6 +446,31 @@
     margin: 0;
     font-size: 26px;
     font-weight: 600;
+  }
+  .alert {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px 14px 14px 16px;
+  }
+  .aw {
+    flex: 1;
+    display: grid;
+    gap: 3px;
+  }
+  .ct {
+    font-weight: 500;
+  }
+  .muted {
+    color: var(--muted);
+    font-size: 13.5px;
+    line-height: 1.4;
+  }
+  .title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
   section {
     display: grid;

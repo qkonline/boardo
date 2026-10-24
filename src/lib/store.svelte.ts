@@ -13,6 +13,7 @@ import {
   type Hue,
   type Kind,
   newId,
+  type Note,
   type Role,
 } from '../../shared/model';
 import { settle } from '../../shared/rules';
@@ -23,6 +24,7 @@ import * as db from './db';
 import { splitRid } from './db';
 import { Files } from './files.svelte';
 import { arrival, type Carried, MOVED_TO, moveUrl } from './move';
+import { alertsOff } from './push';
 import { addPasskey, passkeySignIn, passkeysAvailable } from './passkeys';
 import { Sync } from './sync';
 
@@ -78,6 +80,13 @@ function writeLocal(key: string, v: string | null): void {
   }
 }
 
+/** The number on the Home Screen icon, where the device shows one. */
+function badge(n: number): void {
+  const nav = typeof navigator === 'undefined' ? null : (navigator as Navigator & { setAppBadge?: (n: number) => Promise<void>; clearAppBadge?: () => Promise<void> });
+  if (!nav?.setAppBadge) return;
+  void (n ? nav.setAppBadge(n) : nav.clearAppBadge?.())?.catch(() => {});
+}
+
 export class App {
   ready = $state(false);
   user = $state<User | null>(null);
@@ -105,6 +114,11 @@ export class App {
   private unsaved: { board: string; kind: Kind; key: string; data: unknown }[] = [];
   private saving = false;
   private saveRetry: ReturnType<typeof setTimeout> | null = null;
+  /** The bell: this person's latest updates, how many came since it was last opened, and whether it's open. */
+  notes = $state.raw<Note[]>([]);
+  unseen = $state(0);
+  bell = $state(false);
+  private noteWait: ReturnType<typeof setTimeout> | null = null;
   /** The last build at the old address, handing this copy over (moveHome()). */
   moving = $state<'saving' | 'offline' | 'going' | null>(null);
   /** My cards: group by deadline or by project. */
@@ -124,6 +138,11 @@ export class App {
       },
       signedOut: () => void this.signedOut(),
       removed: (board) => this.boardGone(board),
+      // A board says there's something new: fetch once, even when several say so together.
+      noted: () => {
+        if (this.noteWait) clearTimeout(this.noteWait);
+        this.noteWait = setTimeout(() => ((this.noteWait = null), void this.loadNotes()), 400);
+      },
       refused: (board, n) => {
         const name = this.boards.find((x) => x.id === board)?.name ?? 'the board';
         this.say(
@@ -145,8 +164,10 @@ export class App {
     const invite = params.get('invite');
     // A card's own link (`?card=<board>/<card>`), as Elastic opens it.
     const cardLink = params.get('card')?.split('/');
+    // A notification tapped while Boardo was closed (src/sw.js).
+    const noteLink = params.get('note');
     if (invite) this.inviteToken = invite;
-    if (invite || cardLink) history.replaceState(null, '', location.pathname);
+    if (invite || cardLink || noteLink) history.replaceState(null, '', location.pathname);
     const session = await db.getMeta<{ token: string; user: User }>('session');
     if (session) {
       // Devices signed in before the owner was noted: note it now.
@@ -163,14 +184,20 @@ export class App {
       }
       this.sync.start(session.token, this.boards.map((b) => b.id));
       void this.refresh();
+      void this.loadNotes().then(() => noteLink && this.openNoteById(noteLink));
       await this.files.load();
       void this.files.pump();
     }
+    // A notification tapped while Boardo was open.
+    navigator.serviceWorker?.addEventListener('message', (e) => {
+      if (e.data?.t === 'open-note' && typeof e.data.id === 'string') void this.loadNotes().then(() => this.openNoteById(e.data.id));
+    });
     if (typeof addEventListener === 'function') {
       addEventListener('online', () => {
         this.online = true;
         this.retrySaves();
         void this.refresh();
+        void this.loadNotes();
         void this.files.pump();
       });
       addEventListener('offline', () => (this.online = false));
@@ -180,6 +207,7 @@ export class App {
         if (v) {
           this.retrySaves();
           void this.refresh();
+          void this.loadNotes();
           void this.files.pump();
         }
       });
@@ -189,6 +217,8 @@ export class App {
     if (came) await this.arrive(came);
     this.ready = true;
     void db.requestPersistence();
+    // Boards that sync over plain requests can't be told at once: look now and then.
+    setInterval(() => typeof document !== 'undefined' && !document.hidden && void this.loadNotes(), 120_000);
   }
 
   /** Arrived from the old address with its device settings and, if signed in there, a sign-in code. */
@@ -389,6 +419,7 @@ export class App {
     this.screen = { name: 'home' };
     this.sync.start(res.token, []);
     await this.refresh();
+    void this.loadNotes();
   }
 
   async saveProfile(patch: { name?: string; hue?: Hue }): Promise<void> {
@@ -422,6 +453,8 @@ export class App {
   }
 
   async signOut(): Promise<void> {
+    // This device stops getting notifications for this person (someone else may sign in here).
+    await alertsOff().catch(() => {});
     try {
       await call('/auth/signout');
     } catch {
@@ -445,6 +478,10 @@ export class App {
     this.files.clear();
     this.unsaved = [];
     this.saveError = null;
+    this.notes = [];
+    this.unseen = 0;
+    this.bell = false;
+    badge(0);
     this.user = null;
     this.boards = [];
     this.invites = [];
@@ -619,6 +656,57 @@ export class App {
     a.download = `boardo-unsaved-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  // ---------- the bell ----------
+
+  async loadNotes(): Promise<void> {
+    if (!this.token) return;
+    try {
+      const res = await call<{ notes: Note[]; unseen: number }>('/notes');
+      this.notes = res.notes;
+      // Open: whatever just came is seen already.
+      if (this.bell && res.unseen) void call('/notes/seen').catch(() => {});
+      this.unseen = this.bell ? 0 : res.unseen;
+      badge(this.unseen);
+    } catch {
+      /* offline: the last ones stay */
+    }
+  }
+
+  /** The bell opened: the red count goes, here and on the person's other devices. */
+  openBell(): void {
+    this.bell = true;
+    if (!this.unseen) return;
+    this.unseen = 0;
+    badge(0);
+    void call('/notes/seen').catch(() => {});
+  }
+
+  /** An update tapped: it's read, and its card (or board) opens. */
+  openNote(n: Note): void {
+    this.bell = false;
+    if (!n.read) {
+      this.notes = this.notes.map((x) => (x.id === n.id ? { ...x, read: true } : x));
+      void call('/notes/read', { ids: [n.id] }).catch(() => {});
+    }
+    if (!this.boards.some((b) => b.id === n.board)) return this.say(`You're no longer in ${n.boardName}.`);
+    this.go({ name: 'board', id: n.board });
+    if (!n.card) return;
+    if (this.data[n.board] && !this.data[n.board].card.get(n.card)) return this.say("That card isn't there any more.");
+    this.open = { board: n.board, id: n.card };
+  }
+
+  openNoteById(id: string): void {
+    const n = this.notes.find((x) => x.id === id);
+    if (n) this.openNote(n);
+  }
+
+  async readAllNotes(): Promise<void> {
+    this.notes = this.notes.map((x) => (x.read ? x : { ...x, read: true }));
+    this.unseen = 0;
+    badge(0);
+    await call('/notes/read', {}).catch(() => {});
   }
 
   // ---------- changes the board refused ----------

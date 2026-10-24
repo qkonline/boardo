@@ -7,6 +7,7 @@
   import Balloon from './Balloon.svelte';
   import FormatBar, { formatKey } from './FormatBar.svelte';
   import Icon from './Icon.svelte';
+  import MentionPicker from './MentionPicker.svelte';
   import Rich from './Rich.svelte';
 
   /** A card's comments (R4.10 to R4.13): text with emoji and light formatting, editable by their author only. */
@@ -76,13 +77,14 @@
               onkeydown={(e) => editBox && formatKey(editBox, e)}
               maxlength="5000"
             ></textarea>
+            <MentionPicker el={editBox} people={b.members} />
           </div>
           <div class="row">
             <button class="key ink" disabled={!editText.trim()} onclick={() => saveEdit(c.id)}>Save</button>
             <button class="btn ghost" onclick={() => (editing = null)}>Cancel</button>
           </div>
         {:else}
-          <div class="text"><Rich text={c.text} /></div>
+          <div class="text"><Rich text={c.text} people={b.members} /></div>
           {#if mine}
             <div class="mine">
               {#if armed === c.id}
@@ -105,7 +107,7 @@
     <textarea
       class="field"
       rows="2"
-      placeholder="Write a comment"
+      placeholder="Write a comment. Type @ to mention someone."
       aria-label="Write a comment"
       maxlength="5000"
       bind:value={text}
@@ -115,6 +117,7 @@
         else if (box) formatKey(box, e);
       }}
     ></textarea>
+    <MentionPicker el={box} people={b.members} />
     <div class="tools">
       <!-- Emoji in a balloon over the page, so nothing moves when it opens. -->
       <Balloon bind:open={picker} label="Emoji" place="above" align="start">

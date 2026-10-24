@@ -5,6 +5,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 import { vi } from 'vitest';
+import { fakeD1 } from './fake-d1';
 import type { MemberRec, Role } from '../shared/model';
 
 type Row = Record<string, unknown>;
@@ -54,6 +55,7 @@ class ServerSocket {
 }
 
 class FakeCtx {
+  constructor(private waits: Promise<unknown>[]) {}
   db = new DatabaseSync(':memory:');
   sockets: ServerSocket[] = [];
   storage = {
@@ -82,7 +84,9 @@ class FakeCtx {
     return this.sockets.filter((s) => s.open && (!tag || s.tags.includes(tag)));
   }
   setWebSocketAutoResponse() {}
-  waitUntil() {}
+  waitUntil(p: Promise<unknown>) {
+    this.waits.push(p);
+  }
 }
 
 export class FakeServer {
@@ -93,13 +97,22 @@ export class FakeServer {
   roles = new Map<string, Map<string, Role>>();
   /** While set, messages from devices wait (to make two people change things at once). */
   held: (() => void)[] | null = null;
+  /** The directory (D1), where the boards also keep the bell's updates. */
+  d1 = fakeD1();
+  /** Work the boards carried on with after answering (storing updates). */
+  waits: Promise<unknown>[] = [];
+
+  /** Wait for that work. */
+  async idle() {
+    while (this.waits.length) await Promise.all(this.waits.splice(0));
+  }
 
   async board(id: string) {
     let b = this.boards.get(id);
     if (!b) {
       const { Board } = await import('../worker/src/board');
-      const ctx = new FakeCtx();
-      const env = { DB: { prepare: () => ({ bind: () => ({ run: async () => ({}) }) }) } };
+      const ctx = new FakeCtx(this.waits);
+      const env = { DB: this.d1.d1 };
       b = { board: new Board(ctx as never, env as never), ctx };
       this.boards.set(id, b);
     }

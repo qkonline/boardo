@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Bell from './Bell.svelte';
   import type { CardRec } from '../../shared/model';
   import { bgImage, boardBackground } from '../lib/background';
   import { drag } from '../lib/drag.svelte';
@@ -113,6 +114,7 @@
         <button class="icon-btn" aria-label="Board settings" onclick={() => app.go({ name: 'boardSettings', id })}
           ><Icon name="gear" /></button
         >
+        <Bell where="head" />
       </div>
     </header>
 

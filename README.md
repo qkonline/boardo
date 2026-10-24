@@ -16,6 +16,7 @@ Live at **[boardo.kaiserkhan.com](https://boardo.kaiserkhan.com/)**.
 - **A log** of everything that happens, per card and for the whole board, written by the server
   so it can be trusted.
 - **My cards:** everything assigned to you, across all your boards, by deadline or by project.
+- **Updates:** a bell with what's new for you (mentions, cards you're put on, comments and changes on your cards), and notifications on your phone or computer if you turn them on. Type **@** to mention someone in a comment or description.
 - **Your own look:** a colour or background image for each board, and a profile photo.
 - **Nothing saves on its own:** changes to a card or a setting wait until you press Save.
 - **Offline first:** every board you're in is kept on your device, works without a connection

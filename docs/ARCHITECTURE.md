@@ -63,7 +63,7 @@ Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](
 
 | Table | Columns |
 |---|---|
-| `users` | id, email UNIQUE, name, hue, created |
+| `users` | id, email UNIQUE, name, hue, created, notes_seen (when the bell was last opened, `0006_notes.sql`) |
 | `sessions` | hash PK, user_id, device, created, used |
 | `email_codes` | email PK, hash, tries, sent, expires (one code per address; signing in and signing up are the same step) |
 | `boards` | id, name, hue, created_by, created (name and hue mirror the board's own record, for the board list) |
@@ -75,6 +75,8 @@ Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](
 | `challenges` | id, challenge, user_id, purpose (`add` or `login`), expires: each answered once, within 5 minutes |
 | `limits` | key PK, count, start (an hour-long window; rate limiting per email and per IP) |
 | `handoffs` | code_hash PK, user_id, expires (a sign-in carried to the app's new address: one use, two minutes) |
+| `notes` | id PK, user_id, board_id, card_id, kind, at, data (the rest of the update as JSON, names as they were), read_at; kept 60 days (`0006_notes.sql`) |
+| `push_subs` | endpoint PK, user_id, created: each browser that turned notifications on, for whom |
 
 Sessions, codes, invite tokens, OAuth codes and app tokens are only ever stored as SHA-256 hashes.
 
@@ -106,6 +108,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - members can't write `board`, `field` or `member`;
   - nobody writes `log`, `session` or `file` directly;
   - a comment can only be changed by its author.
+- **Updates (the bell).** With each change it accepts (puts, Elastic's ops, members joining, changing role or leaving), the DO works out who should hear about it (`worker/src/notes.ts`, pure: `cardNotes`, `commentNotes`, `memberNote`; never the person who made the change, never someone not in the board). `sendNotes()` then stores them in D1 (`inbox.ts`), sends `{t:'note'}` on those people's sockets to this board so their devices fetch, and sends an empty Web Push to each browser they turned notifications on in (VAPID, `vapid.ts` and `push.ts` copied from Elastic). Mentions are found in the plain text against the board's member names (`shared/mentions.ts`, the same code the app uses to show them): "@Full Name", or a first name only one member has.
 - **Relations.** A new comment needs its card, either on the board or in the same put. A card whose column isn't there (added offline to a column someone removed, or left in one when it was removed) goes to the end of the first column, logged as moved (R9.5b).
 - **Logs.** The DO writes log entries itself. It diffs each accepted change, so entries can't be forged (R6.4). Actions:
   - created, archived, restored, deleted (for good);
@@ -161,6 +164,8 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - `/auth/code/verify {email, code}` → `{token, user}`: creates the account on first use.
 - `/account/handoff` (signed in) → `{code}`, and `/auth/handoff {code}` → `{token, user, fresh}`: carry a sign-in from the app's old address to its new one. The code is stored only as a hash, works once, and lasts two minutes; `/auth/handoff` is rate-limited like the other open routes.
 - On the app's own address the API is under `/api` (the Worker strips it, and signed file links keep it); on workers.dev, which app versions from before the move call, it's at the root.
+- `/notes` → `{notes, unseen}`: the latest 50 updates and how many came since the bell was last opened, unread. `/notes/seen` (the bell opened), `/notes/read {ids?}` (some, or all without `ids`).
+- `/push/subscribe {endpoint}`, `/push/unsubscribe {endpoint}`, `/push/status {endpoint}` → `{on}`: notifications in this browser. Only the browsers' own push services are taken.
 - `/auth/signout`
 - `/me/email/send {email}`, `/me/email/verify {email, code}`: change one's email. A code goes to the new address (refused if another account has it) and only that changes it; every board's member record follows.
 - `/me {name?, hue?}`
@@ -334,6 +339,9 @@ All of these are in Elastic's repository.
 - Sheets slide up on a phone. On a computer the card opens in the middle and Activity slides in from the right.
 - Installed copies pick up a new build at quiet moments (on coming back to the app or leaving it, never while something is open), and pull down to refresh, as in Elastic (`freshness.svelte.ts`).
 - Nothing a person changes is saved until they press Save, Add, Update or Comment, as in Elastic (PRD R11.13).
+- **The bell** (`Bell.svelte`, look A of three, chosen 23 Oct 2026): in the top bar on a computer, its list dropping below; at the top right of each screen on a phone, its list filling the page down to the tab bar. Red count, New and Earlier, All and Unread, Mark all as read; tapping an update opens its card. The app fetches `/notes` on opening, on coming back, when a board says `{t:'note'}`, and every 2 minutes while in front (for boards syncing over requests). The Home Screen icon shows the count where the device allows (`setAppBadge`).
+- **Mentions** (`MentionPicker.svelte`): "@" in a description or comment opens the board's people at the cursor (a hidden copy of the text box measures where it is); arrows, Enter or Tab, Escape; it never takes focus from the box. `Rich.svelte` shows mentions picked out.
+- **Notifications** (Account, `src/lib/push.ts`): a switch per device, worded as Elastic's. The service worker answers a push by fetching `/notes` with the session from IndexedDB (never creating that store), shows each update not shown before (more than three: one saying how many), and on a tap opens Boardo on the card (`?note=` when closed, a message when open). Signing out turns it off on the device.
 - When the device can't save, a banner across the top (`SaveError.svelte`, as in Elastic) says so and offers a backup of the waiting changes.
 - Everything respects reduced motion.
 
@@ -383,6 +391,7 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
 - Elastic linked per account (section 5.4).
 - After an outside review of the code: changes refused one record at a time, kept on the device and listed in Account; cards never lost to a removed column; new comments need their card; the banner when the device can't save; another account on the same device starts clean; the last-admin rule, rate limits and sign-in codes hold when requests arrive at once; membership changes reach the board on a retry; an Elastic stop counts only for its own card; Cloudflare's rate limiter on the open routes.
 - The move to boardo.kaiserkhan.com, one Worker serving the app and its API, with each copy at the old address handed over signed in.
+- @mentions, the bell and notifications on phones and computers.
 
 ## 9. Testing
 
@@ -405,6 +414,7 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
 - **Members:** the last admin stays when two admins take each other off at once, and a change the board DO didn't get is finished by asking again (`boards.test.ts`).
 - **Refused changes:** one bad record is refused alone, the device keeps a copy and is told, a comment on a card that's gone is refused, and a card added offline to a removed column lands in the first one (`sync.test.ts`, `checks.test.ts`).
 - **Elastic:** a stop counts only for the session's own card (`elastic.test.ts`).
+- **The bell:** who hears about what, for cards, comments and members (`notes.test.ts`); updates stored by the real Board DO, the red count and seen, read marks, a live `note` to the person's sockets, only real push services (`inbox.test.ts`); mentions matched by full or unique first name, not inside words or email addresses (`shared/mentions.test.ts`); the wording of every kind (`notetext.test.ts`); VAPID signing (`vapid.test.ts`).
 - **Moving:** a handoff code signs in once, as the same person, within two minutes, and is kept only as a hash (`auth.test.ts`).
 
 **Elastic unit tests**
@@ -425,6 +435,7 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
   - upload an image and a PDF, and a blocked type is refused;
   - every action appears in the logs.
 - **Boardo, when things don't go through** (`local/qa/safety.mjs`): a refused change shows the toast and appears in Account; a device that can't save shows the banner, keeps the card on screen and sends it once saving works; another account signing in after a cut-short sign-out gets nothing of the last person's.
+- **The bell** (`local/qa/bell.mjs`): two people, phone and computer: being put on a card lights the bell live; opening it clears the count and opens the card; an @mention picked from the list reaches the other person quoted and shows picked out; a new due date; Mark all as read; Escape; dark theme.
 - **Moving** (`local/qa/move.mjs`): an old address with a change not yet sent switches to the farewell build, sends it, and lands on the new address signed in with its theme.
 - **Elastic against a local Boardo:**
   - connect through OAuth, and the Projects section appears;

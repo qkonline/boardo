@@ -32,6 +32,8 @@ export interface SyncHooks {
   removed(board: string): void;
   /** The board refused `n` changes made here: they were undone, and a copy kept (db.getRefused). */
   refused(board: string, n: number): void;
+  /** There's a new update in the bell for this person: fetch them. */
+  noted(): void;
 }
 
 interface Remote {
@@ -53,6 +55,7 @@ type Msg =
   | { t: 'changed'; board: string; ids: string[] }
   | { t: 'removed'; board: string }
   | { t: 'kick'; board: string }
+  | { t: 'note' }
   | { t: 'status'; board: string; s: SyncStatus };
 
 /** One board's live connection, held by the leading tab. */
@@ -182,6 +185,7 @@ export class Sync {
     else if (m.t === 'removed') this.hooks.removed(m.board);
     else if (m.t === 'status') this.hooks.status(m.board, m.s);
     else if (m.t === 'kick' && this.leader) this.kick(m.board);
+    else if (m.t === 'note') this.hooks.noted();
   }
 
   private setStatus(board: string, s: SyncStatus): void {
@@ -340,6 +344,11 @@ export class Sync {
       return this.hooks.signedOut();
     }
     if (m.t === 'removed') return this.gone(c.board);
+    if (m.t === 'note') {
+      this.hooks.noted();
+      this.tell({ t: 'note' });
+      return;
+    }
     if (m.t === 'changes') {
       const recs = (Array.isArray(m.recs) ? m.recs : []) as Remote[];
       const outbox = new Set(await db.getOutbox(c.board));

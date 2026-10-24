@@ -44,6 +44,7 @@ import type { Env } from './env';
 import { links, putPhoto, remove as removeFile, removePhoto, serve as serveFile, servePhoto, upload } from './files';
 import { devOutbox } from './mail';
 import { elasticCards, elasticOps } from './elastic';
+import { listNotes, readNotes, seenNotes, subscribe, subscribed, unsubscribe } from './inbox';
 import { ElasticLink } from './link';
 import { listPasskeys, loginFinish, loginStart, registerFinish, registerStart, removePasskey } from './passkeys';
 import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken } from './oauth';
@@ -266,6 +267,24 @@ export default {
         case '/apps/revoke':
           await revokeApp(env, await mustUser(), body);
           return reply(204);
+
+        // The bell (inbox.ts).
+        case '/notes':
+          return reply(200, await listNotes(env, await mustUser()));
+        case '/notes/seen':
+          await seenNotes(env, await mustUser());
+          return reply(204);
+        case '/notes/read':
+          await readNotes(env, await mustUser(), body);
+          return reply(204);
+        case '/push/subscribe':
+          if (!(await subscribe(env, await mustUser(), body))) return reply(400, { error: "This browser can't take alerts." });
+          return reply(204);
+        case '/push/unsubscribe':
+          await unsubscribe(env, await mustUser(), body);
+          return reply(204);
+        case '/push/status':
+          return reply(200, { on: await subscribed(env, await mustUser(), body) });
 
         case '/elastic/cards':
           return reply(200, await elasticCards(env, await mustApp()));

@@ -278,7 +278,15 @@ export async function deleteUser(env: Env, userId: string): Promise<void> {
     .bind(userId, LINK)
     .all<{ ext: string }>();
   await env.DB.batch(
-    ['users WHERE id', 'sessions WHERE user_id', 'app_tokens WHERE user_id', 'oauth_codes WHERE user_id', 'passkeys WHERE user_id'].map((w) =>
+    [
+      'users WHERE id',
+      'sessions WHERE user_id',
+      'app_tokens WHERE user_id',
+      'oauth_codes WHERE user_id',
+      'passkeys WHERE user_id',
+      'notes WHERE user_id',
+      'push_subs WHERE user_id',
+    ].map((w) =>
       env.DB.prepare(`DELETE FROM ${w} = ?`).bind(userId),
     ),
   );

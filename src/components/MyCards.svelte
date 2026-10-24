@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Bell from './Bell.svelte';
   import type { CardRec } from '../../shared/model';
   import { statusOption } from '../../shared/rules';
   import { dayOf, daysBetween, todayKey } from '../lib/dates';
@@ -58,6 +59,7 @@
 <main class="page">
   <header class="head">
     <h1>My cards</h1>
+    <Bell where="head" />
     <div class="seg" role="group" aria-label="Group by">
       <button aria-pressed={app.myCardsBy === 'deadline'} onclick={() => (app.myCardsBy = 'deadline')}>By deadline</button>
       <button aria-pressed={app.myCardsBy === 'project'} onclick={() => (app.myCardsBy = 'project')}>By project</button>
@@ -118,6 +120,15 @@
     align-items: center;
     gap: 12px;
     flex-wrap: wrap;
+  }
+  /* On a phone the bell stays beside the title, and the switch goes below if it must. */
+  .head h1 {
+    flex: 1;
+  }
+  @media (min-width: 768px) {
+    .head h1 {
+      flex: none;
+    }
   }
   h1 {
     margin: 0;

@@ -38,6 +38,8 @@ import {
 import { cardChanges, type LogEntry, optionWithRole, settle } from '../../shared/rules';
 import { type Change, changes } from './checks';
 import type { Env } from './env';
+import { alert, saveNotes } from './inbox';
+import { cardNotes, commentNotes, memberNote, type NoteCtx, type Outgoing } from './notes';
 import { notifyElastic } from './notify';
 
 /** A record as it goes out to devices. `data` null: deleted. */
@@ -158,6 +160,7 @@ export class Board extends DurableObject<Env> {
     const out: object[] = [{ t: 'ack', id: m.id, ok: res.ok, conflicts: res.conflicts, rejected: res.rejected, rev: this.rev() }];
     if (res.extra.length) out.push({ t: 'changes', recs: res.extra, rev: this.rev() });
     if (res.changed.length) this.broadcast(res.changed, from);
+    this.sendNotes();
     return out;
   }
 
@@ -216,6 +219,51 @@ export class Board extends DurableObject<Env> {
     const users = new Set(this.all('member').map((m) => m.userId));
     for (const r of recs) if (r.kind === 'member') users.add(r.key);
     this.ctx.waitUntil(notifyElastic(this.env, [...users]));
+  }
+
+  // ---------- the bell ----------
+
+  /** Updates from the changes being made, sent once they're stored (sendNotes()). */
+  private notes: Outgoing[] = [];
+
+  private noteCtx(actor: string | null, now: number): NoteCtx {
+    const b = this.get('board', 'main');
+    return {
+      board: { id: this.boardId() ?? '', name: b?.name ?? '', hue: b?.hue ?? 'slate' },
+      members: new Map(this.all('member').map((m) => [m.userId, m])),
+      status: this.get('field', 'status') ?? undefined,
+      cards: () => this.all('card'),
+      actor,
+      now,
+    };
+  }
+
+  /**
+   * Store the updates the last changes made (inbox.ts), tell the open devices of the people they're
+   * for, which then fetch them, and alert the browsers those people turned alerts on in.
+   */
+  private sendNotes(): void {
+    const out = this.notes;
+    this.notes = [];
+    if (!out.length) return;
+    this.ctx.waitUntil(
+      (async () => {
+        try {
+          await saveNotes(this.env, out);
+          const users = [...new Set(out.map((o) => o.userId))];
+          for (const u of users)
+            for (const ws of this.ctx.getWebSockets(u))
+              try {
+                ws.send('{"t":"note"}');
+              } catch {
+                /* gone */
+              }
+          await alert(this.env, users);
+        } catch (e) {
+          console.error('Updates', e);
+        }
+      })(),
+    );
   }
 
   // ---------- records ----------
@@ -308,6 +356,8 @@ export class Board extends DurableObject<Env> {
 
     // Cards made in this same put are there for the comments on them, whatever the order.
     const incoming = new Set(parsed.list.filter((c) => c.kind === 'card' && c.data).map((c) => c.key));
+    let nctx: NoteCtx | null = null;
+    const noteCtx = () => (nctx ??= this.noteCtx(who.userId, now));
 
     this.ctx.storage.transactionSync(() => {
       let count: number | null = null;
@@ -339,7 +389,14 @@ export class Board extends DurableObject<Env> {
         }
         const logs = this.logsFor(c.kind, prev, data, who.userId, now);
         const rec = this.write(c.kind, c.key, data);
-        if (c.kind === 'card') cards.add(c.key);
+        if (c.kind === 'card') {
+          cards.add(c.key);
+          this.notes.push(...cardNotes(prev as CardRec | null, data as CardRec, noteCtx()));
+        }
+        if (c.kind === 'comment') {
+          const cm = (data ?? prev) as CommentRec;
+          this.notes.push(...commentNotes(prev as CommentRec | null, data as CommentRec | null, this.get('card', cm.cardId), noteCtx()));
+        }
         if (c.kind === 'column' && prev && !data) goneColumns.add(c.key);
         const adjusted = JSON.stringify(data) !== JSON.stringify(c.data);
         res.ok.push(adjusted ? { kind: c.kind, key: c.key, rev: rec.rev, data } : { kind: c.kind, key: c.key, rev: rec.rev });
@@ -608,12 +665,17 @@ export class Board extends DurableObject<Env> {
       const before = this.get('member', m.userId);
       if (before && JSON.stringify(before) === JSON.stringify(m)) return;
       out.push(this.write('member', m.userId, m));
-      if (!before) out.push(this.log(null, by, { action: 'member_added', detail: { user: m.userId, role: m.role } }, now));
-      else if (before.role !== m.role)
+      if (!before) {
+        out.push(this.log(null, by, { action: 'member_added', detail: { user: m.userId, role: m.role } }, now));
+        this.notes.push(...memberNote('added', m.userId, m.role, this.noteCtx(by, now)));
+      } else if (before.role !== m.role) {
         out.push(this.log(null, by, { action: 'role_changed', detail: { user: m.userId, role: m.role } }, now));
+        this.notes.push(...memberNote('role', m.userId, m.role, this.noteCtx(by, now)));
+      }
     });
     for (const ws of this.ctx.getWebSockets(m.userId)) ws.serializeAttachment({ userId: m.userId, role: m.role } satisfies Attachment);
     this.broadcast(out, null);
+    this.sendNotes();
   }
 
   /**
@@ -625,6 +687,7 @@ export class Board extends DurableObject<Env> {
     const out: Rec[] = [];
     this.ctx.storage.transactionSync(() => {
       if (!this.get('member', userId)) return;
+      this.notes.push(...memberNote('removed', userId, null, this.noteCtx(by, now)));
       out.push(this.write('member', userId, null));
       out.push(this.log(null, by, { action: 'member_removed', detail: { user: userId } }, now));
       const status = this.get('field', 'status') ?? undefined;
@@ -637,6 +700,7 @@ export class Board extends DurableObject<Env> {
     });
     for (const ws of this.ctx.getWebSockets(userId)) ws.close(4003, 'Removed from board');
     this.broadcast(out, null);
+    this.sendNotes();
   }
 
   /** The board was deleted: close every connection and drop everything. */
@@ -733,6 +797,7 @@ export class Board extends DurableObject<Env> {
       }
     });
     this.broadcast(out, null);
+    this.sendNotes();
     return results;
   }
 
@@ -743,6 +808,7 @@ export class Board extends DurableObject<Env> {
     const save = (next: CardRec, via: string) => {
       const { card: settled, auto } = settle(card, next, status);
       out.push(this.write('card', card.id, settled));
+      this.notes.push(...cardNotes(card, settled, this.noteCtx(userId, op.at)));
       for (const e of cardChanges(card, { ...settled, values: { ...settled.values, status: card.values.status ?? null } }, new Map(), new Map()))
         out.push(this.log(card.id, userId, { ...e, detail: { ...e.detail, via } }, op.at));
       if (auto)
@@ -760,6 +826,7 @@ export class Board extends DurableObject<Env> {
       if (prog && card.values.status !== prog.id) {
         const next = { ...card, values: { ...card.values, status: prog.id } };
         out.push(this.write('card', card.id, next));
+        this.notes.push(...cardNotes(card, next, this.noteCtx(userId, op.at)));
         out.push(
           this.log(card.id, userId, { action: 'status', detail: { field: 'status', name: status?.name ?? 'Status', from: statusName(card.values.status), to: prog.label, via: 'elastic' } }, op.at),
         );

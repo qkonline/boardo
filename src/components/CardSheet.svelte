@@ -12,6 +12,7 @@
   import FieldInput from './FieldInput.svelte';
   import FormatBar, { formatKey } from './FormatBar.svelte';
   import Icon from './Icon.svelte';
+  import MentionPicker from './MentionPicker.svelte';
   import Rich from './Rich.svelte';
   import Sheet from './Sheet.svelte';
   import StatusChip from './StatusChip.svelte';
@@ -567,6 +568,7 @@
                     {@attach focusIn}
                     {@attach autosize}
                   ></textarea>
+                  <MentionPicker el={descEl} people={b.members} />
                 </div>
               {:else if view.desc.trim()}
                 <!-- A block, not a button: lists and paragraphs can't go in a button. -->
@@ -578,7 +580,7 @@
                   onclick={(e) => !(e.target as Element).closest('a') && (editing = 'desc')}
                   onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && (e.preventDefault(), (editing = 'desc'))}
                 >
-                  <Rich text={view.desc} />
+                  <Rich text={view.desc} people={b.members} />
                 </div>
               {:else}
                 <button class="desc empty" onclick={() => (editing = 'desc')}>Add a description</button>

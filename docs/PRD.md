@@ -126,6 +126,7 @@ Every card has these fields.
 - **R4.11** Comments support emoji, both typed from the keyboard and picked from an emoji button.
 - **R4.12** A person can edit or delete their own comments only.
 - **R4.13** Comments and descriptions take light formatting: bold, italic, strikethrough, bulleted and numbered lists, from keys over the text box or ⌘B, ⌘I, ⌘⇧X, ⌘⇧8 and ⌘⇧7. Enter carries a list on. They're kept as plain text with marks (`**bold**`, `*italic*`, `~~struck~~`, `- `, `1. `) and shown as formatting, built from elements, never HTML, so nothing harmful can be injected. Links are made clickable.
+- **R4.13a** Typing **@** in a comment or description lists the board's people at the cursor, narrowed as their name is typed; picking one writes "@Their Name". A mention is shown picked out, and the person hears about it in the bell (R9.13) once the comment is posted or the description saved. Typing a first name alone works too when only one person in the board has it. Mentioning someone doesn't add them to the card. Only people in the board can be mentioned.
 
 ### 4.4 Attachments
 
@@ -274,6 +275,19 @@ Every card has these fields.
 - **R9.11** People who already have an account also see pending invites when they open Boardo.
 - **R9.12** Invites expire after 14 days. An admin can resend or cancel them.
 
+### 9.2 Updates (the bell)
+
+- **R9.13** A bell (top right on a phone, in the top bar on a computer) collects the updates meant for the person, as in Facebook. It shows a red count of those that came since it was last opened; opening it clears the count on every device. Each update shows who did it, what happened and on which card, the comment or line quoted where there is one, the board and how long ago. New ones are tinted until opened, and Mark all as read reads them all. All and Unread switch between everything and what's unread. Tapping an update opens its card. Updates are kept for 60 days.
+- **R9.14** A person gets an update when:
+  - someone mentions them (R4.13a);
+  - someone puts them on a card, or takes them off one;
+  - on a card they're on or made: a new comment, a new status, Completed, or a new due date;
+  - a card that one of theirs waits on is done, once everything it waits on is;
+  - someone adds them to a board, gives them another role, or takes them out.
+
+  Never for their own changes.
+- **R9.15** Notifications: in Account, each device can turn on notifications for these updates. They arrive even with Boardo closed or the phone locked, and tapping one opens its card. On iPhone and iPad they work once Boardo is on the Home Screen, as in Elastic. Signing out turns them off on that device.
+
 ## 10. Platform and hosting
 
 - **R10.1** Boardo is hosted at **boardo.kaiserkhan.com** (since 23 October 2026; before, at kaiserkhan.com/boardo, which now hands each copy over to the new address, signed in).
@@ -371,4 +385,5 @@ Phases 1 to 3 went live on 22 October 2026. Refinements since, all live:
 On 23 October 2026, all live:
 - Elastic linked per account, on every device (R8.5, R8.5a);
 - after an outside review of the code: a refused change is undone with a copy kept in Account (R9.5a), a card added offline to a removed column goes to the first column (R9.5b), a banner when the device can't save (R9.3a), and another account on the same device starts clean (R9.2a);
-- a new address, boardo.kaiserkhan.com, with each copy at the old one handed over signed in (R10.1, R10.2).
+- a new address, boardo.kaiserkhan.com, with each copy at the old one handed over signed in (R10.1, R10.2);
+- @mentions (R4.13a), the bell (R9.13, R9.14) and notifications on phones and computers (R9.15). Of three looks for the bell (a feed, grouped by board, a timeline), the user chose the feed.
