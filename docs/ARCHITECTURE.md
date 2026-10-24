@@ -242,6 +242,7 @@ The link belongs to the Elastic account, so every device signed in to it has Pro
   - `cards(token)` and `ops(token, ops)`: the same as `/elastic/cards` and `/elastic/ops` (sections 5.2 and 5.3), or null once the link is revoked;
   - `revoke(token)`.
 - **Live changes.** Whenever a board broadcasts a change to a card, field, member or the board itself, `Board.tellElastic()` collects everyone in the board (and anyone just taken out) and `notifyElastic()` (`worker/src/notify.ts`) calls `ELASTIC.cardsChanged(exts)` with the Elastic accounts linked to them. Elastic's account sends `{t: 'boardo'}` over its devices' sync sockets, and they fetch the cards again (R8.5a).
+- **Taken off in Boardo.** Removing Elastic in Connected apps, or deleting the Boardo account, deletes the link and calls `cardsChanged` for it too (`linksGone()` in `notify.ts`): Elastic's devices fetch, find the link gone and drop Projects within seconds (R8.4).
 
 ### 5.2 Reading cards
 

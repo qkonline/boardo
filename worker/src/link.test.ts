@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeD1 } from '../../test/fake-d1';
 import { adopt, ElasticLink, exchange, linkByEmail, lookup } from './link';
 import { notifyElastic } from './notify';
-import { appUser, approve, token } from './oauth';
+import { deleteUser } from './auth';
+import { appUser, approve, listApps, revokeApp, token } from './oauth';
 
 let db: ReturnType<typeof fakeD1>['db'];
 let env: any;
@@ -108,5 +109,23 @@ describe('Elastic link', () => {
     cardsChanged.mockClear();
     await notifyElastic(env, ['bob']);
     expect(cardsChanged).not.toHaveBeenCalled();
+  });
+  it("tells Elastic at once when the link is taken off in Boardo, so it goes from every device", async () => {
+    const cardsChanged = vi.fn(async () => {});
+    env.ELASTIC = { cardsChanged };
+    const l = await linkByEmail(env, 'ann@example.com', 'elastic-1');
+    const [app] = (await listApps(env, 'ann')).apps;
+    await revokeApp(env, 'ann', { id: app.id });
+    expect(cardsChanged).toHaveBeenCalledWith(['elastic-1']);
+    expect(await appUser(env, l!.token, 'elastic-link')).toBeNull();
+  });
+
+  it('tells Elastic when a linked Boardo account is deleted', async () => {
+    const cardsChanged = vi.fn(async () => {});
+    env.ELASTIC = { cardsChanged };
+    await linkByEmail(env, 'ann@example.com', 'elastic-1');
+    await deleteUser(env, 'ann');
+    expect(cardsChanged).toHaveBeenCalledWith(['elastic-1']);
+    expect(links()).toEqual([]);
   });
 });

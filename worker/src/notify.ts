@@ -25,3 +25,17 @@ export async function notifyElastic(env: Env, users: string[]): Promise<void> {
     console.error('Telling Elastic', e);
   }
 }
+
+/**
+ * These Elastic accounts' links were revoked here (taken off in Connected apps, or the Boardo
+ * account deleted). Elastic's devices fetch again at once, find the link gone and drop Projects
+ * everywhere (R8.4), as when it's disconnected from Elastic's side.
+ */
+export async function linksGone(env: Env, exts: string[]): Promise<void> {
+  if (!env.ELASTIC || !exts.length) return;
+  try {
+    await env.ELASTIC.cardsChanged(exts);
+  } catch (e) {
+    console.error('Telling Elastic', e);
+  }
+}

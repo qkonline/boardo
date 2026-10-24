@@ -5,6 +5,7 @@
 import { cleanEmail, isHue } from './checks';
 import type { Env } from './env';
 import { sendMail } from './mail';
+import { LINK, linksGone } from './notify';
 
 /** Thrown for anything the app should show: the status and a short reason. */
 export class Refusal extends Error {
@@ -272,9 +273,14 @@ export async function updateMe(env: Env, userId: string, body: { name?: unknown;
 }
 
 export async function deleteUser(env: Env, userId: string): Promise<void> {
+  // The Elastic accounts linked to this one, told once the links have gone.
+  const links = await env.DB.prepare('SELECT ext FROM app_tokens WHERE user_id = ? AND scope = ? AND ext IS NOT NULL')
+    .bind(userId, LINK)
+    .all<{ ext: string }>();
   await env.DB.batch(
     ['users WHERE id', 'sessions WHERE user_id', 'app_tokens WHERE user_id', 'oauth_codes WHERE user_id', 'passkeys WHERE user_id'].map((w) =>
       env.DB.prepare(`DELETE FROM ${w} = ?`).bind(userId),
     ),
   );
+  await linksGone(env, links.results.map((r) => r.ext));
 }

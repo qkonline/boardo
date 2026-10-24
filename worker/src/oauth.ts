@@ -6,6 +6,7 @@
 import { getUser, randomToken, Refusal, sha256 } from './auth';
 import { isId } from './checks';
 import type { Env } from './env';
+import { LINK, linksGone } from './notify';
 
 interface Client {
   name: string;
@@ -129,7 +130,10 @@ export async function listApps(env: Env, userId: string) {
 
 export async function revokeApp(env: Env, userId: string, body: { id?: unknown }) {
   if (!isId(body.id)) return;
-  await env.DB.prepare('DELETE FROM app_tokens WHERE id = ? AND user_id = ?').bind(body.id, userId).run();
+  const gone = await env.DB.prepare('DELETE FROM app_tokens WHERE id = ? AND user_id = ? RETURNING scope, ext')
+    .bind(body.id, userId)
+    .first<{ scope: string; ext: string | null }>();
+  if (gone?.scope === LINK && gone.ext) await linksGone(env, [gone.ext]);
 }
 
 /** Disconnecting from the app's side: the token revokes itself. */
