@@ -1,26 +1,31 @@
 <script lang="ts">
-  import { mentionsIn, type Named } from '../../shared/mentions';
+  import { mentionsIn } from '../../shared/mentions';
+  import type { BoardState } from '../lib/board.svelte';
   import { blocks, type Inline } from '../lib/format';
+  import PersonLink from './PersonLink.svelte';
 
   /**
    * A description or comment with its marks shown as formatting (format.ts), and mentions of the
-   * board's `people` picked out (shared/mentions.ts). Built from elements, never HTML.
+   * board's people picked out (shared/mentions.ts), each opening who they are. Built from
+   * elements, never HTML.
    */
-  let { text, people = [] }: { text: string; people?: Named[] } = $props();
+  let { text, b }: { text: string; b?: BoardState } = $props();
   const parts = $derived(blocks(text));
+  const people = $derived(b?.members ?? []);
 
+  type Piece = Inline & { at?: string };
   /** A line's pieces, with each mention as a piece of its own. */
-  function withMentions(l: Inline[]): (Inline & { at?: boolean })[] {
+  function withMentions(l: Inline[]): Piece[] {
     if (!people.length) return l;
     return l.flatMap((p) => {
       if (p.href) return [p];
       const ms = mentionsIn(p.text, people);
       if (!ms.length) return [p];
-      const out: (Inline & { at?: boolean })[] = [];
+      const out: Piece[] = [];
       let from = 0;
       for (const m of ms) {
         if (m.start > from) out.push({ ...p, text: p.text.slice(from, m.start) });
-        out.push({ ...p, text: p.text.slice(m.start, m.end), at: true });
+        out.push({ ...p, text: p.text.slice(m.start, m.end), at: m.userId });
         from = m.end;
       }
       if (from < p.text.length) out.push({ ...p, text: p.text.slice(from) });
@@ -38,8 +43,10 @@
 {#snippet struck(p: Inline)}
   {#if p.s}<s>{@render link(p)}</s>{:else}{@render link(p)}{/if}
 {/snippet}
-{#snippet link(p: Inline & { at?: boolean })}
-  {#if p.href}<a href={p.href} target="_blank" rel="noopener noreferrer nofollow">{p.text}</a>{:else if p.at}<span class="at">{p.text}</span>{:else}{p.text}{/if}
+{#snippet link(p: Piece)}
+  {#if p.href}<a href={p.href} target="_blank" rel="noopener noreferrer nofollow">{p.text}</a>{:else if p.at}<PersonLink person={b?.member.get(p.at)} {b}
+      ><span class="at">{p.text}</span></PersonLink
+    >{:else}{p.text}{/if}
 {/snippet}
 {#snippet line(l: Inline[])}{#each withMentions(l) as p, i (i)}{@render piece(p)}{/each}{/snippet}
 

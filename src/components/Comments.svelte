@@ -2,12 +2,13 @@
   import type { BoardState } from '../lib/board.svelte';
   import { when } from '../lib/dates';
   import { app } from '../lib/store.svelte';
-  import { EMOJI } from '../lib/text';
   import Avatar from './Avatar.svelte';
   import Balloon from './Balloon.svelte';
+  import EmojiPicker from './EmojiPicker.svelte';
   import FormatBar, { formatKey } from './FormatBar.svelte';
   import Icon from './Icon.svelte';
   import MentionPicker from './MentionPicker.svelte';
+  import PersonLink from './PersonLink.svelte';
   import Rich from './Rich.svelte';
 
   /** A card's comments (R4.10 to R4.13): text with emoji and light formatting, editable by their author only. */
@@ -59,10 +60,10 @@
     {@const who = b.member.get(c.userId)}
     {@const mine = c.userId === app.user?.id}
     <div class="c">
-      <Avatar person={who} size={28} />
+      <PersonLink person={who} {b}><Avatar person={who} size={28} /></PersonLink>
       <div class="body">
         <div class="by">
-          <b>{who?.name ?? 'Someone who left'}</b>
+          <PersonLink person={who} {b}><b>{who?.name ?? 'Someone who left'}</b></PersonLink>
           <span class="when">{when(c.at)}{c.editedAt ? ', edited' : ''}</span>
         </div>
         {#if editing === c.id}
@@ -84,7 +85,7 @@
             <button class="btn ghost" onclick={() => (editing = null)}>Cancel</button>
           </div>
         {:else}
-          <div class="text"><Rich text={c.text} people={b.members} /></div>
+          <div class="text"><Rich text={c.text} {b} /></div>
           {#if mine}
             <div class="mine">
               {#if armed === c.id}
@@ -127,11 +128,7 @@
           >
         {/snippet}
         {#snippet children()}
-          <div class="picker" role="group" aria-label="Emoji">
-            {#each EMOJI as e (e)}
-              <button type="button" class="em" onclick={() => insert(e)} aria-label={e}>{e}</button>
-            {/each}
-          </div>
+          <EmojiPicker onpick={insert} />
         {/snippet}
       </Balloon>
       <button class="key ink post" type="submit" disabled={!text.trim()}><Icon name="send" plain /> Comment</button>
@@ -264,28 +261,5 @@
     gap: 8px;
     justify-content: space-between;
     align-items: center;
-  }
-  .picker {
-    display: grid;
-    grid-template-columns: repeat(8, 36px);
-    gap: 2px;
-  }
-  @media (max-width: 420px) {
-    .picker {
-      grid-template-columns: repeat(6, 40px);
-    }
-  }
-  .em {
-    min-height: 38px;
-    border: none;
-    background: none;
-    font-size: 22px;
-    border-radius: var(--r-sm);
-    cursor: pointer;
-  }
-  @media (hover: hover) {
-    .em:hover {
-      background: var(--sunk);
-    }
   }
 </style>

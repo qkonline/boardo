@@ -25,7 +25,7 @@ export function sentence(n: Note, now = Date.now()): Piece[] {
     case 'status':
       return n.to ? [who, t(' set '), card, t(' to '), { text: n.to, strong: true }] : [who, t(' took the status off '), card];
     case 'completed':
-      return [card, t(' is completed. Everyone has done their part.')];
+      return [card, t(' is completed.')];
     case 'due':
       return n.to ? [who, t(' moved the due date of '), card, t(' to '), t(longDate(n.to, now))] : [who, t(' took the due date off '), card];
     case 'unblocked':

@@ -60,7 +60,9 @@
           <span class="avs">
             {#each card.assignees.slice(0, 4) as u (u)}
               {@const m = b.member.get(u)}
-              <span class="av" title={card.done[u] != null ? `${m?.name ?? 'Someone'}'s part is done` : m?.name}
+              <span
+                class="av"
+                title={card.done[u] != null ? (card.assignees.length > 1 ? `${m?.name ?? 'Someone'}'s part is done` : `${m?.name ?? 'Someone'} is done`) : m?.name}
                 ><Avatar person={m} size={26} />{#if card.done[u] != null}<span class="tick"><Icon name="check" size={9} plain /></span>{/if}</span
               >
             {/each}

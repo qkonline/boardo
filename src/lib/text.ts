@@ -16,13 +16,3 @@ export function linkify(s: string): Piece[] {
   if (last < s.length) out.push({ text: s.slice(last) });
   return out;
 }
-
-/** Emoji for the comment box's picker, the ones people reach for most in a work chat. */
-export const EMOJI = [
-  '👍', '👎', '👏', '🙌', '🙏', '💪', '👀', '🤝',
-  '😀', '😂', '😊', '😍', '🤔', '😅', '😬', '😮',
-  '😢', '😡', '🥳', '😴', '🤯', '🫡', '🙂', '😉',
-  '✅', '❌', '⚠️', '❓', '❗', '💯', '🔥', '⭐',
-  '🎉', '🚀', '💡', '📌', '📎', '📅', '⏰', '📝',
-  '❤️', '💜', '💙', '💚', '💛', '🖤', '👋', '☕',
-];

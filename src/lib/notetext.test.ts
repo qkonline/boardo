@@ -21,7 +21,7 @@ describe('what an update says', () => {
   it('reads as a plain sentence for each kind', () => {
     expect(line(note({}))).toBe('Tayyab Rehman mentioned you in Write the launch email');
     expect(line(note({ kind: 'status', to: 'In progress' }))).toBe('Tayyab Rehman set Write the launch email to In progress');
-    expect(line(note({ kind: 'completed', by: null }))).toBe('Write the launch email is completed. Everyone has done their part.');
+    expect(line(note({ kind: 'completed', by: null }))).toBe('Write the launch email is completed.');
     expect(line(note({ kind: 'due', to: '2026-10-30' }), NOW)).toBe('Tayyab Rehman moved the due date of Write the launch email to Fri 30 Oct');
     expect(line(note({ kind: 'due', to: null }))).toBe('Tayyab Rehman took the due date off Write the launch email');
     expect(line(note({ kind: 'unblocked', dep: 'Pick the colours', by: null }))).toBe('Pick the colours is done, so you can start Write the launch email');

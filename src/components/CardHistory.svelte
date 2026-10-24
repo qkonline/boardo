@@ -5,6 +5,7 @@
   import { statusColors } from '../lib/hue';
   import { logText, logWho } from '../lib/logtext';
   import Avatar from './Avatar.svelte';
+  import PersonLink from './PersonLink.svelte';
 
   /**
    * A card's history as a timeline: grouped by day, newest first, each entry a coloured point
@@ -73,9 +74,9 @@
           {@const text = logText(l, b, true)}
           <li style:--tone={tone(l)}>
             <span class="pt" aria-hidden="true"></span>
-            {#if l.userId}<Avatar person={b.member.get(l.userId)} size={22} />{:else}<span class="auto" aria-hidden="true">B</span>{/if}
+            {#if l.userId}<PersonLink person={b.member.get(l.userId)} {b}><Avatar person={b.member.get(l.userId)} size={22} /></PersonLink>{:else}<span class="auto" aria-hidden="true">B</span>{/if}
             <p class="what">
-              {#if who}<b>{who}</b> {text}{:else}{text.charAt(0).toUpperCase() + text.slice(1)}{/if}
+              {#if who}<PersonLink person={l.userId ? b.member.get(l.userId) : null} {b}><b>{who}</b></PersonLink> {text}{:else}{text.charAt(0).toUpperCase() + text.slice(1)}{/if}
             </p>
             <time datetime={new Date(l.at).toISOString()}>{clock(new Date(l.at))}</time>
           </li>

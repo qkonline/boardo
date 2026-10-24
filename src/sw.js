@@ -143,7 +143,7 @@ function line(n) {
     case 'status':
       return n.to ? `${who} set ${card} to ${n.to}` : `${who} took the status off ${card}`;
     case 'completed':
-      return `${card} is completed. Everyone has done their part.`;
+      return `${card} is completed.`;
     case 'due':
       return n.to ? `${who} moved the due date of ${card} to ${dayLabel(n.to)}` : `${who} took the due date off ${card}`;
     case 'unblocked':

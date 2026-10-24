@@ -44,6 +44,7 @@ Afterwards:
 
 - **R2.1** Anyone can create an account with their email address and sign in from any device.
 - **R2.2** On first sign-in, a person gives their name. They can change it later, and their email (confirmed with a code sent to the new address), and add a profile photo, which the people in their boards see in place of their initials.
+- **R2.2a** Tapping someone's name, face or mention (in comments and descriptions, the People on a card, a card's History) shows who they are: their name (first and last), email (tap to write to them), their role in the board, and how many open cards they have there.
 
 ### 2.2 Board roles
 
@@ -123,10 +124,10 @@ Every card has these fields.
 ### 4.3 Comments
 
 - **R4.10** Members can post comments on cards.
-- **R4.11** Comments support emoji, both typed from the keyboard and picked from an emoji button.
+- **R4.11** Comments support emoji, both typed from the keyboard and picked from an emoji button: about 400, in groups (Smileys, People, Hearts and signs, Work, Celebrate, Food, Nature, Travel) with a tab for each, and the ones used lately on the device first.
 - **R4.12** A person can edit or delete their own comments only.
 - **R4.13** Comments and descriptions take light formatting: bold, italic, strikethrough, bulleted and numbered lists, from keys over the text box or ⌘B, ⌘I, ⌘⇧X, ⌘⇧8 and ⌘⇧7. Enter carries a list on. They're kept as plain text with marks (`**bold**`, `*italic*`, `~~struck~~`, `- `, `1. `) and shown as formatting, built from elements, never HTML, so nothing harmful can be injected. Links are made clickable.
-- **R4.13a** Typing **@** in a comment or description lists the board's people at the cursor, narrowed as their name is typed; picking one writes "@Their Name". A mention is shown picked out, and the person hears about it in the bell (R9.13) once the comment is posted or the description saved. Typing a first name alone works too when only one person in the board has it. Mentioning someone doesn't add them to the card. Only people in the board can be mentioned.
+- **R4.13a** Typing **@** in a comment or description lists the board's people just above the @, narrowed as their name is typed; picking one writes "@Their Name". A mention is shown picked out, and the person hears about it in the bell (R9.13) once the comment is posted or the description saved. Typing a first name alone works too when only one person in the board has it. Mentioning someone doesn't add them to the card. Only people in the board can be mentioned.
 
 ### 4.4 Attachments
 
@@ -170,6 +171,7 @@ Every card has these fields.
 - **R5.5** Anyone in the board can still change the status by hand at any time. Doing so doesn't change anyone's part.
 - **R5.5a** Marking your part done shows a message with **Undo** for a few seconds. Once it's done, the card offers **Mark not done** instead. Either takes the part back (R5.4).
 - **R5.5b** An admin can mark someone else's part not done (from that person's name in the card's People), but never mark it done for them.
+- **R5.5c** On a card with one person, Boardo doesn't speak of their "part": marking it done completes the card (the status says so), so the card window shows only Mark not done, and hints and updates say "done" rather than "their part is done".
 
 ### 5.2 Automation from Elastic
 
@@ -386,4 +388,5 @@ On 23 October 2026, all live:
 - Elastic linked per account, on every device (R8.5, R8.5a);
 - after an outside review of the code: a refused change is undone with a copy kept in Account (R9.5a), a card added offline to a removed column goes to the first column (R9.5b), a banner when the device can't save (R9.3a), and another account on the same device starts clean (R9.2a);
 - a new address, boardo.kaiserkhan.com, with each copy at the old one handed over signed in (R10.1, R10.2);
-- @mentions (R4.13a), the bell (R9.13, R9.14) and notifications on phones and computers (R9.15). Of three looks for the bell (a feed, grouped by board, a timeline), the user chose the feed.
+- @mentions (R4.13a), the bell (R9.13, R9.14) and notifications on phones and computers (R9.15). Of three looks for the bell (a feed, grouped by board, a timeline), the user chose the feed;
+- who someone is from their name or mention (R2.2a), many more emoji (R4.11), and no "your part" on one-person cards (R5.5c).

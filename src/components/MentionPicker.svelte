@@ -4,7 +4,7 @@
   import Avatar from './Avatar.svelte';
 
   /**
-   * Typing "@" in a description or comment: the board's people in a balloon at the cursor,
+   * Typing "@" in a description or comment: the board's people in a balloon just above the @,
    * narrowed as the name is typed. Arrow keys move, Enter or Tab picks, Escape closes; a tap
    * picks too. Picking writes "@Their Name " into the text, which shared/mentions.ts knows
    * again later. Like the formatting keys, it never takes focus from the text box.
@@ -15,12 +15,35 @@
   let open = $state<Open | null>(null);
   const WORD = /[\p{L}\p{N}_]/u;
   const WIDTH = 280;
+  /** Between the list and the line it's for. */
+  const GAP = 4;
 
   /** Where the text box's cursor is on screen: a hidden copy of the box, measured up to it. */
   function caret(box: HTMLTextAreaElement, at: number): { x: number; y: number; h: number } {
     const cs = getComputedStyle(box);
     const copy = document.createElement('div');
-    for (const k of ['font', 'letterSpacing', 'lineHeight', 'padding', 'border', 'boxSizing', 'width', 'textIndent', 'tabSize'] as const)
+    // Each property on its own: Safari can report the shorthands (font, padding, border) as empty.
+    for (const k of [
+      'fontFamily',
+      'fontSize',
+      'fontWeight',
+      'fontStyle',
+      'letterSpacing',
+      'lineHeight',
+      'paddingTop',
+      'paddingRight',
+      'paddingBottom',
+      'paddingLeft',
+      'borderTopWidth',
+      'borderRightWidth',
+      'borderBottomWidth',
+      'borderLeftWidth',
+      'borderStyle',
+      'boxSizing',
+      'width',
+      'textIndent',
+      'tabSize',
+    ] as const)
       copy.style[k] = cs[k];
     Object.assign(copy.style, { position: 'fixed', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', top: '0', left: '-9999px' });
     copy.textContent = box.value.slice(0, at);
@@ -51,14 +74,16 @@
       .slice(0, 6);
     if (!list.length) return void (open = null);
     const pos = caret(box, at);
-    const up = pos.y + pos.h + 8 + list.length * 44 + 48 > window.innerHeight;
+    // Just above the line with the @; below it only when there isn't room above.
+    const tall = list.length * 44 + 12 + 34;
+    const up = pos.y - GAP - tall >= 8;
     open = {
       at,
       q,
       list,
       active: open && open.at === at ? Math.min(open.active, list.length - 1) : 0,
-      x: Math.max(8, Math.min(pos.x - 14, document.documentElement.clientWidth - WIDTH - 8)),
-      y: up ? pos.y - 8 : pos.y + pos.h + 8,
+      x: Math.max(8, Math.min(pos.x - 6, document.documentElement.clientWidth - WIDTH - 8)),
+      y: up ? pos.y - GAP : pos.y + pos.h + GAP,
       up,
     };
   }

@@ -13,6 +13,8 @@
   import FormatBar, { formatKey } from './FormatBar.svelte';
   import Icon from './Icon.svelte';
   import MentionPicker from './MentionPicker.svelte';
+  import PersonCard from './PersonCard.svelte';
+  import PersonLink from './PersonLink.svelte';
   import Rich from './Rich.svelte';
   import Sheet from './Sheet.svelte';
   import StatusChip from './StatusChip.svelte';
@@ -352,6 +354,7 @@
                   {@const m = b.member.get(u)}
                   {@const name = m?.name ?? 'Someone who left'}
                   {@const done = card.done[u] != null}
+                  {@const shared = card.assignees.length > 1}
                   {#snippet who()}
                     <span class="av"
                       ><Avatar person={m} size={22} />{#if done}<span class="tick" aria-hidden="true"><Icon name="check" size={9} plain /></span>{/if}</span
@@ -363,21 +366,29 @@
                       <!-- An admin can take someone's done mark off: their name opens a balloon. -->
                       <Balloon label="{name}'s part" align="end">
                         {#snippet trigger({ toggle, open })}
-                          <button class="who" aria-expanded={open} aria-label="{name}'s part is done" title="Their part is done" onclick={toggle}
+                          <button
+                            class="who"
+                            aria-expanded={open}
+                            aria-label={shared ? `${name}'s part is done` : `${name} is done`}
+                            title={shared ? 'Their part is done' : 'Done'}
+                            onclick={toggle}
                             >{@render who()}</button
                           >
                         {/snippet}
                         {#snippet children(close)}
                           <div class="about">
-                            <p>{name} marked their part done.<br /><span class="muted">{when(card.done[u]!)}</span></p>
+                            {#if m}<PersonCard person={m} {b} />{/if}
+                            <p>{name} marked {shared ? 'their part' : 'it'} done.<br /><span class="muted">{when(card.done[u]!)}</span></p>
                             <button class="key undo-key" onclick={() => (app.undoPart(board, id, u), close())}
-                              ><Icon name="undo" plain /> Mark their part not done</button
+                              ><Icon name="undo" plain /> {shared ? 'Mark their part not done' : 'Mark not done'}</button
                             >
                           </div>
                         {/snippet}
                       </Balloon>
                     {:else}
-                      <span class="who" title={done ? 'Their part is done' : undefined}>{@render who()}</span>
+                      <span class="who" title={done ? (shared ? 'Their part is done' : 'Done') : undefined}
+                        ><PersonLink person={m} {b}>{@render who()}</PersonLink></span
+                      >
                     {/if}
                     <button
                       class="unassign"
@@ -521,7 +532,8 @@
             {#if assigned}
               <div class="part">
                 {#if myDone}
-                  <span class="ok"><Icon name="check" /> Your part is done</span>
+                  <!-- With one person, done is the card's Completed, which the status says already. -->
+                  {#if card.assignees.length > 1}<span class="ok"><Icon name="check" /> Your part is done</span>{/if}
                   <button class="key undo-key" onclick={() => app.markPart(board, id, false)}><Icon name="undo" plain /> Mark not done</button>
                 {:else}
                   <button class="key go done-key" onclick={() => app.markPart(board, id, true)}><Icon name="check" plain /> Mark done</button>
@@ -577,10 +589,10 @@
                   role="button"
                   tabindex="0"
                   aria-label="Edit the description"
-                  onclick={(e) => !(e.target as Element).closest('a') && (editing = 'desc')}
+                  onclick={(e) => !(e.target as Element).closest('a, button, .balloon') && (editing = 'desc')}
                   onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && (e.preventDefault(), (editing = 'desc'))}
                 >
-                  <Rich text={view.desc} people={b.members} />
+                  <Rich text={view.desc} {b} />
                 </div>
               {:else}
                 <button class="desc empty" onclick={() => (editing = 'desc')}>Add a description</button>
