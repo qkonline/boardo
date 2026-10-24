@@ -168,7 +168,8 @@ Every card has these fields.
 - **R5.2** The card shows how many parts are done, for example "1 of 2 done".
 - **R5.3** When **every** assignee has finished their part, the card's status becomes **Completed** automatically.
 - **R5.4** If a part is marked not done again, or a new assignee is added to a Completed card, the status goes back to **In Progress**.
-- **R5.5** Anyone in the board can still change the status by hand at any time. Doing so doesn't change anyone's part.
+- **R5.5** Anyone in the board can still change the status by hand at any time. For someone not on the card that's all it does.
+- **R5.5d** For someone on the card, picking **Completed** is the same as their **Mark done**, and moving the card off Completed the same as their **Mark not done** (since 24 October 2026; before, a status picked by hand never touched anyone's part). Alone on a card, picking Completed marks it done and the key becomes Mark not done; Mark done sets Completed. On a shared card it marks only their part, and says so: the card keeps its status until everyone has done theirs, by either key, then completes by itself.
 - **R5.5a** Marking your part done shows a message with **Undo** for a few seconds. Once it's done, the card offers **Mark not done** instead. Either takes the part back (R5.4).
 - **R5.5b** An admin can mark someone else's part not done (from that person's name in the card's People), but never mark it done for them.
 - **R5.5c** On a card with one person, Boardo doesn't speak of their "part": marking it done completes the card (the status says so), so the card window shows only Mark not done, and hints and updates say "done" rather than "their part is done".

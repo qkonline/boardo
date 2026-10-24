@@ -28,11 +28,36 @@ export function allPartsDone(card: Pick<CardRec, 'assignees' | 'done'>): boolean
 }
 
 /**
+ * Picking Completed by hand is the person's own Mark done, and moving a card off Completed their
+ * own Mark not done (R5.5d): for someone on the card, the status and their part are one thing.
+ * With others on the card it's just their part, as with Mark done: the card keeps its status
+ * until everyone's done, then settle() completes it. Someone not on the card sets the status as
+ * it is. Call before settle().
+ */
+export function statusAsPart(prev: CardRec | null, next: CardRec, actor: string, status: FieldRec | undefined, now: number): CardRec {
+  const completed = optionWithRole(status, 'completed');
+  if (!completed || !prev || !next.assignees.includes(actor)) return next;
+  const was = prev.values.status ?? null;
+  const is = next.values.status ?? null;
+  if (was === is) return next;
+  if (is === completed.id && next.done[actor] == null) {
+    const card = { ...next, done: { ...next.done, [actor]: now } };
+    return allPartsDone(card) ? card : { ...card, values: { ...card.values, status: was } };
+  }
+  if (was === completed.id && is !== completed.id && next.done[actor] != null) {
+    const done = { ...next.done };
+    delete done[actor];
+    return { ...next, done };
+  }
+  return next;
+}
+
+/**
  * Apply the completion rules to a card that's about to be saved (R5.1 to R5.5):
  * - parts belong to assignees only, so a part of someone no longer assigned goes;
  * - when the last part is done, the card becomes Completed;
  * - when a part is undone, or someone is added, a Completed card goes back to In progress;
- * - a status picked by hand is left alone otherwise, and never touches anyone's part.
+ * - a status picked by hand is left alone otherwise (statusAsPart() turns it into the picker's own part first).
  * Returns the card to save and, when the status was changed here, the role it moved to.
  */
 export function settle(

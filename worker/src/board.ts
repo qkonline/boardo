@@ -35,7 +35,7 @@ import {
   type Role,
   type SessionRec,
 } from '../../shared/model';
-import { cardChanges, type LogEntry, optionWithRole, settle } from '../../shared/rules';
+import { cardChanges, type LogEntry, optionWithRole, settle, statusAsPart } from '../../shared/rules';
 import { type Change, changes } from './checks';
 import type { Env } from './env';
 import { alert, saveNotes } from './inbox';
@@ -494,6 +494,8 @@ export class Board extends DurableObject<Env> {
         if (!before && next.createdBy !== who.userId) next = { ...next, createdBy: who.userId };
         if (!before && Math.abs(next.created - now) > 7 * 24 * 3600_000) next = { ...next, created: now };
         if (before) next = { ...next, createdBy: before.createdBy, created: before.created };
+        // Completed picked by hand is the person's own Mark done; moving off it, their Mark not done.
+        next = statusAsPart(before, next, who.userId, this.get('field', 'status') ?? undefined, now);
         // Only members can be assigned.
         const members = new Set(this.all('member').map((m) => m.userId));
         const assignees = next.assignees.filter((u) => members.has(u) || before?.assignees.includes(u));

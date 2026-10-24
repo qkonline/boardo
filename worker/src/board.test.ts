@@ -73,6 +73,14 @@ describe("someone else's part", () => {
     put('card', 'k1', shared({ bob: 5 }));
     expect(await save('cy', 'member', shared({}))).toEqual({ bob: 5 });
   });
+  it('is marked done when they pick Completed themselves, and undone when they move off it', async () => {
+    const one = { ...card(false), assignees: ['bob'], values: { status: 'prog' } };
+    put('card', 'k1', one);
+    expect(await save('bob', 'member', { ...one, values: { status: 'done' } })).toMatchObject({ bob: expect.any(Number) });
+    const now = ((await server.records('b1', 'card')) as CardRec[])[0];
+    expect(now.values.status).toBe('done');
+    expect(await save('bob', 'member', { ...now, values: { status: 'block' } })).toEqual({});
+  });
   it('can be marked not done by an admin, but never done for them', async () => {
     put('card', 'k1', shared({ bob: 5 }));
     expect(await save('ann', 'admin', shared({ cy: 9 }))).toEqual({});

@@ -125,7 +125,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
 - **Completion** runs after each change (R5.1 to R5.5):
   - when every assignee has a `done` entry and Status isn't `completed`, it sets `completed` and logs it;
   - when a part is undone or an assignee is added to a Completed card, it sets `in_progress`;
-  - a manual status change never touches `done`.
+  - for someone on the card, picking Completed by hand is their own Mark done, and moving off Completed their own Mark not done (`statusAsPart()` in `shared/rules.ts`, before `settle()`, on the board and in the app's `updateCard()`); on a shared card the status then waits for the others. For someone not on the card a status change touches no part.
 - **Time spent** is computed from `session` records, never stored on the card. A running session counts up to now. It's shown in total and per person.
 
 ## 3. Sync and offline

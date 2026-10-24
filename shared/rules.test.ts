@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type CardRec, STATUS_FIELD } from './model';
-import { cardChanges, settle } from './rules';
+import { cardChanges, settle, statusAsPart } from './rules';
 
 const card = (extra: Partial<CardRec> = {}): CardRec => ({
   id: 'c',
@@ -50,6 +50,42 @@ describe('completion (R5.1 to R5.5)', () => {
   });
   it('never completes a card nobody is on', () => {
     expect(settle(card(), card({ assignees: [] }), STATUS_FIELD).auto).toBeNull();
+  });
+});
+
+describe('Completed by hand is Mark done (R5.5d)', () => {
+  const both = (prev: CardRec, next: CardRec, actor: string) => settle(prev, statusAsPart(prev, next, actor, STATUS_FIELD, 7), STATUS_FIELD).card;
+  it('alone on a card: Completed marks the part done, and the card stays Completed', () => {
+    const one = card({ assignees: ['ann'] });
+    const r = both(one, card({ assignees: ['ann'], values: { status: 'done' } }), 'ann');
+    expect(r.values.status).toBe('done');
+    expect(r.done).toEqual({ ann: 7 });
+  });
+  it('alone on a card: moving off Completed undoes the part, and the picked status stays', () => {
+    const one = card({ assignees: ['ann'], values: { status: 'done' }, done: { ann: 1 } });
+    const r = both(one, { ...one, values: { status: 'block' } }, 'ann');
+    expect(r.values.status).toBe('block');
+    expect(r.done).toEqual({});
+  });
+  it('with others: Completed marks only my part, and the card waits for theirs', () => {
+    const r = both(card(), card({ values: { status: 'done' } }), 'ann');
+    expect(r.done).toEqual({ ann: 7 });
+    expect(r.values.status).toBe('prog');
+    // Then Bob does the same, and it completes.
+    const r2 = both(r, { ...r, values: { status: 'done' } }, 'bob');
+    expect(r2.values.status).toBe('done');
+    expect(Object.keys(r2.done).sort()).toEqual(['ann', 'bob']);
+  });
+  it('with others: moving a Completed card off it undoes only my part', () => {
+    const all = card({ values: { status: 'done' }, done: { ann: 1, bob: 2 } });
+    const r = both(all, { ...all, values: { status: 'block' } }, 'bob');
+    expect(r.done).toEqual({ ann: 1 });
+    expect(r.values.status).toBe('block');
+  });
+  it('someone not on the card just sets the status', () => {
+    const r = both(card(), card({ values: { status: 'done' } }), 'cy');
+    expect(r.done).toEqual({});
+    expect(r.values.status).toBe('done');
   });
 });
 

@@ -16,7 +16,7 @@ import {
   type Note,
   type Role,
 } from '../../shared/model';
-import { settle } from '../../shared/rules';
+import { optionWithRole, settle, statusAsPart } from '../../shared/rules';
 import { API, ApiError, call, putBlob, setToken, whenSignedOut } from './api';
 import { fitImage, squarePhoto } from './images';
 import { BoardState } from './board.svelte';
@@ -752,9 +752,15 @@ export class App {
   async updateCard(board: string, id: string, patch: Partial<CardRec>): Promise<void> {
     const prev = this.card(board, id);
     if (!prev) return;
-    const next = settle(prev, { ...prev, ...patch }, this.data[board].statusField).card;
+    const status = this.data[board].statusField;
+    // As the board does it: Completed picked by hand is your own Mark done, moving off it your Mark not done.
+    const asked = this.user ? statusAsPart(prev, { ...prev, ...patch }, this.user.id, status, Date.now()) : { ...prev, ...patch };
+    const next = settle(prev, asked, status).card;
     if (JSON.stringify(next) === JSON.stringify(prev)) return;
     await this.put(board, [{ kind: 'card', key: id, data: next }]);
+    const completed = optionWithRole(status, 'completed')?.id;
+    if (completed && patch.values?.status === completed && next.values.status !== completed && this.user && next.done[this.user.id] != null)
+      this.say("Your part is done. The card completes when everyone's part is done.");
   }
 
   async setValue(board: string, id: string, field: string, value: string | number | boolean | null): Promise<void> {
