@@ -289,7 +289,7 @@ Every card has these fields.
 ### 11.1 Security and privacy
 
 - **R11.1** Access is checked on the server for every request and every live connection. Hiding things on screen is never the only protection.
-- **R11.2** Sign-in codes expire after 10 minutes and allow 5 tries. Sending is rate-limited per address and per network. The app never reveals whether an email address has an account.
+- **R11.2** Sign-in codes expire after 10 minutes, allow 5 tries and work once. Sending is rate-limited per address and per network, and every request that needs no sign-in is limited to 60 a minute from one network. The app never reveals whether an email address has an account.
 - **R11.3** Sign-in sessions and connection tokens are stored only in scrambled (hashed) form on the server.
 - **R11.4** Only Boardo's own site, and Elastic for its narrow connection, may call the API.
 - **R11.5** Files are served only to board members, through short-lived links, and non-image files always download rather than open in the browser.
@@ -367,3 +367,8 @@ Phases 1 to 3 went live on 22 October 2026. Refinements since, all live:
 - board backgrounds and tiles (R3.1), profile photos and changing name and email (R2.2);
 - the open card redesigned (section 4.7), with Undo after Mark done (R5.5a);
 - dependencies (section 4.6).
+
+On 23 October 2026, all live:
+- Elastic linked per account, on every device (R8.5, R8.5a);
+- after an outside review of the code: a refused change is undone with a copy kept in Account (R9.5a), a card added offline to a removed column goes to the first column (R9.5b), a banner when the device can't save (R9.3a), and another account on the same device starts clean (R9.2a);
+- a new address, boardo.kaiserkhan.com, with each copy at the old one handed over signed in (R10.1, R10.2).

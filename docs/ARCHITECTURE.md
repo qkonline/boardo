@@ -19,7 +19,7 @@ This document describes how Boardo is built and how it connects to Elastic. What
 ```
 
 - **The app** is a static Svelte 5 + TypeScript + Vite PWA, served by the Worker at boardo.kaiserkhan.com (since 23 Oct 2026; before, from kaiserkhan.com/boardo on Hostinger). It keeps every board the person belongs to in IndexedDB, works offline and syncs live.
-- **Same origin as Elastic.** Both apps are on https://kaiserkhan.com, so everything stored in the browser is named apart: IndexedDB `boardo`, `localStorage` keys `boardo:*`, the `boardo-sync` lock, the `boardo` BroadcastChannel, the service worker scope `/boardo/` and caches `boardo-*`.
+- **Its own origin.** Since 23 Oct 2026 Boardo has its own origin (boardo.kaiserkhan.com), apart from Elastic (elastic.kaiserkhan.com) and anything else on kaiserkhan.com, so no other site's scripts can read its storage. The names from when both apps shared https://kaiserkhan.com stay: IndexedDB `boardo`, `localStorage` keys `boardo:*`, the `boardo-sync` lock, the `boardo` BroadcastChannel and caches `boardo-*`; the service worker's scope is now `/`.
 - **D1 is the directory.** It holds:
   - who exists;
   - who is in which board, with which role;
@@ -325,13 +325,15 @@ All of these are in Elastic's repository.
   - archived cards, restored or deleted for good;
   - leave or delete board.
 - **My cards:** grouped by deadline or by project.
-- **Account** (the person icon; far right on a computer, a tab on a phone): name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, delete account.
+- **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, delete account.
+- **Boardo has moved** (`Moving.svelte`, only in the farewell build at the old address): says where Boardo is now, brings the latest changes across, then opens the new address.
 
 **Interaction**
 - Drag uses press-and-hold on touch and a short move threshold with a mouse, with other cards sliding aside, as in Elastic.
 - Sheets slide up on a phone. On a computer the card opens in the middle and Activity slides in from the right.
 - Installed copies pick up a new build at quiet moments (on coming back to the app or leaving it, never while something is open), and pull down to refresh, as in Elastic (`freshness.svelte.ts`).
 - Nothing a person changes is saved until they press Save, Add, Update or Comment, as in Elastic (PRD R11.13).
+- When the device can't save, a banner across the top (`SaveError.svelte`, as in Elastic) says so and offers a backup of the waiting changes.
 - Everything respects reduced motion.
 
 ## 8. Phases
@@ -376,6 +378,11 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
 - The card window redesign: drafts until Save, balloons, History as a timeline, Undo after Mark done, Status in the side column, the Elastic balloon.
 - Card dependencies.
 
+**23 October 2026**
+- Elastic linked per account (section 5.4).
+- After an outside review of the code: changes refused one record at a time, kept on the device and listed in Account; cards never lost to a removed column; new comments need their card; the banner when the device can't save; another account on the same device starts clean; the last-admin rule, rate limits and sign-in codes hold when requests arrive at once; membership changes reach the board on a retry; an Elastic stop counts only for its own card; Cloudflare's rate limiter on the open routes.
+- The move to boardo.kaiserkhan.com, one Worker serving the app and its API, with each copy at the old address handed over signed in.
+
 ## 9. Testing
 
 **Boardo unit tests (Vitest)**
@@ -397,6 +404,7 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
 - **Members:** the last admin stays when two admins take each other off at once, and a change the board DO didn't get is finished by asking again (`boards.test.ts`).
 - **Refused changes:** one bad record is refused alone, the device keeps a copy and is told, a comment on a card that's gone is refused, and a card added offline to a removed column lands in the first one (`sync.test.ts`, `checks.test.ts`).
 - **Elastic:** a stop counts only for the session's own card (`elastic.test.ts`).
+- **Moving:** a handoff code signs in once, as the same person, within two minutes, and is kept only as a hash (`auth.test.ts`).
 
 **Elastic unit tests**
 - `cardsFor`:
@@ -415,6 +423,8 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
   - drag between columns, edit fields, comment with emoji;
   - upload an image and a PDF, and a blocked type is refused;
   - every action appears in the logs.
+- **Boardo, when things don't go through** (`local/qa/safety.mjs`): a refused change shows the toast and appears in Account; a device that can't save shows the banner, keeps the card on screen and sends it once saving works; another account signing in after a cut-short sign-out gets nothing of the last person's.
+- **Moving** (`local/qa/move.mjs`): an old address with a change not yet sent switches to the farewell build, sends it, and lands on the new address signed in with its theme.
 - **Elastic against a local Boardo:**
   - connect through OAuth, and the Projects section appears;
   - start a card: it counts up and shows In Progress in Boardo;

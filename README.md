@@ -40,7 +40,7 @@ for the design.
 
 ```bash
 npm install
-npm run dev            # http://localhost:5174/boardo/ (expects the API at :8788)
+npm run dev            # http://localhost:5174/ (expects the API at :8788)
 npm run worker:dev     # the API at http://localhost:8788 (Wrangler)
 npm test               # Vitest, including multi-person sync against the real board logic
 npm run check          # svelte-check and the Worker's types
