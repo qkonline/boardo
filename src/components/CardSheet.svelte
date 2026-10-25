@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import type { CardRec, FieldRec } from '../../shared/model';
   import { allPartsDone } from '../../shared/rules';
   import { dayBefore, deadline, duration, fromLocalInput, longDate, toLocalInput, when } from '../lib/dates';
@@ -104,6 +105,32 @@
     else leave();
   }
 
+  /**
+   * Enter saves the card's changes, and with nothing to save closes it (Escape closes it too,
+   * asking first when there are changes). A text box keeps Enter for its new lines, a field being
+   * edited takes it as done (then saves), an open balloon keeps it for its choices, and a key
+   * reached with Tab still presses itself.
+   */
+  async function enterKey(e: KeyboardEvent) {
+    if (e.defaultPrevented || e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+    const t = e.target as HTMLElement;
+    const me = document.querySelector('[role=dialog][aria-label=Card]');
+    if (t !== document.body && !me?.contains(t)) return;
+    if (document.querySelector('.balloon, .mentions')) return;
+    // Escape from outside the window's own keys (focus left on the page after a balloon closed).
+    if (e.key === 'Escape' && t === document.body) return close();
+    if (e.key !== 'Enter') return;
+    if (t.matches('textarea, select, [contenteditable], input[type=file]')) return;
+    if (t.matches('button, a, [role=button]') && t.matches(':focus-visible')) return;
+    e.preventDefault();
+    if (t.matches('input')) {
+      t.blur();
+      await tick();
+    }
+    if (dirty) await save();
+    else close();
+  }
+
   // ---------- what's shown ----------
 
   const statusField = $derived(b?.statusField);
@@ -195,6 +222,8 @@
     }
   }
 </script>
+
+<svelte:window onkeydown={enterKey} />
 
 <Sheet variant="modal" label="Card" onclose={close}>
   {#if b && view && card}

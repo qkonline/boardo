@@ -150,11 +150,12 @@
     gap: 8px;
     min-width: 0;
   }
+  /* When the status, dates and counts wrap, their lines sit 8px apart. */
   .meta {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 4px 12px;
+    gap: 8px 12px;
     color: var(--muted);
     font-size: 13px;
     min-width: 0;
