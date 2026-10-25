@@ -147,6 +147,7 @@ Every card has these fields.
 
 - **R4.20** Cards can be archived and restored. Archived cards are hidden from the board, My cards and Elastic, but kept with their history.
 - **R4.21** An archived card can be deleted for good, by an admin or by whoever made it. Its comments, attachments and time go with it; its history stays in the project log, with an entry saying it was deleted.
+- **R4.21a** Archived cards are found from an **Archived** link beside the board's filters, with their count. It opens a panel from the side, like Activity, with a search that finds them by any words in their title, description or comments. Each can be opened, restored, or deleted for good (R4.21). Board settings no longer lists them.
 
 ### 4.6 Dependencies
 
@@ -392,4 +393,5 @@ On 23 October 2026, all live:
 - a new address, boardo.kaiserkhan.com, with each copy at the old one handed over signed in (R10.1, R10.2);
 - @mentions (R4.13a), the bell (R9.13, R9.14) and notifications on phones and computers (R9.15). Of three looks for the bell (a feed, grouped by board, a timeline), the user chose the feed;
 - who someone is from their name or mention (R2.2a), many more emoji (R4.11), and no "your part" on one-person cards (R5.5c);
-- Completed picked by hand is your Mark done (R5.5d), and what new cards start with (R3.7).
+- Completed picked by hand is your Mark done (R5.5d), and what new cards start with (R3.7);
+- archived cards in a searchable side panel beside the filters (R4.21a).

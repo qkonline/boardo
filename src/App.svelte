@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import Activity from './components/Activity.svelte';
+  import Archive from './components/Archive.svelte';
   import BoardSettings from './components/BoardSettings.svelte';
   import BoardView from './components/BoardView.svelte';
   import CardSheet from './components/CardSheet.svelte';
@@ -66,6 +67,9 @@
   {/if}
   {#if app.activity}
     <Activity id={app.activity} />
+  {/if}
+  {#if app.archive}
+    <Archive id={app.archive} />
   {/if}
   {#if app.open}
     {#key app.open.board + app.open.id}<CardSheet board={app.open.board} id={app.open.id} />{/key}

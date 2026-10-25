@@ -105,12 +105,16 @@
         {#if filtered}
           <button class="btn ghost clear" onclick={() => (filters[id] = { person: 'all', status: 'all' })}>Clear</button>
         {/if}
+        <!-- The archived cards, in a panel like Activity. -->
+        <button class="arch" onclick={() => ((app.activity = null), (app.archive = id))}
+          ><Icon name="archive" size={16} /> Archived{#if b.archived.length}<span class="n">{b.archived.length}</span>{/if}</button
+        >
       </div>
       {#if b.status !== 'live' && app.online && b.loaded}
         <span class="sync" title="Connecting">Connecting</span>
       {/if}
       <div class="acts">
-        <button class="btn" onclick={() => (app.activity = id)}><Icon name="log" /><span class="wide">Activity</span></button>
+        <button class="btn" onclick={() => ((app.archive = null), (app.activity = id))}><Icon name="log" /><span class="wide">Activity</span></button>
         <button class="icon-btn" aria-label="Board settings" onclick={() => app.go({ name: 'boardSettings', id })}
           ><Icon name="gear" /></button
         >
@@ -316,6 +320,38 @@
     padding: 0 8px;
     color: var(--muted);
     font-size: 13px;
+  }
+  .arch {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: var(--btn);
+    padding: 0 8px;
+    margin-left: 6px;
+    border: none;
+    border-radius: var(--r-ctl);
+    background: none;
+    color: var(--muted);
+    font: 500 14px var(--font);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .arch:hover {
+      background: var(--sunk);
+      color: var(--text);
+    }
+  }
+  .arch .n {
+    min-width: 18px;
+    padding: 2px 5px;
+    box-sizing: border-box;
+    border-radius: 9px;
+    background: var(--sunk);
+    color: var(--muted);
+    font: 600 11.5px/14px var(--font);
+    text-align: center;
   }
   /* On a phone the filters drop below the name. */
   @media (max-width: 640px) {

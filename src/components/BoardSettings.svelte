@@ -333,39 +333,6 @@
       </section>
     {/if}
 
-    <section>
-      <h2>Archived cards</h2>
-      {#if b.archived.length}
-        <ul class="card people">
-          {#each b.archived as c (c.id)}
-            <li>
-              <span class="who"><b>{c.title || 'Untitled'}</b></span>
-              {#if armed === `del-${c.id}`}
-                <span class="ask">Delete for good?</span>
-                <button class="btn small danger" disabled={busy || !app.online} onclick={() => act(() => app.deleteCard(id, c.id), 'Card deleted.')}
-                  >Delete</button
-                >
-                <button class="btn small ghost" onclick={() => (armed = null)}>Keep</button>
-              {:else}
-                <button class="btn small" onclick={() => app.openCard(id, c.id)}>Open</button>
-                <button class="btn small" onclick={() => app.archiveCard(id, c.id, false)}>Restore</button>
-                {#if app.canDelete(id, c.id)}
-                  <button class="icon-btn" aria-label="Delete {c.title || 'Untitled'}" onclick={() => (armed = `del-${c.id}`)}
-                    ><Icon name="trash" /></button
-                  >
-                {/if}
-              {/if}
-            </li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="note">None.</p>
-      {/if}
-      {#if b.archived.length}
-        <p class="note">Deleting a card removes it, its comments and its files for everyone. Its history stays in Activity.</p>
-      {/if}
-    </section>
-
     <section class="danger-zone">
       {#if armed === 'leave'}
         <p>Leave {b.board?.name}? It goes from your devices, and you'd need a new invite to come back.</p>
@@ -473,10 +440,6 @@
     width: auto;
     min-height: 40px;
     padding: 6px 8px;
-  }
-  .ask {
-    font-size: 13px;
-    color: var(--redT);
   }
   .bg-part {
     display: grid;

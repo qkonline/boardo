@@ -97,6 +97,8 @@ export class App {
   screen = $state<Screen>({ name: 'home' });
   /** The board whose Activity panel is open. */
   activity = $state<string | null>(null);
+  /** The board whose Archived cards panel is open. */
+  archive = $state<string | null>(null);
   /** The card open in the card sheet. */
   open = $state<{ board: string; id: string } | null>(null);
   /** Overlays: New board, invites to show after a link was opened. */
@@ -339,6 +341,7 @@ export class App {
     if ('id' in s && !ids.has(s.id)) this.go({ name: 'home' });
     if (this.open && !ids.has(this.open.board)) this.open = null;
     if (this.activity && !ids.has(this.activity)) this.activity = null;
+    if (this.archive && !ids.has(this.archive)) this.archive = null;
   }
 
   private boardGone(id: string): void {
@@ -488,6 +491,7 @@ export class App {
     this.data = {};
     this.open = null;
     this.activity = null;
+    this.archive = null;
     this.sheet = null;
     this.screen = { name: 'home' };
     writeLocal(SCREEN_KEY, null);
@@ -499,6 +503,7 @@ export class App {
     this.screen = s;
     this.open = null;
     this.activity = null;
+    this.archive = null;
     writeLocal(SCREEN_KEY, JSON.stringify(s));
     if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
   }

@@ -321,6 +321,7 @@ All of these are in Elastic's repository.
   - **Details, main column:** Description, Attachments, Dependencies (`Dependencies.svelte`: the cards it waits on along a rail, "This card", then the ones it holds up; picked from a balloon with a search, never offering a card that already waits on this one), Comments (the emoji picker is a balloon).
   - **History** (`CardHistory.svelte`): the card's log as a timeline grouped by day, a coloured point for each kind of change.
   - **Drafts.** Every edit is a draft until Save changes. A bar shows Unsaved changes with Discard and Save changes, and closing (or opening a linked card) with unsaved changes asks first. Mark done, Archive, comments and files act at once; Mark done shows a toast with Undo for 6 seconds.
+- **Archived cards** (`Archive.svelte`): a panel from the right like Activity (one or the other is open), opened from the Archived link and count beside the filters: a search over title, description and comments (every word typed must be found), each card with Open (stacked on top), Restore and Delete.
 - **Activity:** the project log, filterable by person and card, in a panel that slides in from the right over the board (a tap outside closes it). A card opened from it stacks on top.
 - **Board settings** (admin):
   - Board: name, colour and background (none, a colour, or an image with Remove image), all saved together with one Save;
@@ -329,7 +330,6 @@ All of these are in Elastic's repository.
   - invites;
   - the fields editor;
   - the upload limit;
-  - archived cards, restored or deleted for good;
   - leave or delete board.
 - **My cards:** grouped by deadline or by project.
 - **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, delete account.
