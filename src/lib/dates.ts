@@ -124,3 +124,14 @@ export function duration(ms: number): string {
   const h = Math.floor(m / 60);
   return h ? `${h}h${m % 60 ? ` ${m % 60}m` : ''}` : `${m}m`;
 }
+
+const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/** A day as a heading in a log: "Today", "Yesterday", a weekday this week, else "Fri 24 Oct". */
+export function dayName(key: string, now = Date.now()): string {
+  const d = daysBetween(key, todayKey(now));
+  if (d === 0) return 'Today';
+  if (d === 1) return 'Yesterday';
+  if (d < 7) return WEEKDAYS[dateOf(key).getDay()];
+  return `${WEEKDAYS[dateOf(key).getDay()].slice(0, 3)} ${shortDate(key, now)}`;
+}

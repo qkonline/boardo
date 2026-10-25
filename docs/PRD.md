@@ -202,6 +202,7 @@ Every card has these fields.
   - deleted for good (R4.21);
   - time worked through Elastic (for example "worked 1h 20m").
 - **R6.3** All card logs together form one **project log** for the whole board, newest first, filterable by person and by card.
+- **R6.3a** The project log reads as a feed: by day; one person's changes made close together under their name once, with the time; within those, each card's changes under the card's name once, which opens it; new cards added one after another folded into one line ("added 12 cards to Marketing", their names after it). The latest 40 changes show first, and Load more brings the next 40. Its filters (person, card) are as quiet as the board's.
 - **R6.4** Logs can't be edited or deleted by anyone. They are written by the server, not by people's devices, so they can be trusted.
 
 ## 7. My cards
@@ -401,4 +402,5 @@ On 23 October 2026, all live:
 - archived cards in a searchable side panel beside the filters (R4.21a);
 - a description's first words on its card (R4.13b);
 - Enter to save and close a card (R4.28a), and dropdown and people fields picked like Status (R4.28b);
-- custom fields shown on cards (R4.9a).
+- custom fields shown on cards (R4.9a);
+- the project log as a feed, 40 at a time (R6.3a).

@@ -1,9 +1,8 @@
 <script lang="ts">
   import type { LogRec } from '../../shared/model';
   import type { BoardState } from '../lib/board.svelte';
-  import { clock, dateOf, daysBetween, keyOf, shortDate, todayKey } from '../lib/dates';
-  import { statusColors } from '../lib/hue';
-  import { logText, logWho } from '../lib/logtext';
+  import { clock, dayName, keyOf } from '../lib/dates';
+  import { logText, logTone, logWho } from '../lib/logtext';
   import Avatar from './Avatar.svelte';
   import PersonLink from './PersonLink.svelte';
 
@@ -12,15 +11,6 @@
    * for the kind of thing that happened, who did it, and when.
    */
   let { b, logs }: { b: BoardState; logs: LogRec[] } = $props();
-
-  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  function dayName(key: string): string {
-    const d = daysBetween(key, todayKey());
-    if (d === 0) return 'Today';
-    if (d === 1) return 'Yesterday';
-    if (d < 7) return DAYS[dateOf(key).getDay()];
-    return `${DAYS[dateOf(key).getDay()].slice(0, 3)} ${shortDate(key)}`;
-  }
 
   const groups = $derived.by(() => {
     const out: { key: string; logs: LogRec[] }[] = [];
@@ -32,34 +22,6 @@
     return out;
   });
 
-  /** The colour of each kind of entry; a status change takes the colour of its new status. */
-  function tone(l: LogRec): string {
-    switch (l.action) {
-      case 'created':
-      case 'restored':
-      case 'part_done':
-        return 'var(--s-lime)';
-      case 'moved':
-      case 'linked':
-      case 'unlinked':
-        return 'var(--s-cyan)';
-      case 'assigned':
-      case 'unassigned':
-      case 'file_added':
-        return 'var(--s-indigo)';
-      case 'commented':
-        return 'var(--s-yellow)';
-      case 'worked':
-      case 'archived':
-      case 'deleted':
-        return 'var(--s-rose)';
-      case 'status': {
-        const o = b.statusField?.options?.find((x) => x.label === l.detail.to);
-        return statusColors(o?.hue ?? 'indigo').bar;
-      }
-    }
-    return 'var(--s-slate)';
-  }
 </script>
 
 {#if !logs.length}
@@ -72,7 +34,7 @@
         {#each g.logs as l (l.id)}
           {@const who = logWho(l, b)}
           {@const text = logText(l, b, true)}
-          <li style:--tone={tone(l)}>
+          <li style:--tone={logTone(l, b)}>
             <span class="pt" aria-hidden="true"></span>
             {#if l.userId}<PersonLink person={b.member.get(l.userId)} {b}><Avatar person={b.member.get(l.userId)} size={22} /></PersonLink>{:else}<span class="auto" aria-hidden="true">B</span>{/if}
             <p class="what">

@@ -4,6 +4,7 @@ import type { LogRec } from '../../shared/model';
 import type { BoardState } from './board.svelte';
 import { dayOf, hasTime, longDate } from './dates';
 import { duration } from './dates';
+import { statusColors } from './hue';
 
 const q = (v: unknown) => (v == null || v === '' ? 'nothing' : String(v));
 
@@ -107,4 +108,33 @@ export function logWho(l: LogRec, b: BoardState): string | null {
   if (l.action === 'member_added' && (!l.userId || l.userId === l.detail.user)) return null;
   if (!l.userId) return 'Boardo';
   return b.member.get(l.userId)?.name ?? 'Someone who left';
+}
+
+/** The colour of each kind of entry, as a point in a log; a status change takes its new status's colour. */
+export function logTone(l: LogRec, b: BoardState): string {
+  switch (l.action) {
+    case 'created':
+    case 'restored':
+    case 'part_done':
+      return 'var(--s-lime)';
+    case 'moved':
+    case 'linked':
+    case 'unlinked':
+      return 'var(--s-cyan)';
+    case 'assigned':
+    case 'unassigned':
+    case 'file_added':
+      return 'var(--s-indigo)';
+    case 'commented':
+      return 'var(--s-yellow)';
+    case 'worked':
+    case 'archived':
+    case 'deleted':
+      return 'var(--s-rose)';
+    case 'status': {
+      const o = b.statusField?.options?.find((x) => x.label === l.detail.to);
+      return statusColors(o?.hue ?? 'indigo').bar;
+    }
+  }
+  return 'var(--s-slate)';
 }
