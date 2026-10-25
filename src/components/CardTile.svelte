@@ -4,6 +4,7 @@
   import type { BoardState } from '../lib/board.svelte';
   import { deadline, range } from '../lib/dates';
   import { drag } from '../lib/drag.svelte';
+  import { plain } from '../lib/format';
   import { app } from '../lib/store.svelte';
   import Avatar from './Avatar.svelte';
   import Icon from './Icon.svelte';
@@ -22,6 +23,8 @@
   const comments = $derived(b.commentsOn(card.id).length);
   const files = $derived(b.filesOn(card.id).length);
   const doneCount = $derived(card.assignees.filter((u) => card.done[u] != null).length);
+  /** A hint that there's a description to read: its first words, up to two lines. */
+  const preview = $derived(card.desc ? plain(card.desc).slice(0, 240) : '');
 
   function open() {
     if (drag.justDropped) return;
@@ -43,7 +46,10 @@
     {#if showBoard && b.board}
       <span class="board">{b.board.name}</span>
     {/if}
-    <span class="t">{card.title || 'Untitled'}</span>
+    <span class="top">
+      <span class="t">{card.title || 'Untitled'}</span>
+      {#if preview}<span class="desc">{preview}</span>{/if}
+    </span>
     {#if status || dates || comments || files || card.assignees.length}
       <span class="foot">
         <span class="meta">
@@ -120,6 +126,22 @@
   }
   .completed .t {
     color: var(--muted);
+  }
+  /* The title, with its description's first words close under it. */
+  .top {
+    display: grid;
+    gap: 3px;
+  }
+  .desc {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--muted);
+    overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .foot {
     display: flex;

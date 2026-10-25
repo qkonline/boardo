@@ -129,6 +129,7 @@ Every card has these fields.
 - **R4.12** A person can edit or delete their own comments only.
 - **R4.13** Comments and descriptions take light formatting: bold, italic, strikethrough, bulleted and numbered lists, from keys over the text box or ⌘B, ⌘I, ⌘⇧X, ⌘⇧8 and ⌘⇧7. Enter carries a list on. They're kept as plain text with marks (`**bold**`, `*italic*`, `~~struck~~`, `- `, `1. `) and shown as formatting, built from elements, never HTML, so nothing harmful can be injected. Links are made clickable.
 - **R4.13a** Typing **@** in a comment or description lists the board's people just above the @, narrowed as their name is typed; picking one writes "@Their Name". A mention is shown picked out, and the person hears about it in the bell (R9.13) once the comment is posted or the description saved. Typing a first name alone works too when only one person in the board has it. Mentioning someone doesn't add them to the card. Only people in the board can be mentioned.
+- **R4.13b** A card with a description shows its first words under its title, muted, at most two lines, without the formatting marks, as a hint that there's more to read. On boards and in My cards.
 
 ### 4.4 Attachments
 
@@ -394,4 +395,5 @@ On 23 October 2026, all live:
 - @mentions (R4.13a), the bell (R9.13, R9.14) and notifications on phones and computers (R9.15). Of three looks for the bell (a feed, grouped by board, a timeline), the user chose the feed;
 - who someone is from their name or mention (R2.2a), many more emoji (R4.11), and no "your part" on one-person cards (R5.5c);
 - Completed picked by hand is your Mark done (R5.5d), and what new cards start with (R3.7);
-- archived cards in a searchable side panel beside the filters (R4.21a).
+- archived cards in a searchable side panel beside the filters (R4.21a);
+- a description's first words on its card (R4.13b).

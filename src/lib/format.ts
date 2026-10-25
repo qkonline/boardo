@@ -63,6 +63,16 @@ export function inline(s: string, flags: Omit<Inline, 'text' | 'href'> = {}): In
   ];
 }
 
+/** The words alone, marks and list markers taken off, on one line: a description's preview on its card. */
+export function plain(text: string): string {
+  return blocks(text)
+    .flatMap((bl) => (bl.kind === 'p' ? bl.lines : bl.items))
+    .map((l) => l.map((p) => p.text).join(''))
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export type Edit = { value: string; start: number; end: number };
 
 /**

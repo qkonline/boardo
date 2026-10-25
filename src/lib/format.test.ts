@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { blocks, enter, inline, list, mark } from './format';
+import { blocks, enter, inline, list, mark, plain } from './format';
 
 const flat = (s: string) => inline(s).map((p) => [p.text, p.b ? 'b' : '', p.i ? 'i' : '', p.s ? 's' : '', p.href ? 'a' : ''].join(''));
 
@@ -59,5 +59,12 @@ describe('the toolbar', () => {
     expect(enter('9. a', 4)?.value).toBe('9. a\n10. ');
     expect(enter('- a\n- ', 6)).toEqual({ value: '- a\n', start: 4, end: 4 });
     expect(enter('plain', 5)).toBeNull();
+  });
+});
+
+describe('a preview of a description', () => {
+  it('keeps the words, without marks or list markers, on one line', () => {
+    expect(plain('**Bold** start, *then* ~~not~~\n\n- item one\n1. item two')).toBe('Bold start, then not item one item two');
+    expect(plain('  \n ')).toBe('');
   });
 });
