@@ -36,6 +36,15 @@ export function withNewCardDefaults(card: CardRec, board: BoardRec | null | unde
   return out;
 }
 
+/** A name as two columns are compared (R3.4a): letter case and extra spaces aside. */
+export const nameKey = (name: string) => name.trim().replace(/\s+/g, ' ').toLowerCase();
+
+/** The column already called `name`, other than `except`, if any (an unnamed one never clashes). */
+export function sameNamed<T extends { id: string; name: string }>(columns: T[], name: string, except?: string): T | undefined {
+  const key = nameKey(name);
+  return key ? columns.find((c) => c.id !== except && nameKey(c.name) === key) : undefined;
+}
+
 /** Whether every assignee has finished their part (a card with nobody on it never is). */
 export function allPartsDone(card: Pick<CardRec, 'assignees' | 'done'>): boolean {
   return card.assignees.length > 0 && card.assignees.every((u) => card.done[u] != null);

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { sameNamed } from '../../shared/rules';
   import Bell from './Bell.svelte';
   import type { CardRec } from '../../shared/model';
   import { bgImage, boardBackground } from '../lib/background';
@@ -55,10 +56,12 @@
   let colName = $state('');
   let scroller: HTMLDivElement | null = $state(null);
 
+  /** A column already called what's being typed. */
+  const clash = $derived(sameNamed(b?.columns ?? [], colName));
   async function addColumn(e?: Event) {
     e?.preventDefault();
     const n = colName.trim();
-    if (!n) return;
+    if (!n || clash) return;
     colName = '';
     await app.addColumn(id, n);
     queueMicrotask(() => scroller?.scrollTo({ left: scroller.scrollWidth, behavior: 'smooth' }));
@@ -156,8 +159,9 @@
                 {@attach (el: HTMLInputElement) => el.focus()}
                 onkeydown={(e) => e.key === 'Escape' && (addingCol = false)}
               />
+              {#if clash}<p class="err" role="alert">There's already a column called {clash.name}.</p>{/if}
               <div class="row">
-                <button class="key ink" type="submit" disabled={!colName.trim()}>Add column</button>
+                <button class="key ink" type="submit" disabled={!colName.trim() || !!clash}>Add column</button>
                 <button class="btn ghost" type="button" onclick={() => (addingCol = false)}>Cancel</button>
               </div>
             </form>
@@ -187,6 +191,20 @@
     background: color-mix(in oklab, var(--sunk) 88%, transparent);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+  }
+  /* Add a column sits on the background itself, so over a colour or image it gets the lanes' frosted look. */
+  .has-bg .add-col,
+  .has-bg .hint {
+    background: color-mix(in oklab, var(--sunk) 88%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-color: transparent;
+    color: var(--text);
+  }
+  .has-bg .hint {
+    padding: 10px 12px;
+    margin: 10px 0;
+    border-radius: var(--r-card);
   }
   .screen {
     height: 100dvh;
@@ -399,6 +417,11 @@
   .new-col {
     flex: 0 0 min(84vw, 290px);
     scroll-snap-align: start;
+  }
+  .new-col .err {
+    margin: 0;
+    color: var(--redT);
+    font-size: 13px;
   }
   .new-col form {
     display: grid;

@@ -35,7 +35,7 @@ import {
   type Role,
   type SessionRec,
 } from '../../shared/model';
-import { cardChanges, type LogEntry, optionWithRole, settle, statusAsPart, withNewCardDefaults } from '../../shared/rules';
+import { cardChanges, type LogEntry, optionWithRole, sameNamed, settle, statusAsPart, withNewCardDefaults } from '../../shared/rules';
 import { type Change, changes } from './checks';
 import type { Env } from './env';
 import { alert, saveNotes } from './inbox';
@@ -466,8 +466,14 @@ export class Board extends DurableObject<Env> {
         if (img && img !== had && this.get('file', img)?.cardId !== BOARD_FILE) return { ...next, background: before?.background ?? null };
         return next;
       }
-      case 'column':
-        return c.data;
+      case 'column': {
+        // No two columns with one name (from a device that didn't know of the other yet). Only a new
+        // or changed name is checked, so a board that has two already can still move them.
+        const next = c.data as ColumnRec | null;
+        const named = next && (prev as ColumnRec | null)?.name !== next.name;
+        if (named && sameNamed(this.all('column'), next.name, c.key)) return undefined;
+        return next;
+      }
       case 'field': {
         const before = prev as FieldRec | null;
         const next = c.data as FieldRec | null;

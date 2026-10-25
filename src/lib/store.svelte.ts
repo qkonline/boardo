@@ -16,7 +16,7 @@ import {
   type Note,
   type Role,
 } from '../../shared/model';
-import { optionWithRole, settle, statusAsPart, withNewCardDefaults } from '../../shared/rules';
+import { optionWithRole, sameNamed, settle, statusAsPart, withNewCardDefaults } from '../../shared/rules';
 import { API, ApiError, call, putBlob, setToken, whenSignedOut } from './api';
 import { fitImage, squarePhoto } from './images';
 import { BoardState } from './board.svelte';
@@ -849,13 +849,14 @@ export class App {
 
   async addColumn(board: string, name: string): Promise<void> {
     const cols = this.data[board].columns;
+    if (sameNamed(cols, name)) return;
     const col: ColumnRec = { id: newId(), name: name.trim(), order: between(cols.at(-1)?.order, null) };
     await this.put(board, [{ kind: 'column', key: col.id, data: col }]);
   }
 
   async renameColumn(board: string, id: string, name: string): Promise<void> {
     const col = this.data[board].column.get(id);
-    if (!col || !name.trim() || col.name === name.trim()) return;
+    if (!col || !name.trim() || col.name === name.trim() || sameNamed(this.data[board].columns, name, id)) return;
     await this.put(board, [{ kind: 'column', key: id, data: { ...col, name: name.trim() } }]);
   }
 

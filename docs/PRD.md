@@ -80,6 +80,7 @@ Each board has two roles.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
+- **R3.4a** No two columns in a board have the same name, letter case and spaces aside. Adding or renaming one to a name in use says so and waits; the server refuses it too. A removed column's name is free again.
 - **R3.5** Cards can be dragged within a column and between columns, by mouse and by touch.
 - **R3.6** A board can be filtered by person and by status.
 - **R3.7** An admin can set what every new card in the board starts with (Board settings, New cards): someone it's assigned to, and a status. Both start as Nobody and None. Once saved, every card added after starts with them; cards already there stay as they are. A person who has left, or a status since deleted, is skipped.
@@ -403,4 +404,6 @@ On 23 October 2026, all live:
 - a description's first words on its card (R4.13b);
 - Enter to save and close a card (R4.28a), and dropdown and people fields picked like Status (R4.28b);
 - custom fields shown on cards (R4.9a);
-- the project log as a feed, 40 at a time (R6.3a).
+- the project log as a feed, 40 at a time (R6.3a);
+- removing a column works again (it had stopped doing anything), and column names are unique (R3.4a);
+- Add a column stays readable over a board background (R3.1).

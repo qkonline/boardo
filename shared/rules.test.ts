@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type CardRec, STATUS_FIELD } from './model';
-import { cardChanges, settle, statusAsPart, withNewCardDefaults } from './rules';
+import { cardChanges, sameNamed, settle, statusAsPart, withNewCardDefaults } from './rules';
 
 const card = (extra: Partial<CardRec> = {}): CardRec => ({
   id: 'c',
@@ -102,6 +102,23 @@ describe("a new card starts with the board's defaults (R3.7)", () => {
     const own = card({ assignees: ['ann'], values: { status: 'block' } });
     expect(withNewCardDefaults(own, board({ assignee: 'bob', status: 'not' }), ['ann', 'bob'], STATUS_FIELD)).toEqual(own);
     expect(withNewCardDefaults(fresh(), board(null), ['ann'], STATUS_FIELD)).toEqual(fresh());
+  });
+});
+
+describe('column names (R3.4a)', () => {
+  const cols = [
+    { id: 'a', name: 'Marketing' },
+    { id: 'b', name: 'Content  + Website' },
+    { id: 'c', name: '' },
+  ];
+  it('match whatever the letter case or spaces', () => {
+    expect(sameNamed(cols, '  marketing ')?.id).toBe('a');
+    expect(sameNamed(cols, 'content + website')?.id).toBe('b');
+    expect(sameNamed(cols, 'General')).toBeUndefined();
+  });
+  it("leave out the column itself, and never clash when empty", () => {
+    expect(sameNamed(cols, 'Marketing', 'a')).toBeUndefined();
+    expect(sameNamed(cols, '  ')).toBeUndefined();
   });
 });
 

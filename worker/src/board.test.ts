@@ -60,6 +60,35 @@ describe('deleting an archived card', () => {
   });
 });
 
+describe('columns', () => {
+  it('refuses a second column with a name in use, new or renamed', async () => {
+    put('column', 'c1', { id: 'c1', name: 'Marketing', order: 1 });
+    put('column', 'c2', { id: 'c2', name: 'General', order: 2 });
+    const b = await server.board('b1');
+    const ctx = server.boards.get('b1')!.ctx;
+    const rev = (k: string) => Number(ctx.storage.sql.exec("SELECT rev FROM records WHERE kind = 'column' AND key = ?", k).toArray()[0]?.rev ?? 0);
+    const res = (await b.httpSync('bob', 'member', {
+      t: 'put',
+      id: 1,
+      recs: [
+        { kind: 'column', key: 'c3', base: 0, data: { id: 'c3', name: ' marketing', order: 3 } },
+        { kind: 'column', key: 'c2', base: rev('c2'), data: { id: 'c2', name: 'MARKETING', order: 2 } },
+      ],
+    })) as { rejected?: unknown[] }[];
+    expect(res[0].rejected).toHaveLength(2);
+    expect(((await server.records('b1', 'column')) as { name: string }[]).map((c) => c.name).sort()).toEqual(['General', 'Marketing']);
+  });
+  it('still moves two columns a board already had with one name', async () => {
+    put('column', 'c1', { id: 'c1', name: 'Marketing', order: 1 });
+    put('column', 'c2', { id: 'c2', name: 'Marketing', order: 2 });
+    const b = await server.board('b1');
+    const ctx = server.boards.get('b1')!.ctx;
+    const rev = Number(ctx.storage.sql.exec("SELECT rev FROM records WHERE kind = 'column' AND key = 'c2'").toArray()[0].rev);
+    const res = (await b.httpSync('bob', 'member', { t: 'put', id: 1, recs: [{ kind: 'column', key: 'c2', base: rev, data: { id: 'c2', name: 'Marketing', order: 0.5 } }] })) as { rejected?: unknown[] }[];
+    expect(res[0].rejected ?? []).toHaveLength(0);
+  });
+});
+
 describe('a new card', () => {
   it("gets the board's defaults when a device didn't put them in", async () => {
     put('board', 'main', { name: 'b1', hue: 'cyan', maxUploadMB: 30, newCards: { assignee: 'cy', status: 'not' } });
