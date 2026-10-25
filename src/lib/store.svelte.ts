@@ -16,7 +16,7 @@ import {
   type Note,
   type Role,
 } from '../../shared/model';
-import { optionWithRole, settle, statusAsPart } from '../../shared/rules';
+import { optionWithRole, settle, statusAsPart, withNewCardDefaults } from '../../shared/rules';
 import { API, ApiError, call, putBlob, setToken, whenSignedOut } from './api';
 import { fitImage, squarePhoto } from './images';
 import { BoardState } from './board.svelte';
@@ -730,20 +730,25 @@ export class App {
     const b = this.data[board];
     const list = b.cardsIn(columnId);
     const order = at === 'top' ? between(null, list[0]?.order) : between(list.at(-1)?.order, null);
-    const card: CardRec = {
-      id: newId(),
-      columnId,
-      order,
-      title: title.trim(),
-      desc: '',
-      // A new card has no status until someone picks one.
-      values: {},
-      assignees: [],
-      done: {},
-      archived: false,
-      createdBy: this.user!.id,
-      created: Date.now(),
-    };
+    // A new card has nobody and no status, unless the board's admins chose what new cards start with.
+    const card = withNewCardDefaults(
+      {
+        id: newId(),
+        columnId,
+        order,
+        title: title.trim(),
+        desc: '',
+        values: {},
+        assignees: [],
+        done: {},
+        archived: false,
+        createdBy: this.user!.id,
+        created: Date.now(),
+      },
+      b.board,
+      b.member.keys(),
+      b.statusField,
+    );
     await this.put(board, [{ kind: 'card', key: card.id, data: card }]);
     return card.id;
   }

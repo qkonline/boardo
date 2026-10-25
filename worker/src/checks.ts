@@ -73,6 +73,15 @@ function board(d: Record<string, unknown>): BoardRec | null {
       out.background = { image: bg.image };
     } else return null;
   }
+  const nc = d.newCards as Record<string, unknown> | null | undefined;
+  if (nc != null) {
+    if (typeof nc !== 'object') return null;
+    const pick = (v: unknown) => (v == null ? null : isId(v) ? v : undefined);
+    const assignee = pick(nc.assignee);
+    const status = pick(nc.status);
+    if (assignee === undefined || status === undefined) return null;
+    if (assignee || status) out.newCards = { assignee, status };
+  }
   return out;
 }
 

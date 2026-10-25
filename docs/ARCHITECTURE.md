@@ -324,6 +324,7 @@ All of these are in Elastic's repository.
 - **Activity:** the project log, filterable by person and card, in a panel that slides in from the right over the board (a tap outside closes it). A card opened from it stacks on top.
 - **Board settings** (admin):
   - Board: name, colour and background (none, a colour, or an image with Remove image), all saved together with one Save;
+  - New cards: who every new card is assigned to and its status (`BoardRec.newCards`, applied by `withNewCardDefaults()` in `shared/rules.ts`, in the app's `addCard()` and on the board for a new card a device sent without them), with its own Save;
   - members and roles;
   - invites;
   - the fields editor;

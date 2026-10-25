@@ -35,7 +35,7 @@ import {
   type Role,
   type SessionRec,
 } from '../../shared/model';
-import { cardChanges, type LogEntry, optionWithRole, settle, statusAsPart } from '../../shared/rules';
+import { cardChanges, type LogEntry, optionWithRole, settle, statusAsPart, withNewCardDefaults } from '../../shared/rules';
 import { type Change, changes } from './checks';
 import type { Env } from './env';
 import { alert, saveNotes } from './inbox';
@@ -498,6 +498,8 @@ export class Board extends DurableObject<Env> {
         next = statusAsPart(before, next, who.userId, this.get('field', 'status') ?? undefined, now);
         // Only members can be assigned.
         const members = new Set(this.all('member').map((m) => m.userId));
+        // A new card starts with the board's defaults, from devices that didn't put them in yet.
+        if (!before) next = withNewCardDefaults(next, this.get('board', 'main'), members, this.get('field', 'status') ?? undefined);
         const assignees = next.assignees.filter((u) => members.has(u) || before?.assignees.includes(u));
         // Each person marks their own part; everyone else's stays as it was, except that an admin
         // can take someone's done mark off (never put one on for them).

@@ -82,6 +82,7 @@ Each board has two roles.
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
 - **R3.5** Cards can be dragged within a column and between columns, by mouse and by touch.
 - **R3.6** A board can be filtered by person and by status.
+- **R3.7** An admin can set what every new card in the board starts with (Board settings, New cards): someone it's assigned to, and a status. Both start as Nobody and None. Once saved, every card added after starts with them; cards already there stay as they are. A person who has left, or a status since deleted, is skipped.
 
 ## 4. Cards
 
@@ -390,4 +391,5 @@ On 23 October 2026, all live:
 - after an outside review of the code: a refused change is undone with a copy kept in Account (R9.5a), a card added offline to a removed column goes to the first column (R9.5b), a banner when the device can't save (R9.3a), and another account on the same device starts clean (R9.2a);
 - a new address, boardo.kaiserkhan.com, with each copy at the old one handed over signed in (R10.1, R10.2);
 - @mentions (R4.13a), the bell (R9.13, R9.14) and notifications on phones and computers (R9.15). Of three looks for the bell (a feed, grouped by board, a timeline), the user chose the feed;
-- who someone is from their name or mention (R2.2a), many more emoji (R4.11), and no "your part" on one-person cards (R5.5c).
+- who someone is from their name or mention (R2.2a), many more emoji (R4.11), and no "your part" on one-person cards (R5.5c);
+- Completed picked by hand is your Mark done (R5.5d), and what new cards start with (R3.7).

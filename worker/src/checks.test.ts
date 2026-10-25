@@ -47,3 +47,17 @@ describe('a put with one record that does not pass', () => {
     expect(changes([{ kind: 'card', base: 0, data: card() }])).toBeNull();
   });
 });
+
+describe("a board's defaults for new cards", () => {
+  const b = (newCards: unknown) => clean('board', 'main', { name: 'B', hue: 'cyan', maxUploadMB: 30, newCards });
+  it('keeps a person and a status, or neither', () => {
+    expect(b({ assignee: 'bob', status: 'not' })).toMatchObject({ newCards: { assignee: 'bob', status: 'not' } });
+    expect(b({ assignee: null, status: 'not' })).toMatchObject({ newCards: { assignee: null, status: 'not' } });
+    expect('newCards' in (b({ assignee: null, status: null }) as object)).toBe(false);
+    expect('newCards' in (b(null) as object)).toBe(false);
+  });
+  it('refuses anything else', () => {
+    expect(b({ assignee: 'not an id!', status: null })).toBeNull();
+    expect(b('bob')).toBeNull();
+  });
+});

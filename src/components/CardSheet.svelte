@@ -117,6 +117,8 @@
   const myDone = $derived(!!card && card.done[me] != null);
   const parts = $derived(card && card.assignees.length > 1 ? card.assignees.map((u) => card.done[u] != null) : []);
   const due = $derived(view ? deadline(view.values.end) : null);
+  /** The chip beside the due date: the row says Due already, so "Tomorrow", "Today, 5 pm", "Overdue". */
+  const dueChip = $derived(due ? due.label.replace(/^Due (\w)/, (_, c: string) => c.toUpperCase()) : '');
   const historyCount = $derived(b?.logsOn(id).length ?? 0);
 
   // Time spent ticks while someone's timer runs.
@@ -318,7 +320,7 @@
               {/if}
             </div>
 
-            <div class="prop">
+            <div class="prop" class:dated={editing !== 'end'}>
               <span class="pl"><Icon name="cal" size={16} /> Due</span>
               {#if editing === 'end'}
                 <span class="pv edit when">
@@ -340,7 +342,7 @@
                 <button class="pv val" class:empty={!view.values.end} onclick={() => (editing = 'end')}>
                   {dateShown(view.values.end) ?? 'Add a date'}
                   {#if due && (due.late || due.soon) && status?.role !== 'completed'}<span class="due" class:late={due.late} class:soon={due.soon}
-                      >{due.label}</span
+                      >{dueChip}</span
                     >{/if}
                 </button>
               {/if}
@@ -386,8 +388,9 @@
                         {/snippet}
                       </Balloon>
                     {:else}
-                      <span class="who" title={done ? (shared ? 'Their part is done' : 'Done') : undefined}
-                        ><PersonLink person={m} {b}>{@render who()}</PersonLink></span
+                      <!-- The gap goes inside the name's button, between the face and the name. -->
+                      <span class="whois" title={done ? (shared ? 'Their part is done' : 'Done') : undefined}
+                        ><PersonLink person={m} {b}><span class="who">{@render who()}</span></PersonLink></span
                       >
                     {/if}
                     <button
@@ -907,6 +910,13 @@
     color: var(--muted);
     font-size: 12.5px;
   }
+  /* A date whose chip wraps keeps its label level with the date, not between the two lines. */
+  .prop.dated {
+    align-items: start;
+  }
+  .prop.dated .pl {
+    min-height: 36px;
+  }
   .pv {
     min-width: 0;
     font-size: 14px;
@@ -1011,6 +1021,14 @@
     min-width: 0;
   }
   .person > :global(.anchor) {
+    min-width: 0;
+  }
+  .whois {
+    display: flex;
+    min-width: 0;
+  }
+  .whois :global(.anchor),
+  .whois :global(.plink) {
     min-width: 0;
   }
   button.who {

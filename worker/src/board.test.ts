@@ -60,6 +60,17 @@ describe('deleting an archived card', () => {
   });
 });
 
+describe('a new card', () => {
+  it("gets the board's defaults when a device didn't put them in", async () => {
+    put('board', 'main', { name: 'b1', hue: 'cyan', maxUploadMB: 30, newCards: { assignee: 'cy', status: 'not' } });
+    const fresh = { ...card(false), assignees: [], values: {} };
+    await (await server.board('b1')).httpSync('bob', 'member', { t: 'put', id: 1, recs: [{ kind: 'card', key: 'k1', base: 0, data: fresh }] });
+    const [c] = (await server.records('b1', 'card')) as CardRec[];
+    expect(c.assignees).toEqual(['cy']);
+    expect(c.values.status).toBe('not');
+  });
+});
+
 describe("someone else's part", () => {
   const save = async (userId: string, role: 'admin' | 'member', data: CardRec) => {
     const ctx = server.boards.get('b1')!.ctx;

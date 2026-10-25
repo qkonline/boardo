@@ -37,6 +37,21 @@
   // svelte-ignore state_referenced_locally
   let bgHue = $state<Hue>(hueOf(b?.board));
 
+  // What new cards start with (admins, R3.7): a draft of its own, kept until its Save. A person
+  // who has left the board, or a status since deleted, shows as Nobody or None.
+  const ncOf = (r: BoardRec | null | undefined) => ({
+    assignee: r?.newCards?.assignee && b?.member.has(r.newCards.assignee) ? r.newCards.assignee : '',
+    status: r?.newCards?.status && b?.statusField?.options?.some((o) => o.id === r.newCards!.status) ? r.newCards.status : '',
+  });
+  // svelte-ignore state_referenced_locally
+  let ncAssignee = $state(ncOf(b?.board).assignee);
+  // svelte-ignore state_referenced_locally
+  let ncStatus = $state(ncOf(b?.board).status);
+  const ncChanged = $derived(!!b?.board && (ncAssignee !== ncOf(b.board).assignee || ncStatus !== ncOf(b.board).status));
+  async function saveNewCards() {
+    await app.saveBoard(id, { newCards: ncAssignee || ncStatus ? { assignee: ncAssignee || null, status: ncStatus || null } : null });
+  }
+
   $effect(() => {
     if (b?.board) {
       name = b.board.name;
@@ -44,6 +59,8 @@
       limit = b.board.maxUploadMB;
       bgKind = kindOf(b.board);
       bgHue = hueOf(b.board);
+      ncAssignee = ncOf(b.board).assignee;
+      ncStatus = ncOf(b.board).status;
     }
   });
   /** An image uploaded here and not saved yet, with a preview made from it on this device. */
@@ -196,6 +213,29 @@
         <p class="note">Only admins can change the board, its fields and who's in it.</p>
       {/if}
     </section>
+
+    {#if admin}
+      <section class="new-cards">
+        <h2>New cards</h2>
+        <div class="card form">
+          <label class="label" for="nc-who">Assign to</label>
+          <select id="nc-who" class="field" bind:value={ncAssignee}>
+            <option value="">Nobody</option>
+            {#each b.members as m (m.userId)}<option value={m.userId}>{m.name}{m.userId === me ? ' (you)' : ''}</option>{/each}
+          </select>
+          <label class="label" for="nc-status">Status</label>
+          <select id="nc-status" class="field" bind:value={ncStatus}>
+            <option value="">None</option>
+            {#each b.statusField?.options ?? [] as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
+          </select>
+          <p class="note">Every card added from now on starts with these. Cards already on the board stay as they are.</p>
+          <div class="save-row">
+            <button class="key ink" disabled={!ncChanged} onclick={saveNewCards}>Save</button>
+            {#if ncChanged}<span class="unsaved">Not saved yet. New cards follow it once you save.</span>{/if}
+          </div>
+        </div>
+      </section>
+    {/if}
 
     <section>
       <h2>People</h2>

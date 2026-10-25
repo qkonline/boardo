@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { type CardRec, STATUS_FIELD } from './model';
-import { cardChanges, settle, statusAsPart } from './rules';
+import { cardChanges, settle, statusAsPart, withNewCardDefaults } from './rules';
 
 const card = (extra: Partial<CardRec> = {}): CardRec => ({
   id: 'c',
@@ -86,6 +86,22 @@ describe('Completed by hand is Mark done (R5.5d)', () => {
     const r = both(card(), card({ values: { status: 'done' } }), 'cy');
     expect(r.done).toEqual({});
     expect(r.values.status).toBe('done');
+  });
+});
+
+describe("a new card starts with the board's defaults (R3.7)", () => {
+  const board = (newCards: { assignee: string | null; status: string | null } | null) => ({ name: 'B', hue: 'cyan' as const, maxUploadMB: 30, newCards });
+  const fresh = () => card({ assignees: [], values: {} });
+  it('takes the person and the status', () => {
+    const c = withNewCardDefaults(fresh(), board({ assignee: 'bob', status: 'not' }), ['ann', 'bob'], STATUS_FIELD);
+    expect(c.assignees).toEqual(['bob']);
+    expect(c.values.status).toBe('not');
+  });
+  it("skips someone who left, or a status that's gone, and anything the card has already", () => {
+    expect(withNewCardDefaults(fresh(), board({ assignee: 'gone', status: 'nope' }), ['ann'], STATUS_FIELD)).toEqual(fresh());
+    const own = card({ assignees: ['ann'], values: { status: 'block' } });
+    expect(withNewCardDefaults(own, board({ assignee: 'bob', status: 'not' }), ['ann', 'bob'], STATUS_FIELD)).toEqual(own);
+    expect(withNewCardDefaults(fresh(), board(null), ['ann'], STATUS_FIELD)).toEqual(fresh());
   });
 });
 

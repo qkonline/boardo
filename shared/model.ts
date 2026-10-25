@@ -23,6 +23,8 @@ export interface BoardRec {
   maxUploadMB: number;
   /** Behind the columns (admins): a colour, an image (a file of the board, see BOARD_FILE), or none. */
   background?: { hue: Hue } | { image: string } | null;
+  /** What every new card starts with (admins, R3.7): someone it's assigned to, and a status option's id. */
+  newCards?: { assignee: string | null; status: string | null } | null;
 }
 
 /** The `cardId` of files that belong to the board itself (its background image), not a card. */

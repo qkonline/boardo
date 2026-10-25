@@ -2,7 +2,7 @@
 // logs, and what its status is. The board's Durable Object applies them to every change it
 // accepts; the app uses the same functions to show things the way the server will.
 
-import type { CardRec, FieldOption, FieldRec, LogAction, StatusRole } from './model';
+import type { BoardRec, CardRec, FieldOption, FieldRec, LogAction, StatusRole } from './model';
 
 type Detail = Record<string, string | number | boolean | null>;
 export interface LogEntry {
@@ -20,6 +20,20 @@ export function statusOption(card: Pick<CardRec, 'values'>, status: FieldRec | u
 
 export function optionWithRole(status: FieldRec | undefined, role: StatusRole): FieldOption | undefined {
   return status?.options?.find((o) => o.role === role);
+}
+
+/**
+ * A new card starts with the board's defaults (R3.7): its person, while still in the board, and
+ * its status, while still one of the options; each only where the card has none of its own.
+ */
+export function withNewCardDefaults(card: CardRec, board: BoardRec | null | undefined, members: Iterable<string>, status: FieldRec | undefined): CardRec {
+  const d = board?.newCards;
+  if (!d) return card;
+  let out = card;
+  if (d.assignee && !out.assignees.length && [...members].includes(d.assignee)) out = { ...out, assignees: [d.assignee] };
+  if (d.status && out.values.status == null && status?.options?.some((o) => o.id === d.status))
+    out = { ...out, values: { ...out.values, status: d.status } };
+  return out;
 }
 
 /** Whether every assignee has finished their part (a card with nobody on it never is). */
