@@ -162,6 +162,7 @@ Every card has these fields.
 - **R4.26** Opening a card shows it in a large window in the middle of the screen on a computer, and as a tall sheet on a phone, with two tabs: **Details** and **History** (its log, grouped by day).
 - **R4.27** **Nothing a person changes on a card is saved until they press Save changes.** While there are unsaved changes, a bar offers Discard and Save changes, and closing the card (or opening another one from it) asks first. Comments, attachments, Mark done and Archive happen when tapped.
 - **R4.28** Values read as plain text and become editable when tapped. Status, column, people and emoji open in small balloons over the card, so nothing moves when they open.
+- **R4.28b** A dropdown field picks its value the way Status does: a balloon with its values as coloured chips and None at the end. A people field lists the board's people with their faces, and Nobody. Neither has a Done key.
 - **R4.28a** On a keyboard, **Enter** saves the card's changes, and with nothing to save closes it; **Escape** closes it, asking first when there are changes (Enter then saves and closes). Enter keeps its usual job in the description and comment boxes (a new line), in a field being edited (it finishes the field; the next Enter saves), in an open balloon, and on a key reached with Tab.
 
 ## 5. Status and completion
@@ -398,4 +399,4 @@ On 23 October 2026, all live:
 - Completed picked by hand is your Mark done (R5.5d), and what new cards start with (R3.7);
 - archived cards in a searchable side panel beside the filters (R4.21a);
 - a description's first words on its card (R4.13b);
-- Enter to save and close a card (R4.28a).
+- Enter to save and close a card (R4.28a), and dropdown and people fields picked like Status (R4.28b).

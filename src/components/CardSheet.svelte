@@ -533,6 +533,40 @@
                       onclick={() => setValue(f.id, v === true ? null : true)}><span></span></button
                     >
                   </span>
+                {:else if f.type === 'dropdown' || f.type === 'person'}
+                  <!-- A choice opens in a balloon, as Status does: its values as chips, or the board's people. -->
+                  {@const opt = f.type === 'dropdown' ? f.options?.find((o) => o.id === v) : undefined}
+                  {@const who = f.type === 'person' && v ? b.member.get(String(v)) : undefined}
+                  <span class="pv">
+                    <Balloon label={f.name} align="start">
+                      {#snippet trigger({ toggle, open })}
+                        <button class="val status-btn" class:empty={v == null || v === ''} aria-expanded={open} onclick={toggle}>
+                          {#if opt}<StatusChip option={opt} />{:else if v && f.type === 'person'}<Avatar person={who} size={20} />
+                            {who?.name ?? 'Someone who left'}{:else}Add{/if}<Icon name="down" size={14} plain />
+                        </button>
+                      {/snippet}
+                      {#snippet children(done)}
+                        <div class="menu">
+                          {#if f.type === 'dropdown'}
+                            {#each f.options ?? [] as o (o.id)}
+                              <button class="opt" aria-pressed={v === o.id} onclick={() => (setValue(f.id, o.id), done())}
+                                ><StatusChip option={o} /></button
+                              >
+                            {/each}
+                          {:else}
+                            {#each b.members as m (m.userId)}
+                              <button class="opt person-opt" aria-pressed={v === m.userId} onclick={() => (setValue(f.id, m.userId), done())}
+                                ><Avatar person={m} size={22} /><span>{m.name}</span></button
+                              >
+                            {/each}
+                          {/if}
+                          <button class="opt quiet" aria-pressed={v == null || v === ''} onclick={() => (setValue(f.id, null), done())}
+                            >{f.type === 'person' ? 'Nobody' : 'None'}</button
+                          >
+                        </div>
+                      {/snippet}
+                    </Balloon>
+                  </span>
                 {:else if editing === f.id}
                   <span class="pv edit" {@attach (el: HTMLElement) => el.querySelector<HTMLElement>('input, textarea, select')?.focus()}>
                     <FieldInput
@@ -548,15 +582,7 @@
                     <button class="btn ghost sm" onclick={() => (editing = null)}>Done</button>
                   </span>
                 {:else}
-                  <button class="pv val" class:empty={v == null || v === ''} onclick={() => (editing = f.id)}>
-                    {#if f.type === 'dropdown' && v}
-                      <StatusChip option={f.options?.find((o) => o.id === v)} />
-                    {:else if f.type === 'person' && v}
-                      <Avatar person={b.member.get(String(v))} size={20} /> {b.member.get(String(v))?.name ?? 'Someone who left'}
-                    {:else}
-                      {shown(f, v) ?? 'Add'}
-                    {/if}
-                  </button>
+                  <button class="pv val" class:empty={v == null || v === ''} onclick={() => (editing = f.id)}>{shown(f, v) ?? 'Add'}</button>
                 {/if}
               </div>
             {/each}
