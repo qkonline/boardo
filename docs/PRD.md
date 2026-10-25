@@ -121,6 +121,7 @@ Every card has these fields.
   - person (a board member).
 - **R4.8** Once a field is added, it appears on every card in that project. Members see it and change its value. Members can't add, rename, retype or remove fields.
 - **R4.9** An admin can reorder fields, rename them, change dropdown values and remove fields. Removing a field asks first, since its values on every card go with it.
+- **R4.9a** An admin can choose, for each custom field, to **show it on cards** (off at first). Its value then shows on every card in the board, in the row with the status: a dropdown value as its coloured chip, like the status; anything else as a grey chip with the field's name ("Budget: 300"), a person with their face, a checkbox by its name when ticked. They wrap onto more lines when the column is narrow. Empty fields show nothing.
 
 ### 4.3 Comments
 
@@ -399,4 +400,5 @@ On 23 October 2026, all live:
 - Completed picked by hand is your Mark done (R5.5d), and what new cards start with (R3.7);
 - archived cards in a searchable side panel beside the filters (R4.21a);
 - a description's first words on its card (R4.13b);
-- Enter to save and close a card (R4.28a), and dropdown and people fields picked like Status (R4.28b).
+- Enter to save and close a card (R4.28a), and dropdown and people fields picked like Status (R4.28b);
+- custom fields shown on cards (R4.9a).

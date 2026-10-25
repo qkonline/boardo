@@ -117,6 +117,7 @@ function field(key: string, d: Record<string, unknown>): FieldRec | null {
     if (ids.size !== opts.length) return null;
     out.options = opts as FieldOption[];
   }
+  if (d.onCard === true && !out.builtin) out.onCard = true;
   return out;
 }
 

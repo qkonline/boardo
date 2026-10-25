@@ -3,6 +3,7 @@
   import type { CardRec, FieldRec } from '../../shared/model';
   import { allPartsDone } from '../../shared/rules';
   import { dayBefore, deadline, duration, fromLocalInput, longDate, toLocalInput, when } from '../lib/dates';
+  import { fieldText } from '../lib/fields';
   import { hueColor, statusColors } from '../lib/hue';
   import { app } from '../lib/store.svelte';
   import Attachments from './Attachments.svelte';
@@ -206,12 +207,7 @@
     if (field === 'end' && v && !view?.values.start) setValue('start', dayBefore(v, startF?.type === 'datetime'));
   }
   /** A custom field's value as text (dropdowns and people are drawn separately). */
-  function shown(f: FieldRec, v: Value | undefined): string | null {
-    if (v == null || v === '') return null;
-    if (f.type === 'date' || f.type === 'datetime') return longDate(String(v));
-    if (f.type === 'checkbox') return v ? 'Yes' : 'No';
-    return String(v);
-  }
+  const shown = (f: FieldRec, v: Value | undefined) => fieldText(f, v);
 
   async function del() {
     try {

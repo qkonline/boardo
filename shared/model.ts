@@ -70,6 +70,8 @@ export interface FieldRec {
   type: FieldType;
   options?: FieldOption[];
   order: number;
+  /** A custom field whose value shows on each card in the board, beside its status (admins, R4.9a). */
+  onCard?: boolean;
 }
 
 export interface CardRec {

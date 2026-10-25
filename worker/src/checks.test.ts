@@ -61,3 +61,14 @@ describe("a board's defaults for new cards", () => {
     expect(b('bob')).toBeNull();
   });
 });
+
+describe('a field shown on cards', () => {
+  const f = (extra: Record<string, unknown>) => clean('field', 'sev', { id: 'sev', name: 'Severity', type: 'text', order: 1, ...extra });
+  it('is kept for a custom field, and only as true', () => {
+    expect(f({ onCard: true })).toMatchObject({ onCard: true });
+    expect('onCard' in (f({ onCard: 'yes' }) as object)).toBe(false);
+  });
+  it('never for a built-in field', () => {
+    expect('onCard' in (clean('field', 'start', { id: 'start', name: 'Starts', type: 'date', order: 0, builtin: 'start', onCard: true }) as object)).toBe(false);
+  });
+});

@@ -312,7 +312,7 @@ All of these are in Elastic's repository.
 - **Home:** the person's boards as tiles, as in Trello (the board's background or colour across the top, then its name and their open cards), pending invites, and a New board tile.
 - **Board:**
   - columns side by side, scrolling sideways on a phone;
-  - cards show title, the description's first words under it (two lines at most, marks taken off by `plain()` in `format.ts`), assignees, status, dates and comment and attachment counts;
+  - cards show title, the description's first words under it, the custom fields shown on cards (`FieldRec.onCard`, beside the status: a dropdown as its coloured `StatusChip`, others as grey chips of the same height, wrapping 8px apart; values as words by `fieldText()` in `src/lib/fields.ts`) (two lines at most, marks taken off by `plain()` in `format.ts`), assignees, status, dates and comment and attachment counts;
   - drag within and between columns;
   - filters by person and status.
 - **Card window** (`CardSheet.svelte`: a large window in the middle of the screen on a computer, as in Trello; a tall sheet from the bottom on a phone), with two tabs, Details and History.

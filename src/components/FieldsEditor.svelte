@@ -86,7 +86,7 @@
     <li>
       <div class="row">
         <Icon name="field" />
-        <span class="name">{f.name}<small>{TYPE_NAMES[f.type]}{f.builtin ? ', built in' : ''}</small></span>
+        <span class="name">{f.name}<small>{TYPE_NAMES[f.type]}{f.builtin ? ', built in' : ''}{f.onCard ? ', shown on cards' : ''}</small></span>
         <button class="icon-btn" aria-label="Move {f.name} up" disabled={i === 0} onclick={() => app.moveField(b.id, f.id, -1)}
           ><Icon name="up" /></button
         >
@@ -113,6 +113,10 @@
             <select id="ft-{f.id}" class="field" bind:value={draft.type}>
               {#each Object.entries(TYPE_NAMES) as [t, n] (t)}<option value={t}>{n}</option>{/each}
             </select>
+            <label class="check"
+              ><input type="checkbox" checked={!!draft.onCard} onchange={(e) => (draft!.onCard = e.currentTarget.checked || undefined)} /> Show on cards</label
+            >
+            <p class="hint on-card-hint">Its value shows on every card in the board, beside the status.</p>
           {/if}
           {#if draft.type === 'dropdown'}
             <span class="label">Values</span>

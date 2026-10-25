@@ -1,9 +1,10 @@
 <script lang="ts">
-  import type { CardRec } from '../../shared/model';
+  import type { CardRec, FieldOption, FieldRec, MemberRec } from '../../shared/model';
   import { statusOption } from '../../shared/rules';
   import type { BoardState } from '../lib/board.svelte';
   import { deadline, range } from '../lib/dates';
   import { drag } from '../lib/drag.svelte';
+  import { fieldText } from '../lib/fields';
   import { plain } from '../lib/format';
   import { app } from '../lib/store.svelte';
   import Avatar from './Avatar.svelte';
@@ -23,6 +24,29 @@
   const comments = $derived(b.commentsOn(card.id).length);
   const files = $derived(b.filesOn(card.id).length);
   const doneCount = $derived(card.assignees.filter((u) => card.done[u] != null).length);
+  /**
+   * The custom fields the board's admins chose to show on cards (R4.9a), with a value here: a
+   * dropdown as its coloured chip, like the status; anything else as a grey chip with its name.
+   */
+  type Shown = { f: FieldRec; text: string; opt?: FieldOption; person?: MemberRec; tick?: boolean };
+  const extra = $derived(
+    b.fields
+      .filter((f) => f.onCard && !f.builtin)
+      .flatMap((f): Shown[] => {
+        const v = card.values[f.id];
+        if (v == null || v === '' || v === false) return [];
+        if (f.type === 'dropdown') {
+          const opt = f.options?.find((o) => o.id === v);
+          return opt ? [{ f, opt, text: `${f.name}: ${opt.label}` }] : [];
+        }
+        if (f.type === 'person') {
+          const person = b.member.get(String(v));
+          return [{ f, person, text: person?.name ?? 'Someone who left' }];
+        }
+        if (f.type === 'checkbox') return [{ f, tick: true, text: f.name }];
+        return [{ f, text: `${f.name}: ${fieldText(f, v)}` }];
+      }),
+  );
   /** A hint that there's a description to read: its first words, up to two lines. */
   const preview = $derived(card.desc ? plain(card.desc).slice(0, 240) : '');
 
@@ -50,10 +74,21 @@
       <span class="t">{card.title || 'Untitled'}</span>
       {#if preview}<span class="desc">{preview}</span>{/if}
     </span>
-    {#if status || dates || comments || files || card.assignees.length}
+    {#if status || extra.length || dates || comments || files || card.assignees.length}
       <span class="foot">
         <span class="meta">
           {#if status}<span class="st"><StatusChip option={status} /></span>{/if}
+          {#each extra as x (x.f.id)}
+            {#if x.opt}
+              <span class="st" title={x.text}><StatusChip option={x.opt} /></span>
+            {:else}
+              <span class="fv" title={x.text}
+                >{#if x.f.type === 'person'}<Avatar person={x.person} size={16} />{:else if x.tick}<Icon name="check" size={12} plain />{/if}<span
+                  class="fvt">{x.text}</span
+                ></span
+              >
+            {/if}
+          {/each}
           {#if due}
             <span class:late={due.late} class:soon={due.soon} title={dates}><Icon name="cal" size={16} />{due.label}</span>
           {:else if dates}
@@ -195,6 +230,34 @@
   .st {
     display: inline-flex;
     margin-left: -1px;
+  }
+  /* A field shown on the card that isn't a dropdown: a grey chip the size of the status one. */
+  .meta > .fv {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    /* The status chip's height (12.5px text, 5px above and below), a face in it or not. */
+    height: 22.5px;
+    padding: 0 8px;
+    border-radius: var(--r-sm);
+    background: var(--tint-slate);
+    color: var(--t-slate);
+    font: 500 12.5px/1 var(--font);
+  }
+  .fv:has(:global(.av)) {
+    padding-left: 3px;
+  }
+  .fv :global(.av) {
+    border-radius: 4px;
+  }
+  .fvt {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .avs {
     display: flex;
