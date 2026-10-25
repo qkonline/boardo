@@ -230,6 +230,8 @@
   .st {
     display: inline-flex;
     margin-left: -1px;
+    min-width: 0;
+    max-width: 100%;
   }
   /* A field shown on the card that isn't a dropdown: a grey chip the size of the status one. */
   .meta > .fv {

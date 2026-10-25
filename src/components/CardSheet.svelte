@@ -702,6 +702,20 @@
   .status-btn :global(.status) {
     font-size: 13px;
   }
+  /* The chip and its arrow stay on one line; a long value shortens instead. */
+  .val.status-btn {
+    flex-wrap: nowrap;
+    max-width: 100%;
+    min-width: 0;
+  }
+  .status-btn :global(svg) {
+    flex: none;
+  }
+  /* The balloon's anchor spans the value's column, so the key can be as wide as that and no more. */
+  .pv > :global(.anchor) {
+    display: flex;
+    min-width: 0;
+  }
   .elastic-btn {
     display: inline-flex;
     align-items: center;
