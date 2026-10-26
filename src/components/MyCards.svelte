@@ -1,6 +1,5 @@
 <script lang="ts">
   import Bell from './Bell.svelte';
-  import Search from './Search.svelte';
   import type { CardRec } from '../../shared/model';
   import { statusOption } from '../../shared/rules';
   import { dayOf, daysBetween, todayKey } from '../lib/dates';
@@ -60,7 +59,6 @@
 <main class="page">
   <header class="head">
     <h1>My cards</h1>
-    <Search where="head" />
     <Bell where="head" />
     <div class="seg" role="group" aria-label="Group by">
       <button aria-pressed={app.myCardsBy === 'deadline'} onclick={() => (app.myCardsBy = 'deadline')}>By deadline</button>

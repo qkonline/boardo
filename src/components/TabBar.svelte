@@ -38,7 +38,8 @@
         ><Icon name="offline" size={16} /> Offline</span
       >
     {/if}
-    <Search where="bar" />
+    <!-- Search across all boards lives on Boards alone; a board has its own (R9.16). -->
+    {#if app.screen.name === 'home'}<Search where="bar" />{/if}
     <Bell where="bar" />
     <button
       class="tab account"
@@ -184,12 +185,19 @@
     .off + .account {
       margin-left: 8px;
     }
-    /* Search, the bell and Account take the far right, apart from the screens. */
-    .tabs :global(.search) {
+    /* Search (on Boards), the bell and Account take the far right, apart from the screens. */
+    .tabs :global(.search),
+    .tabs :global(.bell) {
       margin-left: auto;
+    }
+    .tabs :global(.search) {
       margin-right: 8px;
     }
-    .off + :global(.search) {
+    .tabs :global(.search + .bell) {
+      margin-left: 0;
+    }
+    .off + :global(.search),
+    .off + :global(.bell) {
       margin-left: 8px;
     }
     :global(.bell) + .account {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { flushSync } from 'svelte';
+  import { flushSync, onMount } from 'svelte';
   import { sameNamed } from '../../shared/rules';
   import Bell from './Bell.svelte';
   import type { CardRec } from '../../shared/model';
@@ -26,10 +26,23 @@
   const found = $derived(b && words.length ? new Map(matchBoard(b, words).map((h) => [h.card.id, h])) : null);
   const archivedFound = $derived(found ? [...found.values()].filter((h) => h.card.archived).length : 0);
   const shownCount = $derived(b ? b.columns.reduce((n, c) => n + b.cardsIn(c.id).filter(keep).length, 0) : 0);
-  // On a phone the search is a magnifier that opens the box, focused in the same tap (iOS opens
-  // the keyboard only then).
+  // The search box sits by Activity. On a phone it's a magnifier there, opening the box across
+  // the filters' row, focused in the same tap (iOS opens the keyboard only then); while a search
+  // is on, a chip in that row shows its words.
+  let narrow = $state(false);
+  onMount(() => {
+    const mq = matchMedia('(max-width: 640px)');
+    const set = () => (narrow = mq.matches);
+    set();
+    mq.addEventListener('change', set);
+    return () => mq.removeEventListener('change', set);
+  });
   let finding = $state(false);
-  let findInput = $state<HTMLInputElement | null>(null);
+  let findInput: HTMLInputElement | null = null;
+  const findRef = (el: HTMLInputElement) => {
+    findInput = el;
+    return () => findInput === el && (findInput = null);
+  };
   function openFind() {
     flushSync(() => (finding = true));
     findInput?.focus();
@@ -114,6 +127,24 @@
 
 <svelte:window onkeydown={slash} />
 
+{#snippet findBox()}
+  <label class="find" class:on={!!f.q}>
+    <Icon name="search" size={16} />
+    <span class="sr-only">Search this board</span>
+    <input
+      {@attach findRef}
+      type="search"
+      enterkeyhint="search"
+      placeholder="Search this board"
+      autocomplete="off"
+      value={f.q}
+      oninput={(e) => setFilter('q', e.currentTarget.value)}
+      onkeydown={findKey}
+    />
+    {#if words.length}<span class="count" aria-live="polite">{shownCount === 1 ? '1 card' : `${shownCount || 'No'} cards`}</span>{/if}
+  </label>
+{/snippet}
+
 {#if b && item}
   <div
     class="screen"
@@ -127,26 +158,17 @@
     <header class="head" data-board-head>
       <button class="icon-btn back" aria-label="Boards" onclick={() => app.go({ name: 'home' })}><Icon name="back" /></button>
       <h1><span class="mark" style:background={hueColor(b.board?.hue ?? item.hue)}></span><span class="name">{b.board?.name ?? item.name}</span></h1>
-      <div class="filters" class:finding>
-        <label class="find" class:on={!!f.q}>
-          <Icon name="search" size={16} />
-          <span class="sr-only">Search this board</span>
-          <input
-            bind:this={findInput}
-            type="search"
-            enterkeyhint="search"
-            placeholder="Search this board"
-            autocomplete="off"
-            value={f.q}
-            oninput={(e) => setFilter('q', e.currentTarget.value)}
-            onkeydown={findKey}
-          />
-          {#if words.length}<span class="count" aria-live="polite">{shownCount === 1 ? '1 card' : `${shownCount || 'No'} cards`}</span>{/if}
-        </label>
-        <button class="icon-btn find-key" class:on={!!f.q} aria-label="Search this board" onclick={openFind}
-          ><Icon name="search" />{#if f.q}<span class="q">{f.q}</span>{/if}</button
-        >
-        <button class="btn ghost find-done" onclick={closeFind}>Done</button>
+      <div class="filters" class:finding={finding && narrow}>
+        {#if narrow && finding}
+          {@render findBox()}
+          <button class="btn ghost find-done" onclick={closeFind}>Done</button>
+        {:else if narrow && f.q}
+          <span class="find-chip"
+            ><button class="q" onclick={openFind}>{f.q}</button><button class="x" aria-label="Clear search" onclick={() => setFilter('q', '')}
+              ><Icon name="close" size={14} /></button
+            ></span
+          >
+        {/if}
         <Icon name="filter" />
         <label class="sel" class:on={f.person !== 'all'}>
           <span class="sr-only">Person</span>
@@ -183,6 +205,11 @@
         <span class="sync" title="Connecting">Connecting</span>
       {/if}
       <div class="acts">
+        {#if !narrow}
+          {@render findBox()}
+        {:else}
+          <button class="icon-btn find-key" class:on={!!f.q} aria-label="Search this board" onclick={openFind}><Icon name="search" /></button>
+        {/if}
         <button class="btn" onclick={() => ((app.archive = null), (app.activity = id))}><Icon name="log" /><span class="wide">Activity</span></button>
         <button class="icon-btn" aria-label="Board settings" onclick={() => app.go({ name: 'boardSettings', id })}
           ><Icon name="gear" /></button
@@ -453,14 +480,15 @@
     right: 6px;
     pointer-events: none;
   }
-  /* Search this board (R3.6a): a box before the filters; on a phone a magnifier that opens it. */
+  /* Search this board (R3.6a): a box by Activity; on a phone a magnifier there that opens it
+     across the filters' row. */
   .find {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     width: 230px;
     min-height: var(--btn);
-    margin-right: 12px;
+    margin-right: 6px;
     padding: 0 10px;
     box-sizing: border-box;
     border: 1px solid transparent;
@@ -493,45 +521,44 @@
     font-size: 12.5px;
     white-space: nowrap;
   }
-  .find-key,
-  .find-done {
+  .find-key.on {
+    background: var(--tint-indigo);
+  }
+  .finding > :global(:not(.find):not(.find-done)) {
     display: none;
   }
-  .find-key .q {
-    max-width: 96px;
-    margin-left: 4px;
+  .finding .find {
+    flex: 1;
+    width: auto;
+    margin-right: 4px;
+  }
+  .find-chip {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+    margin-right: 6px;
+    border-radius: var(--r-ctl);
+    background: var(--tint-indigo);
+  }
+  .find-chip button {
+    min-height: 34px;
+    border: none;
+    background: none;
+    color: var(--accent);
+    cursor: pointer;
+  }
+  .find-chip .q {
+    max-width: 120px;
+    padding: 0 4px 0 10px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    color: var(--accent);
     font: 600 13px var(--font);
   }
-  .find-key.on {
-    width: auto;
-    padding: 0 8px;
-    display: none;
-  }
-  @media (max-width: 640px) {
-    .find {
-      display: none;
-    }
-    .find-key,
-    .find-key.on {
-      display: inline-flex;
-      align-items: center;
-    }
-    .finding > :global(:not(.find):not(.find-done)) {
-      display: none;
-    }
-    .finding .find {
-      display: inline-flex;
-      flex: 1;
-      width: auto;
-      margin-right: 4px;
-    }
-    .finding .find-done {
-      display: inline-flex;
-    }
+  .find-chip .x {
+    display: inline-grid;
+    place-items: center;
+    padding: 0 8px 0 4px;
   }
   /* Archived cards that match: they never show in the columns, so this says so and opens them. */
   .arch-found {
