@@ -6,6 +6,7 @@
   import { drag } from '../lib/drag.svelte';
   import { fieldText } from '../lib/fields';
   import { plain } from '../lib/format';
+  import { highlight, nameMatches, snippet, type Hit } from '../lib/search';
   import { app } from '../lib/store.svelte';
   import Avatar from './Avatar.svelte';
   import Icon from './Icon.svelte';
@@ -15,7 +16,20 @@
    * A card in a column: the title, then one row with its status (when it has one), its dates and
    * counts, and who's on it, a green tick on each person whose part is done.
    */
-  let { card, b, showBoard = false }: { card: CardRec; b: BoardState; showBoard?: boolean } = $props();
+  let {
+    card,
+    b,
+    showBoard = false,
+    hit,
+    words = [],
+  }: {
+    card: CardRec;
+    b: BoardState;
+    showBoard?: boolean;
+    /** While searching the board (R3.6a): where this card matched, and the words, to mark them. */
+    hit?: Hit;
+    words?: string[];
+  } = $props();
 
   const status = $derived(statusOption(card, b.statusField));
   const completed = $derived(status?.role === 'completed');
@@ -49,6 +63,14 @@
   );
   /** A hint that there's a description to read: its first words, up to two lines. */
   const preview = $derived(card.desc ? plain(card.desc).slice(0, 240) : '');
+  // While searching: the title and preview with the words marked, and, when the title doesn't have
+  // them all, the piece that does (a comment, a field, a file, the description) in place of the preview.
+  const title = $derived(highlight(card.title || 'Untitled', words));
+  const found = $derived(
+    hit?.part && !nameMatches(card.title, words)
+      ? { label: hit.part.where === 'desc' ? '' : `${hit.part.where === 'comment' ? hit.part.label.replace(/^Comment by /, '') : hit.part.label}: `, pieces: snippet(hit.part.text, words, 120) }
+      : null,
+  );
 
   function open() {
     if (drag.justDropped) return;
@@ -71,8 +93,14 @@
       <span class="board">{b.board.name}</span>
     {/if}
     <span class="top">
-      <span class="t">{card.title || 'Untitled'}</span>
-      {#if preview}<span class="desc">{preview}</span>{/if}
+      <span class="t">{#each title as p, i (i)}{#if p.hit}<mark>{p.text}</mark>{:else}{p.text}{/if}{/each}</span>
+      {#if found}
+        <span class="desc found"
+          >{#if found.label}<span class="where">{found.label}</span>{/if}{#each found.pieces as p, i (i)}{#if p.hit}<mark>{p.text}</mark>{:else}{p.text}{/if}{/each}</span
+        >
+      {:else if preview}<span class="desc"
+          >{#each highlight(preview, words) as p, i (i)}{#if p.hit}<mark>{p.text}</mark>{:else}{p.text}{/if}{/each}</span
+        >{/if}
     </span>
     {#if status || extra.length || dates || comments || files || card.assignees.length}
       <span class="foot">
@@ -160,6 +188,18 @@
     font-size: 15.5px;
     line-height: 1.3;
     overflow-wrap: anywhere;
+  }
+  /* A searched word (R3.6a). */
+  mark {
+    padding: 0 1px;
+    margin: 0 -1px;
+    border-radius: 2px;
+    background: color-mix(in oklab, var(--accent) 30%, transparent);
+    color: inherit;
+  }
+  .found .where {
+    color: var(--text);
+    font-weight: 500;
   }
   .completed .t {
     color: var(--muted);

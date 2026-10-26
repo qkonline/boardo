@@ -86,6 +86,7 @@ Each board has two roles.
 - **R3.4a** No two columns in a board have the same name, letter case and spaces aside. Adding or renaming one to a name in use says so and waits; the server refuses it too. A removed column's name is free again.
 - **R3.5** Cards can be dragged within a column and between columns, by mouse and by touch.
 - **R3.6** A board can be filtered by person and by status.
+- **R3.6a** A board can be searched from a box beside its filters ("Search this board"; on a phone a magnifier that opens it; "/" goes to it). The columns narrow to the cards with every word (R9.17), together with the filters, the words marked on each card, and when the title doesn't have them all, the line under it shows where they are ("Sara Ali: …the venue is booked…"). The box counts the cards shown. Archived cards that match never show in the columns: a line says how many and opens them in Archived with the same words. Clear clears the search and the filters; Escape clears the search. A board keeps its search and filters while the app is open, also after leaving it. A card dragged while searching or filtering lands between the cards it was dropped between.
 - **R3.7** An admin can set what every new card in the board starts with (Board settings, New cards): someone it's assigned to, and a status. Both start as Nobody and None. Once saved, every card added after starts with them; cards already there stay as they are. A person who has left, or a status since deleted, is skipped.
 
 ## 4. Cards

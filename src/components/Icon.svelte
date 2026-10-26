@@ -42,7 +42,8 @@
     | 'italic'
     | 'strike'
     | 'bullets'
-    | 'numbers';
+    | 'numbers'
+    | 'search';
 </script>
 
 <script lang="ts">
@@ -85,6 +86,9 @@
     <circle cx="10" cy="13" r="1.2" fill={r} stroke="none" />
   {:else if name === 'plus'}
     <path d="M10 4v12M4 10h12" stroke={a} stroke-width="1.8" />
+  {:else if name === 'search'}
+    <circle cx="8.75" cy="8.75" r="5" stroke={a} />
+    <path d="M12.6 12.6l3.9 3.9" stroke={r} />
   {:else if name === 'filter'}
     <path d="M3.5 5.5h13M6 10h8" stroke={a} />
     <path d="M8.5 14.5h3" stroke={r} />

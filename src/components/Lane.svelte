@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CardRec, ColumnRec } from '../../shared/model';
   import type { BoardState } from '../lib/board.svelte';
+  import type { Hit } from '../lib/search';
   import { drag } from '../lib/drag.svelte';
   import { app } from '../lib/store.svelte';
   import CardTile from './CardTile.svelte';
@@ -12,8 +13,19 @@
     b,
     cards,
     filtered,
+    found = null,
+    words = [],
     onmenu,
-  }: { col: ColumnRec; b: BoardState; cards: CardRec[]; filtered: boolean; onmenu: () => void } = $props();
+  }: {
+    col: ColumnRec;
+    b: BoardState;
+    cards: CardRec[];
+    filtered: boolean;
+    /** While searching: where each card matched, and the words (R3.6a). */
+    found?: Map<string, Hit> | null;
+    words?: string[];
+    onmenu: () => void;
+  } = $props();
 
   let adding = $state(false);
   let title = $state('');
@@ -61,7 +73,7 @@
   <div class="cards" data-scroll bind:this={list}>
     {#each cards as c, i (c.id)}
       {#if dropAt >= 0 && dropAt === slots[i]}<div class="drop" aria-hidden="true"></div>{/if}
-      <CardTile card={c} {b} />
+      <CardTile card={c} {b} hit={found?.get(c.id)} {words} />
     {/each}
     {#if dropAt >= 0 && dropAt === others}<div class="drop" aria-hidden="true"></div>{/if}
     {#if !cards.length && filtered}

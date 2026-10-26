@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { flushSync } from 'svelte';
   import { sameNamed } from '../../shared/rules';
   import Bell from './Bell.svelte';
   import type { CardRec } from '../../shared/model';
   import { bgImage, boardBackground } from '../lib/background';
   import { drag } from '../lib/drag.svelte';
   import { hueColor } from '../lib/hue';
+  import { matchBoard, queryWords } from '../lib/search';
   import { app } from '../lib/store.svelte';
   import ColumnMenu from './ColumnMenu.svelte';
   import Icon from './Icon.svelte';
@@ -14,11 +16,42 @@
   const b = $derived(app.data[id]);
   const item = $derived(app.boards.find((x) => x.id === id));
 
-  // Filters (R3.6), kept per board while the app is open.
-  const filters = $state<Record<string, { person: string; status: string }>>({});
-  const f = $derived(filters[id] ?? { person: 'all', status: 'all' });
-  const setFilter = (k: 'person' | 'status', v: string) => (filters[id] = { ...f, [k]: v });
-  const filtered = $derived(f.person !== 'all' || f.status !== 'all');
+  // Filters (R3.6) and search (R3.6a), kept per board in the store while the app is open.
+  const NONE = { person: 'all', status: 'all', q: '' };
+  const f = $derived(app.boardFilters[id] ?? NONE);
+  const setFilter = (k: 'person' | 'status' | 'q', v: string) => (app.boardFilters[id] = { ...f, [k]: v });
+  const words = $derived(queryWords(f.q));
+  const filtered = $derived(f.person !== 'all' || f.status !== 'all' || words.length > 0);
+  /** The cards with every word, and where each matched (src/lib/search.ts). */
+  const found = $derived(b && words.length ? new Map(matchBoard(b, words).map((h) => [h.card.id, h])) : null);
+  const archivedFound = $derived(found ? [...found.values()].filter((h) => h.card.archived).length : 0);
+  const shownCount = $derived(b ? b.columns.reduce((n, c) => n + b.cardsIn(c.id).filter(keep).length, 0) : 0);
+  // On a phone the search is a magnifier that opens the box, focused in the same tap (iOS opens
+  // the keyboard only then).
+  let finding = $state(false);
+  let findInput = $state<HTMLInputElement | null>(null);
+  function openFind() {
+    flushSync(() => (finding = true));
+    findInput?.focus();
+  }
+  function closeFind() {
+    finding = false;
+    findInput?.blur();
+  }
+  function findKey(e: KeyboardEvent) {
+    if (e.key !== 'Escape') return;
+    e.stopPropagation();
+    setFilter('q', '');
+    closeFind();
+  }
+  // "/" goes to this board's search, when nothing else has the keys.
+  function slash(e: KeyboardEvent) {
+    if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || e.isComposing) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('input, textarea, select, [contenteditable]') || app.open || app.sheet || document.querySelector('[role=dialog]')) return;
+    e.preventDefault();
+    openFind();
+  }
   // What each filter shows: the chosen option's text, so the control is as wide as that.
   const personLabel = $derived(
     f.person === 'all'
@@ -38,6 +71,7 @@
   );
 
   function keep(c: CardRec): boolean {
+    if (found && !found.has(c.id)) return false;
     if (f.person === 'none' && c.assignees.length) return false;
     if (f.person !== 'all' && f.person !== 'none' && !c.assignees.includes(f.person)) return false;
     if (f.status !== 'all' && (c.values.status ?? 'none') !== f.status) return false;
@@ -70,12 +104,15 @@
   }
 
   function dropped(card: string, d: { column: string; index: number }) {
-    const list = b.cardsIn(d.column).filter((c) => c.id !== card);
+    // Between the cards it was dropped between: the ones shown, with filters or search on.
+    const list = b.cardsIn(d.column).filter((c) => c.id !== card && keep(c));
     void app.moveCard(id, card, d.column, list[d.index - 1]?.id ?? null, list[d.index]?.id ?? null);
   }
 
   const attachDrag = (el: HTMLElement) => drag.attach(el, () => scroller, dropped);
 </script>
+
+<svelte:window onkeydown={slash} />
 
 {#if b && item}
   <div
@@ -90,7 +127,26 @@
     <header class="head" data-board-head>
       <button class="icon-btn back" aria-label="Boards" onclick={() => app.go({ name: 'home' })}><Icon name="back" /></button>
       <h1><span class="mark" style:background={hueColor(b.board?.hue ?? item.hue)}></span><span class="name">{b.board?.name ?? item.name}</span></h1>
-      <div class="filters">
+      <div class="filters" class:finding>
+        <label class="find" class:on={!!f.q}>
+          <Icon name="search" size={16} />
+          <span class="sr-only">Search this board</span>
+          <input
+            bind:this={findInput}
+            type="search"
+            enterkeyhint="search"
+            placeholder="Search this board"
+            autocomplete="off"
+            value={f.q}
+            oninput={(e) => setFilter('q', e.currentTarget.value)}
+            onkeydown={findKey}
+          />
+          {#if words.length}<span class="count" aria-live="polite">{shownCount === 1 ? '1 card' : `${shownCount || 'No'} cards`}</span>{/if}
+        </label>
+        <button class="icon-btn find-key" class:on={!!f.q} aria-label="Search this board" onclick={openFind}
+          ><Icon name="search" />{#if f.q}<span class="q">{f.q}</span>{/if}</button
+        >
+        <button class="btn ghost find-done" onclick={closeFind}>Done</button>
         <Icon name="filter" />
         <label class="sel" class:on={f.person !== 'all'}>
           <span class="sr-only">Person</span>
@@ -116,7 +172,7 @@
           <Icon name="down" size={14} />
         </label>
         {#if filtered}
-          <button class="btn ghost clear" onclick={() => (filters[id] = { person: 'all', status: 'all' })}>Clear</button>
+          <button class="btn ghost clear" onclick={() => (app.boardFilters[id] = { ...NONE })}>Clear</button>
         {/if}
         <!-- The archived cards, in a panel like Activity. -->
         <button class="arch" onclick={() => ((app.activity = null), (app.archive = id))}
@@ -134,6 +190,12 @@
         <Bell where="head" />
       </div>
     </header>
+    {#if archivedFound}
+      <!-- Archived cards never show in the columns: the search says when some match. -->
+      <button class="arch-found" onclick={() => ((app.archiveQuery = f.q), (app.activity = null), (app.archive = id))}
+        >{archivedFound === 1 ? '1 archived card matches' : `${archivedFound} archived cards match`}</button
+      >
+    {/if}
 
 
     {#if !b.loaded}
@@ -147,7 +209,7 @@
     {:else}
       <div class="lanes" bind:this={scroller} {@attach attachDrag}>
         {#each b.columns as col (col.id)}
-          <Lane {col} {b} cards={b.cardsIn(col.id).filter(keep)} {filtered} onmenu={() => (menuFor = col.id)} />
+          <Lane {col} {b} cards={b.cardsIn(col.id).filter(keep)} {filtered} {found} {words} onmenu={() => (menuFor = col.id)} />
         {/each}
         {#if b.orphans.length}
           <section class="lane-x">
@@ -389,6 +451,103 @@
     position: absolute;
     right: 6px;
     pointer-events: none;
+  }
+  /* Search this board (R3.6a): a box before the filters; on a phone a magnifier that opens it. */
+  .find {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: 230px;
+    min-height: var(--btn);
+    margin-right: 12px;
+    padding: 0 10px;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: var(--r-ctl);
+    background: var(--sunk);
+    color: var(--muted);
+    flex: none;
+    cursor: text;
+  }
+  .find:focus-within {
+    border-color: var(--accent);
+    background: var(--raised);
+  }
+  .find input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    outline: none;
+    background: transparent;
+    color: var(--text);
+    font: 500 14px var(--font);
+  }
+  .find input::placeholder {
+    color: var(--muted);
+  }
+  .find .count {
+    flex: none;
+    color: var(--muted);
+    font-size: 12.5px;
+    white-space: nowrap;
+  }
+  .find-key,
+  .find-done {
+    display: none;
+  }
+  .find-key .q {
+    max-width: 96px;
+    margin-left: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--accent);
+    font: 600 13px var(--font);
+  }
+  .find-key.on {
+    width: auto;
+    padding: 0 8px;
+    display: none;
+  }
+  @media (max-width: 640px) {
+    .find {
+      display: none;
+    }
+    .find-key,
+    .find-key.on {
+      display: inline-flex;
+      align-items: center;
+    }
+    .finding > :global(:not(.find):not(.find-done)) {
+      display: none;
+    }
+    .finding .find {
+      display: inline-flex;
+      flex: 1;
+      width: auto;
+      margin-right: 4px;
+    }
+    .finding .find-done {
+      display: inline-flex;
+    }
+  }
+  /* Archived cards that match: they never show in the columns, so this says so and opens them. */
+  .arch-found {
+    align-self: flex-start;
+    margin: -4px 0 8px max(var(--px), env(safe-area-inset-left));
+    padding: 6px 10px;
+    border: 0;
+    border-radius: var(--r-ctl);
+    background: var(--sunk);
+    color: var(--accent);
+    font: 500 13px var(--font);
+    cursor: pointer;
+  }
+  .has-bg .arch-found {
+    background: color-mix(in oklab, var(--sunk) 88%, transparent);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
   .clear {
     min-height: var(--btn);

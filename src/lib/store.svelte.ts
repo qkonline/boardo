@@ -108,6 +108,8 @@ export class App {
   activity = $state<string | null>(null);
   /** The board whose Archived cards panel is open. */
   archive = $state<string | null>(null);
+  /** Each board's filters and search (R3.6, R3.6a), kept while the app is open, left or not. */
+  boardFilters = $state<Record<string, { person: string; status: string; q: string }>>({});
   /** What the Archived panel searches for when it opens (a board's search sends its words). */
   archiveQuery = '';
   /** The card open in the card sheet. */
