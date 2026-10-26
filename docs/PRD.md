@@ -305,7 +305,11 @@ Every card has these fields.
 
 ### 9.3 Search
 
+- **R9.16** Every board a person is in can be searched at once: on a computer from a box in the top bar ("Search all boards", Cmd-K or Ctrl-K from anywhere), its results dropping below it like the bell's; on a phone from a magnifier beside the bell on Boards and My cards, which opens the box, ready to type, and the results down to the tab bar. (On a board, its own search is the one beside the filters, R3.6a.)
 - **R9.17** Search follows the same rules everywhere (a board's search, search across all boards, Archived): every word typed must be found on the card; capitals, accents and punctuation don't count ("cafe" finds "Café", "email" finds "e-mail"); a word is found at the start of a word ("plan" finds "planning", "cat" doesn't find "education"), except in scripts written without spaces, found anywhere. It searches a card's title, description and comments (formatting marks aside, deleted comments never), its custom field values as they read (a dropdown's words, a person's name, a ticked box's field name, a number) and its files' names. Not status, people, column or dates, which the filters cover. Title matches come first, then files and fields, then descriptions, then comments; equal ones by the most recent activity; archived cards after the rest. It all runs on the device, so it works offline and nothing typed is sent anywhere.
+- **R9.18** Results say how many cards match and in how many boards, then boards whose name matches (three at most), then the cards grouped by board, the board with the best match first (the one on screen first of all). Each card shows its title with the words marked, where the words are when the title doesn't have them all ("Sara Ali: …", "Severity: …", "File: …"), its column and status, and Archived when it is. Each board shows five, then Show more.
+- **R9.19** A card opens on top and the results stay: closing it goes back to them. A board found by name opens. Open board opens that board searched for the same words. The arrow keys move through the results and Enter opens one; Escape clears what's typed, then closes. A screen reader hears how many match.
+- **R9.20** Before anything is typed, search says what it looks through; with nothing found, "No cards match." A board not yet on this device isn't searched, and search says so (offline: "Connect to load it").
 
 ## 10. Platform and hosting
 
@@ -417,4 +421,4 @@ On 23 October 2026, all live:
 - removing a column works again (it had stopped doing anything), and column names are unique (R3.4a);
 - Add a column stays readable over a board background (R3.1).
 
-On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), Add a column is a slim strip beside columns (R3.4b), each place has its own address (R10.2a), and each person's own order of their boards (R2.5a).
+On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), Add a column is a slim strip beside columns (R3.4b), each place has its own address (R10.2a), each person's own order of their boards (R2.5a), and search, on a board and across all of them (R3.6a, R9.16 to R9.20).

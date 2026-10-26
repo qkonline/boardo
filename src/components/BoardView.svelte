@@ -263,7 +263,8 @@
   .tall .head {
     position: sticky;
     top: 0;
-    z-index: 5;
+    /* Above the columns, below the top bar (its search and bell drop over it). */
+    z-index: 4;
     padding-top: calc(6px + env(safe-area-inset-top));
     background: var(--bg);
   }

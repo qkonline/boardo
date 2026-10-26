@@ -1,5 +1,6 @@
 <script lang="ts">
   import Bell from './Bell.svelte';
+  import Search from './Search.svelte';
   import { app } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
 
@@ -37,6 +38,7 @@
         ><Icon name="offline" size={16} /> Offline</span
       >
     {/if}
+    <Search where="bar" />
     <Bell where="bar" />
     <button
       class="tab account"
@@ -182,11 +184,12 @@
     .off + .account {
       margin-left: 8px;
     }
-    /* The bell takes the far right with Account, apart from the screens. */
-    .tabs :global(.bell) {
+    /* Search, the bell and Account take the far right, apart from the screens. */
+    .tabs :global(.search) {
       margin-left: auto;
+      margin-right: 8px;
     }
-    .off + :global(.bell) {
+    .off + :global(.search) {
       margin-left: 8px;
     }
     :global(.bell) + .account {

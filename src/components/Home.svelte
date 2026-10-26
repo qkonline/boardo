@@ -1,5 +1,6 @@
 <script lang="ts">
   import Bell from './Bell.svelte';
+  import Search from './Search.svelte';
   import { allPartsDone, statusOption } from '../../shared/rules';
   import { bgImage, tileBackground } from '../lib/background';
   import { hueColor } from '../lib/hue';
@@ -98,6 +99,7 @@
   <header class="head">
     <h1>Boards</h1>
     <button class="key ink" onclick={() => (app.sheet = 'newBoard')}><Icon name="plus" plain /> New board</button>
+    <Search where="head" />
     <Bell where="head" />
   </header>
 

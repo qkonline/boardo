@@ -108,6 +108,8 @@ export class App {
   activity = $state<string | null>(null);
   /** The board whose Archived cards panel is open. */
   archive = $state<string | null>(null);
+  /** Search across all boards (R9.16): open, and what's typed, kept while the app is open. */
+  search = $state({ open: false, q: '' });
   /** Each board's filters and search (R3.6, R3.6a), kept while the app is open, left or not. */
   boardFilters = $state<Record<string, { person: string; status: string; q: string }>>({});
   /** What the Archived panel searches for when it opens (a board's search sends its words). */
@@ -597,6 +599,7 @@ export class App {
 
   go(s: Screen): void {
     this.screen = s;
+    this.search.open = false;
     this.open = null;
     this.activity = null;
     this.archive = null;
