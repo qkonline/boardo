@@ -57,11 +57,22 @@ const memberRec = (u: User, role: Role): MemberRec => ({
 });
 
 /** The boards someone is in, and the invites waiting for their address. */
+/** This person's own order of their boards (R2.5a). Boards they aren't in are ignored; boards left out keep their place. */
+export async function orderBoards(env: Env, userId: string, body: { ids?: unknown }) {
+  const ids = body.ids;
+  if (!Array.isArray(ids) || ids.length > MAX_BOARDS || !ids.every((x) => typeof x === 'string' && x.length <= 64))
+    throw new Refusal(400, 'Bad order');
+  if (!ids.length) return;
+  await env.DB.batch(
+    ids.map((id, i) => env.DB.prepare('UPDATE members SET position = ? WHERE board_id = ? AND user_id = ?').bind(i + 1, id, userId)),
+  );
+}
+
 export async function listBoards(env: Env, userId: string) {
   const user = await getUser(env, userId);
   if (!user) throw new Refusal(401, 'Signed out');
   const boards = await env.DB.prepare(
-    'SELECT b.id, b.name, b.hue, m.role FROM members m JOIN boards b ON b.id = m.board_id WHERE m.user_id = ? ORDER BY b.created',
+    'SELECT b.id, b.name, b.hue, m.role FROM members m JOIN boards b ON b.id = m.board_id WHERE m.user_id = ? ORDER BY m.position IS NULL, m.position, b.created',
   )
     .bind(userId)
     .all<{ id: string; name: string; hue: string; role: Role }>();

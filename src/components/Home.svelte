@@ -6,8 +6,40 @@
   import { app } from '../lib/store.svelte';
   import { cancelled } from '../lib/passkeys';
   import Icon from './Icon.svelte';
+  import { flip } from 'svelte/animate';
+  import { pathOf } from '../lib/route';
+  import { tileDrag } from '../lib/tiledrag';
 
   let busy = $state<string | null>(null);
+
+  // Each person's own order (R2.5a): drag a tile (hold it first on a touch screen), or Alt and an
+  // arrow key on one. While dragging, the tiles show the order it would make.
+  let preview = $state<string[] | null>(null);
+  let lifted = $state<string | null>(null);
+  const shown = $derived(preview ? preview.map((id) => app.boards.find((b) => b.id === id)).filter((b) => !!b) : app.boards);
+  const arrange = (el: HTMLElement) =>
+    tileDrag(el, {
+      ids: () => app.boards.map((b) => b.id),
+      preview: (ids, id) => ((preview = ids), (lifted = id ?? null)),
+      drop: (ids) => void app.reorderBoards(ids),
+    });
+  function nudge(e: KeyboardEvent, id: string) {
+    const step = e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : 0;
+    if (!e.altKey || !step) return;
+    e.preventDefault();
+    const ids = app.boards.map((b) => b.id);
+    const i = ids.indexOf(id);
+    const j = i + step;
+    if (j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    void app.reorderBoards(ids);
+  }
+  /** A tile is a link to its board (so it can open in a new tab); a plain click stays in the app. */
+  function open(e: MouseEvent, id: string) {
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+    e.preventDefault();
+    app.go({ name: 'board', id });
+  }
   // Links to the boards' background images, for their tiles.
   const links = $derived(app.files.links);
   $effect(() => {
@@ -102,13 +134,19 @@
   {/if}
 
   {#if app.boards.length}
-    <ul class="tiles">
-      {#each app.boards as b (b.id)}
+    <ul class="tiles" {@attach arrange}>
+      {#each shown as b (b.id)}
         {@const n = counts(b.id)}
         {@const st = app.data[b.id]}
         {@const img = bgImage(st?.board)}
-        <li>
-          <button class="tile" onclick={() => app.go({ name: 'board', id: b.id })}>
+        <li data-board={b.id} class:lifted={lifted === b.id} animate:flip={{ duration: 180 }}>
+          <a
+            class="tile"
+            href={pathOf({ name: 'board', id: b.id }, null, () => b.name)}
+            draggable="false"
+            onclick={(e) => open(e, b.id)}
+            onkeydown={(e) => nudge(e, b.id)}
+          >
             <span class="cover" style:background={tileBackground(st?.board, b.hue, img ? links[img]?.url : undefined)}>
               {#if b.role === 'admin'}<span class="badge">Admin</span>{/if}
             </span>
@@ -120,7 +158,7 @@
                 {:else}&nbsp;{/if}
               </span>
             </span>
-          </button>
+          </a>
         </li>
       {/each}
       <li>
@@ -213,10 +251,19 @@
       gap: 10px;
     }
   }
+  /* The tile being dragged stays where it would land, faded; a floating copy follows the pointer. */
+  .lifted {
+    opacity: 0.35;
+  }
   .tile {
     width: 100%;
     height: 100%;
+    box-sizing: border-box;
     display: flex;
+    text-decoration: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
     flex-direction: column;
     padding: 0;
     border: 1px solid var(--border);

@@ -1,7 +1,7 @@
 // Members and roles (boards.ts): the directory on node:sqlite, and a board that can fail to answer.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeD1 } from '../../test/fake-d1';
-import { removeMember, setRole } from './boards';
+import { listBoards, orderBoards, removeMember, setRole } from './boards';
 
 let db: ReturnType<typeof fakeD1>['db'];
 let env: any;
@@ -82,5 +82,32 @@ describe('a board that fails to answer', () => {
     expect(role('cy')).toBe('member');
     await setRole(env, 'ann', { board: 'b1', user: 'cy', role: 'member' });
     expect(told).toEqual(['cy admin', 'cy member']);
+  });
+});
+
+describe("each person's order of their boards", () => {
+  beforeEach(() => {
+    db.exec(`INSERT INTO boards (id, name, hue, created_by, created) VALUES ('b2', 'Hiring', 'lime', 'ann', 2), ('b3', 'Budget', 'rose', 'ann', 3)`);
+    db.exec(`INSERT INTO members (board_id, user_id, role, added_at) VALUES ('b2', 'ann', 'admin', 2), ('b3', 'ann', 'admin', 3), ('b3', 'bob', 'admin', 3)`);
+  });
+  const order = async (user: string) => (await listBoards(env, user)).boards.map((b) => b.id);
+  it('is oldest first until they arrange it', async () => {
+    expect(await order('ann')).toEqual(['b1', 'b2', 'b3']);
+  });
+  it('is theirs alone once they do', async () => {
+    await orderBoards(env, 'ann', { ids: ['b3', 'b1', 'b2'] });
+    expect(await order('ann')).toEqual(['b3', 'b1', 'b2']);
+    expect(await order('bob')).toEqual(['b1', 'b3']);
+  });
+  it('puts a new board after the ones they placed', async () => {
+    await orderBoards(env, 'ann', { ids: ['b2', 'b1'] });
+    db.exec(`INSERT INTO boards (id, name, hue, created_by, created) VALUES ('b4', 'New', 'cyan', 'ann', 4)`);
+    db.exec(`INSERT INTO members (board_id, user_id, role, added_at) VALUES ('b4', 'ann', 'admin', 4)`);
+    expect(await order('ann')).toEqual(['b2', 'b1', 'b3', 'b4']);
+  });
+  it("never touches a board they aren't in, and refuses a bad list", async () => {
+    await orderBoards(env, 'cy', { ids: ['b3', 'b1'] });
+    expect(await order('ann')).toEqual(['b1', 'b2', 'b3']);
+    await expect(orderBoards(env, 'ann', { ids: 'b1' })).rejects.toThrow();
   });
 });

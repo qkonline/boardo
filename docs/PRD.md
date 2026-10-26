@@ -69,6 +69,7 @@ Each board has two roles.
 
 ### 2.3 Each person's views
 
+- **R2.5a** Each person arranges the boards on Boards in their own order: dragging a tile (holding it first on a touch screen, so a swipe still scrolls), or Alt and an arrow key on one. It's theirs alone, kept with their account so every device shows it, and saved at once like dragging a card (offline, it waits and is sent later). New boards, and boards they join, come after the ones they've placed. Each tile is a link to its board, so it can open in a new tab.
 - **R2.6** Every person can switch between:
   - **a project board**, showing only that project's cards;
   - **My cards**, showing every card assigned to them across all their projects, visible only to them;
@@ -411,4 +412,4 @@ On 23 October 2026, all live:
 - removing a column works again (it had stopped doing anything), and column names are unique (R3.4a);
 - Add a column stays readable over a board background (R3.1).
 
-On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), Add a column is a slim strip beside columns (R3.4b), and each place has its own address (R10.2a).
+On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), Add a column is a slim strip beside columns (R3.4b), each place has its own address (R10.2a), and each person's own order of their boards (R2.5a).

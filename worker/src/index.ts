@@ -19,6 +19,7 @@ import {
   deleteCard,
   leaveAll,
   listBoards,
+  orderBoards,
   refreshMemberships,
   removeMember,
   resendInvite,
@@ -225,6 +226,9 @@ export default {
 
         case '/boards':
           return reply(200, await listBoards(env, await mustUser()));
+        case '/boards/order':
+          await orderBoards(env, await mustUser(), body);
+          return reply(204);
         case '/boards/create':
           return reply(200, { board: await createBoard(env, await mustUser(), body) });
         case '/boards/delete':

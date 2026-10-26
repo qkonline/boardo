@@ -64,6 +64,8 @@ export type Theme = 'auto' | 'light' | 'dark';
 const THEME_KEY = 'boardo:theme';
 const SCREEN_KEY = 'boardo:screen';
 const PASSKEY_ASK_KEY = 'boardo:passkey-ask';
+/** An order of the boards not yet saved on the server (made offline): sent on the next refresh. */
+const ORDER_KEY = 'boardo:board-order';
 
 function readLocal(key: string): string | null {
   try {
@@ -79,6 +81,12 @@ function writeLocal(key: string, v: string | null): void {
   } catch {
     /* private mode */
   }
+}
+
+/** Boards in the order of `ids`; any not in it keep their order, after. */
+function inOrder<T extends { id: string }>(list: T[], ids: string[]): T[] {
+  const at = new Map(ids.map((id, i) => [id, i]));
+  return [...list].sort((a, b) => (at.get(a.id) ?? Infinity) - (at.get(b.id) ?? Infinity));
 }
 
 /** The number on the Home Screen icon, where the device shows one. */
@@ -318,11 +326,15 @@ export class App {
   async refresh(): Promise<void> {
     if (!this.token) return;
     let res: { user: User; boards: BoardItem[]; invites: Invite[] };
+    await this.sendOrder();
     try {
       res = await call('/boards');
     } catch {
       return;
     }
+    // An order still waiting to be saved wins over the server's older one.
+    const waiting = this.orderWaiting();
+    if (waiting) res.boards = inOrder(res.boards, waiting);
     this.user = res.user;
     await db.putMeta('session', { token: this.token, user: res.user });
     await this.setBoards(res.boards);
@@ -507,6 +519,40 @@ export class App {
     this.sheet = null;
     this.screen = { name: 'home' };
     writeLocal(SCREEN_KEY, null);
+    writeLocal(ORDER_KEY, null);
+  }
+
+  /**
+   * This person's own order of their boards (R2.5a), from dragging them on Boards: shown at once,
+   * and kept on the server so every device has it. Offline, it waits and goes on the next refresh.
+   */
+  async reorderBoards(ids: string[]): Promise<void> {
+    const next = inOrder(this.boards, ids);
+    if (next.map((b) => b.id).join() === this.boards.map((b) => b.id).join()) return;
+    this.boards = next;
+    await db.putMeta('boards', next);
+    writeLocal(ORDER_KEY, JSON.stringify(next.map((b) => b.id)));
+    await this.sendOrder();
+  }
+
+  private orderWaiting(): string[] | null {
+    try {
+      const ids = JSON.parse(readLocal(ORDER_KEY) ?? 'null');
+      return Array.isArray(ids) ? ids : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async sendOrder(): Promise<void> {
+    const ids = this.orderWaiting();
+    if (!ids || !this.token) return;
+    try {
+      await call('/boards/order', { ids });
+      if (this.orderWaiting()?.join() === ids.join()) writeLocal(ORDER_KEY, null);
+    } catch {
+      /* kept, and sent again on the next refresh */
+    }
   }
 
   // ---------- screens ----------

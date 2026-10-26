@@ -312,7 +312,7 @@ All of these are in Elastic's repository.
 
 **Screens**
 - **Sign in:** email, then a 6-digit code, then a name the first time.
-- **Home:** the person's boards as tiles, as in Trello (the board's background or colour across the top, then its name and their open cards), pending invites, and a New board tile.
+- **Home:** the person's boards as tiles, as in Trello (the board's background or colour across the top, then its name and their open cards), pending invites, and a New board tile. Each tile is a link to its board; the person's own order (R2.5a) is `members.position` (migration 0007; null after the placed ones, oldest first), set by `POST /boards/order` (`orderBoards()`), dragged with `src/lib/tiledrag.ts` (the card drag's rules: lift after 6px with a mouse, after a 320ms hold on touch; tiles measured where they rest, not mid-slide) or moved with Alt and an arrow; `app.reorderBoards()` shows it at once and keeps an unsent order in `boardo:board-order` until a refresh sends it.
 - **Board:**
   - columns side by side, scrolling sideways on a phone;
   - cards show title, the description's first words under it, the custom fields shown on cards (`FieldRec.onCard`, beside the status: a dropdown as its coloured `StatusChip`, others as grey chips of the same height, wrapping 8px apart; values as words by `fieldText()` in `src/lib/fields.ts`) (two lines at most, marks taken off by `plain()` in `format.ts`), assignees, status, dates and comment and attachment counts;
