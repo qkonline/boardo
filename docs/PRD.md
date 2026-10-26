@@ -81,6 +81,7 @@ Each board has two roles.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
+- **R3.4b** Add a column sits after the last column. Beside columns it's a slim strip as wide as a tap target, with a plus level with the columns' names and the words running down it, so it doesn't take a column's width; it opens to the full form, scrolled into view. A board with no columns shows it full width with a line explaining columns.
 - **R3.4a** No two columns in a board have the same name, letter case and spaces aside. Adding or renaming one to a name in use says so and waits; the server refuses it too. A removed column's name is free again.
 - **R3.5** Cards can be dragged within a column and between columns, by mouse and by touch.
 - **R3.6** A board can be filtered by person and by status.
@@ -409,4 +410,4 @@ On 23 October 2026, all live:
 - removing a column works again (it had stopped doing anything), and column names are unique (R3.4a);
 - Add a column stays readable over a board background (R3.1).
 
-On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, and a background image is dimmed in the dark theme (R3.1).
+On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), and Add a column is a slim strip beside columns (R3.4b).

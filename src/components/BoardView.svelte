@@ -157,9 +157,10 @@
             {/each}
           </section>
         {/if}
-        <div class="new-col">
+        <!-- Beside columns it's a slim strip; it opens to the full form. -->
+        <div class="new-col" class:slim={!addingCol && b.columns.length > 0}>
           {#if addingCol}
-            <form onsubmit={addColumn}>
+            <form onsubmit={addColumn} {@attach (el: HTMLFormElement) => el.scrollIntoView({ block: 'nearest', inline: 'nearest' })}>
               <input
                 class="field"
                 placeholder={b.columns.length ? `Campaign ${b.columns.length + 1}` : 'Campaign 1'}
@@ -176,7 +177,7 @@
               </div>
             </form>
           {:else}
-            <button class="add-col" onclick={() => (addingCol = true)}><Icon name="plus" /> Add a column</button>
+            <button class="add-col" onclick={() => (addingCol = true)}><Icon name="plus" /> <span>Add a column</span></button>
             {#if !b.columns.length}
               <p class="hint">Columns group cards however suits the project, like Campaign 1 and Campaign 2. Each card has its own status.</p>
             {/if}
@@ -473,6 +474,20 @@
   .new-col {
     flex: 0 0 min(84vw, 290px);
     scroll-snap-align: start;
+  }
+  /* Beside columns, Add a column is a strip as wide as a tap target, its words running down it. */
+  .new-col.slim {
+    flex: 0 0 44px;
+    scroll-snap-align: end;
+  }
+  .slim .add-col {
+    flex-direction: column;
+    gap: 10px;
+    /* The plus level with the columns' names; even above and below. */
+    padding: 14px 0;
+  }
+  .slim .add-col span {
+    writing-mode: vertical-rl;
   }
   .new-col .err {
     margin: 0;
