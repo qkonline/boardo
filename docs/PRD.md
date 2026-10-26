@@ -153,7 +153,7 @@ Every card has these fields.
 
 - **R4.20** Cards can be archived and restored. Archived cards are hidden from the board, My cards and Elastic, but kept with their history.
 - **R4.21** An archived card can be deleted for good, by an admin or by whoever made it. Its comments, attachments and time go with it; its history stays in the project log, with an entry saying it was deleted.
-- **R4.21a** Archived cards are found from an **Archived** link beside the board's filters, with their count. It opens a panel from the side, like Activity, with a search that finds them by any words in their title, description or comments. Each can be opened, restored, or deleted for good (R4.21). Board settings no longer lists them.
+- **R4.21a** Archived cards are found from an **Archived** link beside the board's filters, with their count. It opens a panel from the side, like Activity, with a search that finds them by the rules of R9.17. Each can be opened, restored, or deleted for good (R4.21). Board settings no longer lists them.
 
 ### 4.6 Dependencies
 
@@ -301,6 +301,10 @@ Every card has these fields.
 
   Never for their own changes.
 - **R9.15** Notifications: in Account, each device can turn on notifications for these updates. They arrive even with Boardo closed or the phone locked, and tapping one opens its card. On iPhone and iPad they work once Boardo is on the Home Screen, as in Elastic. Signing out turns them off on that device.
+
+### 9.3 Search
+
+- **R9.17** Search follows the same rules everywhere (a board's search, search across all boards, Archived): every word typed must be found on the card; capitals, accents and punctuation don't count ("cafe" finds "Café", "email" finds "e-mail"); a word is found at the start of a word ("plan" finds "planning", "cat" doesn't find "education"), except in scripts written without spaces, found anywhere. It searches a card's title, description and comments (formatting marks aside, deleted comments never), its custom field values as they read (a dropdown's words, a person's name, a ticked box's field name, a number) and its files' names. Not status, people, column or dates, which the filters cover. Title matches come first, then files and fields, then descriptions, then comments; equal ones by the most recent activity; archived cards after the rest. It all runs on the device, so it works offline and nothing typed is sent anywhere.
 
 ## 10. Platform and hosting
 

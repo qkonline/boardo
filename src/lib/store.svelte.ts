@@ -108,6 +108,8 @@ export class App {
   activity = $state<string | null>(null);
   /** The board whose Archived cards panel is open. */
   archive = $state<string | null>(null);
+  /** What the Archived panel searches for when it opens (a board's search sends its words). */
+  archiveQuery = '';
   /** The card open in the card sheet. */
   open = $state<{ board: string; id: string } | null>(null);
   /** A place from the address whose board hasn't reached this device yet: shown once it has. */

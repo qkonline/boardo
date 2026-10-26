@@ -1,31 +1,31 @@
 <script lang="ts">
   import { when } from '../lib/dates';
   import { hueColor } from '../lib/hue';
+  import { matchBoard, queryWords } from '../lib/search';
   import { app } from '../lib/store.svelte';
   import Icon from './Icon.svelte';
   import Sheet from './Sheet.svelte';
 
   /**
    * A board's archived cards (R4.20, R4.21), in a panel that slides in from the right like
-   * Activity, opened from beside the filters. A search finds them by any words in their title,
-   * description or comments. Each opens (stacked on top), comes back with Restore, or goes for
+   * Activity, opened from beside the filters. A search finds them by the same rules as search
+   * everywhere (src/lib/search.ts); a board's search opens it with its words. Each opens (stacked on top), comes back with Restore, or goes for
    * good (admins, or whoever made it).
    */
   let { id }: { id: string } = $props();
   const b = $derived(app.data[id]);
-  let query = $state('');
+  // svelte-ignore state_referenced_locally
+  let query = $state(app.archiveQuery);
   let armed = $state<string | null>(null);
   let busy = $state(false);
 
-  /** Every word typed has to be somewhere in the card: its title, description or comments. */
+  /** Every word typed has to be found on the card; newest first, as the list is. */
   const found = $derived.by(() => {
     if (!b) return [];
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const words = queryWords(query);
     if (!words.length) return b.archived;
-    return b.archived.filter((c) => {
-      const text = [c.title, c.desc, ...b.commentsOn(c.id).map((m) => m.text)].join('\n').toLowerCase();
-      return words.every((w) => text.includes(w));
-    });
+    const hits = new Set(matchBoard(b, words).map((h) => h.card.id));
+    return b.archived.filter((c) => hits.has(c.id));
   });
   const close = () => (app.archive = null);
 
