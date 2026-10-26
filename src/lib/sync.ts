@@ -50,6 +50,8 @@ const CONNECT_MS = 8000;
 const WS_TRIES = 2;
 const BATCH = 100;
 const BATCH_BYTES = 400_000;
+/** How long after losing the tab lock before asking for it again. */
+const CLAIM_AGAIN_MS = 1000;
 
 type Msg =
   | { t: 'changed'; board: string; ids: string[] }
@@ -78,6 +80,7 @@ export class Sync {
   /** This tab's queued request for the lock, and a count that tells a stale request apart. */
   private waiting: AbortController | null = null;
   private claims = 0;
+  private reclaim: ReturnType<typeof setTimeout> | null = null;
   private conns = new Map<string, Conn>();
   private wanted = new Set<string>();
   private putId = 0;
@@ -116,6 +119,8 @@ export class Sync {
   private claim(steal = false): void {
     const locks = typeof navigator !== 'undefined' ? navigator.locks : undefined;
     if (!locks) return this.lead();
+    if (this.reclaim) clearTimeout(this.reclaim);
+    this.reclaim = null;
     this.waiting?.abort();
     const waiting = steal ? null : new AbortController();
     this.waiting = waiting;
@@ -132,7 +137,14 @@ export class Sync {
         // it, and wait to lead again.
         if (!this.token || n !== this.claims) return;
         this.follow();
-        this.claim();
+        // Not at once: a page on its way out (a reload) loses its lock and has every new request
+        // refused straight away, and on iPhone its code keeps running, so asking again at once
+        // would loop for ever and freeze the app (Elastic's did, at every reload, until 25 Oct
+        // 2026). A page that's gone never runs the timer.
+        this.reclaim = setTimeout(() => {
+          this.reclaim = null;
+          if (this.token && n === this.claims) this.claim();
+        }, CLAIM_AGAIN_MS);
       });
   }
 
@@ -153,6 +165,8 @@ export class Sync {
     this.token = null;
     this.leader = false;
     this.claims++;
+    if (this.reclaim) clearTimeout(this.reclaim);
+    this.reclaim = null;
     this.waiting?.abort();
     this.waiting = null;
     this.release?.();

@@ -251,4 +251,32 @@ describe('sync between people', () => {
     await settle();
     expect(out).toBe(true);
   });
+
+  it('never asks for the tab lock again at once when a page on its way out loses it', async () => {
+    // As on iPhone during a reload: the lock held is taken away, and every new request is
+    // refused straight away. Asking again at once looped for ever (capped here at 1000).
+    let asked = 0;
+    let takeAway = (_e: Error) => {};
+    const locks = {
+      request: (_name: string, _opts: object, cb: () => Promise<void>) => {
+        if (++asked === 1)
+          return new Promise<void>((_ok, fail) => {
+            takeAway = fail;
+            void cb();
+          });
+        return asked > 1000 ? new Promise<void>(() => {}) : Promise.reject(new Error('InvalidStateError'));
+      },
+    };
+    vi.stubGlobal('navigator', { locks });
+    await device('ann', ['b1']);
+    expect(asked).toBe(1);
+
+    takeAway(new Error('AbortError'));
+    await settle();
+    expect(asked).toBe(1);
+    // A second later it asks again, once, and is refused again: still no loop.
+    await new Promise((r) => setTimeout(r, 1100));
+    await settle();
+    expect(asked).toBe(2);
+  });
 });
