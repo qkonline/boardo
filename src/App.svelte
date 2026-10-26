@@ -19,6 +19,7 @@
   import SaveError from './components/SaveError.svelte';
   import Moving from './components/Moving.svelte';
   import { MOVED_TO } from './lib/move';
+  import { samePlace } from './lib/route';
   import Icon from './components/Icon.svelte';
 
   // Another app asking to connect (`?connect&client_id=...`): kept until answered.
@@ -39,6 +40,20 @@
   });
 
   const s = $derived(app.screen);
+
+  // The address and the window's title follow what's shown (src/lib/route.ts): a new place is a
+  // step Back can return to; the same place with a new name, or the first one shown, replaces it.
+  // The old address's last build (its own base) never touches them.
+  let first = true;
+  $effect(() => {
+    if (MOVED_TO || import.meta.env.BASE_URL !== '/' || !app.ready || !app.user || connect || app.waiting) return;
+    const path = app.path;
+    document.title = app.title;
+    if (path === location.pathname) return void (first = false);
+    if (first || samePlace(path, location.pathname)) history.replaceState(null, '', path + location.search);
+    else history.pushState(null, '', path);
+    first = false;
+  });
 </script>
 
 {#if MOVED_TO}

@@ -91,6 +91,16 @@
     if (asking) leave();
     asking = false;
   }
+  // Back closes the card as Close does: with changes not yet saved, it asks first.
+  $effect(() => {
+    app.cardGuard = () => {
+      if (!dirty) return true;
+      next = null;
+      asking = true;
+      return false;
+    };
+    return () => (app.cardGuard = null);
+  });
   /** Where to go once the changes are saved or let go: closed, or another card. */
   let next = $state<string | null>(null);
   const leave = () => (app.open = next ? { board, id: next } : null);

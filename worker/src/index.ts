@@ -52,6 +52,9 @@ import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken 
 export { Board, ElasticLink };
 
 /** Routes anyone can call without signing in: limited per network, on top of auth.ts's limits. */
+/** The app's own addresses (src/lib/route.ts), served its page. */
+const APP_PAGE = /^\/(?:my-cards|account|b\/[A-Za-z0-9_-]{1,64}(?:\/[^/]+){0,4})\/?$/;
+
 const OPEN = new Set([
   '/auth/code/send',
   '/auth/code/verify',
@@ -91,6 +94,10 @@ export default {
     let { pathname } = new URL(req.url);
     const prefix = pathname.startsWith('/api/') ? '/api' : '';
     if (prefix) pathname = pathname.slice(prefix.length);
+    // A place in the app (a board, a card, My cards, Account: src/lib/route.ts) is the app's page,
+    // which reads the address itself. Only these paths, so nothing else is ever masked.
+    if (!prefix && req.method === 'GET' && env.ASSETS && APP_PAGE.test(pathname))
+      return env.ASSETS.fetch(new Request(new URL('/', req.url), { headers: req.headers }));
     // Signed file links are opened by <img> tags and downloads, which send no Origin: the
     // signature is the check.
     if (req.method === 'GET' && pathname.startsWith('/files/')) return serveFile(req, env, pathname);

@@ -305,6 +305,7 @@ Every card has these fields.
 
 - **R10.1** Boardo is hosted at **boardo.kaiserkhan.com** (since 23 October 2026; before, at kaiserkhan.com/boardo, which now hands each copy over to the new address, signed in).
 - **R10.2** The app is a web app served by the same Cloudflare Worker as its API, on its own address, so no other site's pages can read its storage.
+- **R10.2a** Each place has its own address, so it can be bookmarked, shared and opened in a new tab, and the browser's Back and Forward move between places: Boards (`/`), My cards (`/my-cards`), Account (`/account`), a board (`/b/<board>/<its name>`), its settings (`…/settings`) and a card open on it (`…/c/<card>`). The name part is only there to read: an old one still works. The window's title names the place. A link opened while signed out is where the person lands after signing in; a board they aren't in falls back to Boards. Back with a card's changes not yet saved asks first, as closing does. Elastic's card links (`?card=`) still work and turn into the card's address.
 - **R10.3** The server runs on **Cloudflare**: a Worker for the API, a database for accounts and access, one live data store per board, and file storage for attachments.
 - **R10.4** Email (sign-in codes and invites) is sent through **Resend**, on its free tier.
 - **R10.5** Free tiers are preferred for everything, as long as they cover the use.
@@ -410,4 +411,4 @@ On 23 October 2026, all live:
 - removing a column works again (it had stopped doing anything), and column names are unique (R3.4a);
 - Add a column stays readable over a board background (R3.1).
 
-On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), and Add a column is a slim strip beside columns (R3.4b).
+On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), Add a column is a slim strip beside columns (R3.4b), and each place has its own address (R10.2a).

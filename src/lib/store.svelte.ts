@@ -24,6 +24,7 @@ import * as db from './db';
 import { splitRid } from './db';
 import { Files } from './files.svelte';
 import { arrival, type Carried, MOVED_TO, moveUrl } from './move';
+import { parsePath, pathOf, type Route, titleOf } from './route';
 import { alertsOff } from './push';
 import { addPasskey, passkeySignIn, passkeysAvailable } from './passkeys';
 import { Sync } from './sync';
@@ -101,6 +102,10 @@ export class App {
   archive = $state<string | null>(null);
   /** The card open in the card sheet. */
   open = $state<{ board: string; id: string } | null>(null);
+  /** A place from the address whose board hasn't reached this device yet: shown once it has. */
+  waiting = $state<Route | null>(null);
+  /** The card window's check before something outside it closes it (Back): false when it asked first. */
+  cardGuard: (() => boolean) | null = null;
   /** Overlays: New board, invites to show after a link was opened. */
   sheet = $state<'newBoard' | null>(null);
   toast = $state<{ text: string; id: number; undo?: () => void } | null>(null);
@@ -164,12 +169,15 @@ export class App {
   async init(): Promise<void> {
     const params = new URLSearchParams(location.search);
     const invite = params.get('invite');
-    // A card's own link (`?card=<board>/<card>`), as Elastic opens it.
+    // A card's link as Elastic opens it (`?card=<board>/<card>`) becomes the card's own address.
     const cardLink = params.get('card')?.split('/');
     // A notification tapped while Boardo was closed (src/sw.js).
     const noteLink = params.get('note');
     if (invite) this.inviteToken = invite;
-    if (invite || cardLink || noteLink) history.replaceState(null, '', location.pathname);
+    if (invite || cardLink || noteLink)
+      history.replaceState(null, '', cardLink?.length === 2 ? `/b/${cardLink[0]}/c/${cardLink[1]}` : location.pathname);
+    // The place the address names (src/lib/route.ts), if any.
+    const route = parsePath(location.pathname);
     const session = await db.getMeta<{ token: string; user: User }>('session');
     if (session) {
       // Devices signed in before the owner was noted: note it now.
@@ -179,17 +187,15 @@ export class App {
       setToken(session.token);
       this.boards = (await db.getMeta<BoardItem[]>('boards')) ?? [];
       await this.loadLocal();
-      this.restoreScreen();
-      if (cardLink?.length === 2 && this.boards.some((b) => b.id === cardLink[0])) {
-        this.go({ name: 'board', id: cardLink[0] });
-        this.open = { board: cardLink[0], id: cardLink[1] };
-      }
+      if (route) this.showRoute(route);
+      else this.restoreScreen();
       this.sync.start(session.token, this.boards.map((b) => b.id));
       void this.refresh();
       void this.loadNotes().then(() => noteLink && this.openNoteById(noteLink));
       await this.files.load();
       void this.files.pump();
     }
+    addEventListener('popstate', () => this.moved());
     // A notification tapped while Boardo was open.
     navigator.serviceWorker?.addEventListener('message', (e) => {
       if (e.data?.t === 'open-note' && typeof e.data.id === 'string') void this.loadNotes().then(() => this.openNoteById(e.data.id));
@@ -339,6 +345,8 @@ export class App {
     this.sync.setBoards(list.map((b) => b.id));
     const s = this.screen;
     if ('id' in s && !ids.has(s.id)) this.go({ name: 'home' });
+    // A place from the address, waiting for its board: shown now, or let go if it isn't one of theirs.
+    if (this.waiting && !this.showRoute(this.waiting)) this.waiting = null;
     if (this.open && !ids.has(this.open.board)) this.open = null;
     if (this.activity && !ids.has(this.activity)) this.activity = null;
     if (this.archive && !ids.has(this.archive)) this.archive = null;
@@ -406,6 +414,9 @@ export class App {
   }
 
   private async signedIn(res: { token: string; user: User }): Promise<void> {
+    // A link opened before signing in (a board, a card) is where this person meant to go: it waits
+    // for their boards, and the address stays as it is meanwhile.
+    this.waiting = parsePath(location.pathname);
     // Anything left on this device from someone else (sign-out normally clears it, but it can be
     // cut short) goes first, so none of it reaches this account or is sent as theirs.
     if ((await db.getMeta('owner')) !== res.user.id) {
@@ -422,6 +433,7 @@ export class App {
     this.screen = { name: 'home' };
     this.sync.start(res.token, []);
     await this.refresh();
+    this.waiting = null;
     void this.loadNotes();
   }
 
@@ -498,6 +510,40 @@ export class App {
   }
 
   // ---------- screens ----------
+
+  /** This place's address and the window's title (src/lib/route.ts). */
+  get path(): string {
+    return pathOf(this.screen, this.open, (id) => this.boards.find((b) => b.id === id)?.name);
+  }
+  get title(): string {
+    const card = this.open ? (this.data[this.open.board]?.card.get(this.open.id)?.title ?? '') : undefined;
+    return titleOf(this.screen, card, (id) => this.boards.find((b) => b.id === id)?.name);
+  }
+
+  /** Show the place an address names. A board not on this device yet waits in `waiting`. */
+  showRoute(r: Route): boolean {
+    const id = 'id' in r.screen ? r.screen.id : null;
+    if (id && !this.boards.some((b) => b.id === id)) {
+      this.waiting = r;
+      return false;
+    }
+    this.waiting = null;
+    this.go(r.screen);
+    if (r.card) this.open = r.card;
+    return true;
+  }
+
+  /** Back or Forward. A card with changes not yet saved asks first, and the address stays on it. */
+  private moved(): void {
+    const r = parsePath(location.pathname);
+    if (this.open && r?.card?.id !== this.open.id && this.cardGuard && !this.cardGuard()) {
+      history.pushState(null, '', this.path);
+      return;
+    }
+    if (r && this.showRoute(r)) return;
+    this.waiting = null;
+    this.go({ name: 'home' });
+  }
 
   go(s: Screen): void {
     this.screen = s;

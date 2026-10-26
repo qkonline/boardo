@@ -308,6 +308,8 @@ All of these are in Elastic's repository.
 
 ## 7. App structure (Boardo)
 
+**Addresses** (`src/lib/route.ts`, R10.2a): `/`, `/my-cards`, `/account`, `/b/<board>/<slug>`, `/b/<board>/<slug>/settings`, `/b/<board>/<slug>/c/<card>`. The store reads the address on start (`showRoute()`; a board not on the device yet waits in `app.waiting` until `setBoards()` has it, and signing in keeps a link opened signed out), `App.svelte` keeps the address and `document.title` in step with what's shown (`app.path`, `app.title`: a new place is a `pushState`, the same place renamed or the first one shown a `replaceState`), and `popstate` shows the place again through `moved()`, which first asks the open card (`app.cardGuard`, set by `CardSheet`) and stays when it has unsaved changes. The Worker serves the app's page for these paths only (`APP_PAGE` in `worker/src/index.ts`); everything else is as before. `?card=<board>/<card>` (Elastic's links) is turned into the card's address on arrival. The old address's farewell build (base `/boardo/`) never touches the address.
+
 **Screens**
 - **Sign in:** email, then a 6-digit code, then a name the first time.
 - **Home:** the person's boards as tiles, as in Trello (the board's background or colour across the top, then its name and their open cards), pending invites, and a New board tile.

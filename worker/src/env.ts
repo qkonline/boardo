@@ -26,4 +26,6 @@ export interface Env {
   DEV_MAIL?: string;
   /** Elastic's Worker (a service binding): told whose cards changed. Absent in tests. */
   ELASTIC?: { cardsChanged(accounts: string[]): Promise<void> };
+  /** The built app's files (wrangler.toml [assets]). Absent in tests. */
+  ASSETS?: Fetcher;
 }
