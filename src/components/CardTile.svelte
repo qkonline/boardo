@@ -119,6 +119,8 @@
 <style>
   .card {
     display: grid;
+    /* A full column scrolls; its cards never shrink to fit (overflow: hidden would let them). */
+    flex: none;
     width: 100%;
     padding: 0;
     text-align: left;
