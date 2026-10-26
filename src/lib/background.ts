@@ -12,7 +12,8 @@ export function boardBackground(b: BoardRec | null | undefined, link: string | u
   const bg = b?.background;
   if (!bg) return undefined;
   if ('hue' in bg) return `color-mix(in oklab, ${hueColor(bg.hue)} 22%, var(--bg))`;
-  return link ? `center / cover no-repeat url("${link}"), var(--bg)` : undefined;
+  // In dark, a see-through dark veil over the picture keeps the board dim (--veil, app.css).
+  return link ? `linear-gradient(var(--veil), var(--veil)), center / cover no-repeat url("${link}"), var(--bg)` : undefined;
 }
 
 /** The top of a board's tile on Boards: its background, or its colour when it has none. */

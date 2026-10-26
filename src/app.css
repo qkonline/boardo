@@ -58,6 +58,9 @@
   --r-sm: 6px;
   --r-bar: 2px;
   --font: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+  /* Over a board's background image: nothing in light, a see-through dark in dark (no blur, unlike
+     the frosted header and columns, so the picture stays sharp, only dimmer). */
+  --veil: transparent;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -98,6 +101,7 @@
     --go-ink: #0f1115;
     --go-edge: #15803d;
     --tab-in: #08090b;
+    --veil: rgb(8 10 15 / 0.55);
     color-scheme: dark;
   }
 }
@@ -139,6 +143,7 @@
   --go-ink: #0f1115;
   --go-edge: #15803d;
   --tab-in: #08090b;
+  --veil: rgb(8 10 15 / 0.55);
   color-scheme: dark;
 }
 
