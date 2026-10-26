@@ -138,7 +138,8 @@
     flex: 1 1 auto;
     min-height: 12px;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    /* Up and down only: a sideways scroll over a column has to reach the board. */
+    overscroll-behavior-y: contain;
     padding: 2px 8px 4px;
     display: flex;
     flex-direction: column;
