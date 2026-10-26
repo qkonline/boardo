@@ -161,7 +161,8 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    margin: 0 8px 8px;
+    /* Even on all sides, so its hover colour never meets the cards above (a scrolled column cuts them off right there). */
+    margin: 8px;
     padding: 0 8px;
     min-height: 44px;
     border: none;
