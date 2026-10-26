@@ -326,7 +326,7 @@ All of these are in Elastic's repository.
 - **Archived cards** (`Archive.svelte`): a panel from the right like Activity (one or the other is open), opened from the Archived link and count beside the filters: a search over title, description and comments (every word typed must be found), each card with Open (stacked on top), Restore and Delete.
 - **Activity:** the project log, filterable by person and card, in a panel that slides in from the right over the board (a tap outside closes it). It reads as a feed (`src/lib/feed.ts`): days, then runs of one person's changes within 30 minutes (something automatic within a minute joins the run), then each run's changes by card under the card's name; consecutive new cards in one column fold into one line. 40 changes at a time, Load more for the next. A card opened from it stacks on top. The colours of the points (`logTone()`) and the day names (`dayName()`) are shared with the card's History.
 - **Board settings** (admin):
-  - Board: name, colour and background (none, a colour, or an image with Remove image), all saved together with one Save;
+  - Board: name, colour, background (none, a colour, or an image with Remove image) and Scrolling (`BoardRec.pageScroll`: each column scrolls, or the whole page does, with the header sticky and an image background in a fixed layer), all saved together with one Save;
   - New cards: who every new card is assigned to and its status (`BoardRec.newCards`, applied by `withNewCardDefaults()` in `shared/rules.ts`, in the app's `addCard()` and on the board for a new card a device sent without them), with its own Save;
   - members and roles;
   - invites;

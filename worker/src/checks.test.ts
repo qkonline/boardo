@@ -62,6 +62,15 @@ describe("a board's defaults for new cards", () => {
   });
 });
 
+describe("a board's scrolling", () => {
+  const b = (pageScroll: unknown) => clean('board', 'main', { name: 'B', hue: 'cyan', maxUploadMB: 30, pageScroll });
+  it('keeps the whole page scrolling only as true', () => {
+    expect(b(true)).toMatchObject({ pageScroll: true });
+    expect('pageScroll' in (b(false) as object)).toBe(false);
+    expect('pageScroll' in (b('yes') as object)).toBe(false);
+  });
+});
+
 describe('a field shown on cards', () => {
   const f = (extra: Record<string, unknown>) => clean('field', 'sev', { id: 'sev', name: 'Severity', type: 'text', order: 1, ...extra });
   it('is kept for a custom field, and only as true', () => {

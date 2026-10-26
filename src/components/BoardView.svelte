@@ -55,6 +55,8 @@
   let addingCol = $state(false);
   let colName = $state('');
   let scroller: HTMLDivElement | null = $state(null);
+  // An admin's choice (R3.1a): columns as long as their cards, and the whole page scrolls.
+  const tall = $derived(!!b?.board?.pageScroll);
 
   /** A column already called what's being typed. */
   const clash = $derived(sameNamed(b?.columns ?? [], colName));
@@ -76,8 +78,16 @@
 </script>
 
 {#if b && item}
-  <div class="screen" class:has-bg={!!b.board?.background} class:has-image={!!bgId} style:background>
-    <header class="head">
+  <div
+    class="screen"
+    class:tall
+    class:has-bg={!!b.board?.background}
+    class:has-image={!!bgId}
+    style:background={tall && bgId ? undefined : background}
+  >
+    <!-- With the whole page scrolling, an image stays put behind it at the window's size. -->
+    {#if tall && bgId && background}<div class="backdrop" style:background></div>{/if}
+    <header class="head" data-board-head>
       <button class="icon-btn back" aria-label="Boards" onclick={() => app.go({ name: 'home' })}><Icon name="back" /></button>
       <h1><span class="mark" style:background={hueColor(b.board?.hue ?? item.hue)}></span><span class="name">{b.board?.name ?? item.name}</span></h1>
       <div class="filters">
@@ -181,6 +191,52 @@
 {/if}
 
 <style>
+  /* The whole page scrolls, not each column (R3.1a); the header stays at the top. */
+  .screen.tall {
+    height: auto;
+    min-height: 100dvh;
+    padding-top: 0;
+  }
+  .tall .head {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding-top: calc(6px + env(safe-area-inset-top));
+    background: var(--bg);
+  }
+  @media (min-width: 768px) {
+    .screen.tall {
+      height: auto;
+      min-height: calc(100dvh - 56px);
+    }
+    .tall .head {
+      top: 56px;
+      padding-top: 10px;
+    }
+  }
+  .tall .lanes {
+    flex: none;
+    overflow-y: hidden;
+    position: relative;
+    z-index: 1;
+  }
+  .tall .lanes > :global(*),
+  .tall .lanes :global(.lane) {
+    max-height: none;
+  }
+  .tall .lanes :global([data-scroll]) {
+    overflow: visible;
+  }
+  .backdrop {
+    position: fixed;
+    inset: 0;
+  }
+  .tall.has-bg .head {
+    background: color-mix(in oklab, var(--bg) 72%, transparent);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
   /* Over a background image, the header gets a frosted strip so its words stay readable. */
   .has-image .head {
     background: color-mix(in oklab, var(--bg) 72%, transparent);

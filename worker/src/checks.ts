@@ -82,6 +82,7 @@ function board(d: Record<string, unknown>): BoardRec | null {
     if (assignee === undefined || status === undefined) return null;
     if (assignee || status) out.newCards = { assignee, status };
   }
+  if (d.pageScroll === true) out.pageScroll = true;
   return out;
 }
 

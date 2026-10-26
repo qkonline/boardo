@@ -77,6 +77,7 @@ Each board has two roles.
 ## 3. Boards and columns
 
 - **R3.1** A board has a name and a colour. An admin can give it a background: a colour, or an image, which everyone in the board sees behind the columns and on the board's tile in the board list. Like every setting, a new background shows only once the admin presses Save; an image can be removed the same way.
+- **R3.1a** An admin can choose how the board scrolls (Board settings, Board, Scrolling): **Each column** (the default), where every column scrolls on its own so its name and Add a card stay in view, or **Whole page**, where columns are as long as their cards and the page scrolls, with the board's header held at the top. It's saved with the Board section's Save and everyone in the board sees it.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
@@ -407,3 +408,5 @@ On 23 October 2026, all live:
 - the project log as a feed, 40 at a time (R6.3a);
 - removing a column works again (it had stopped doing anything), and column names are unique (R3.4a);
 - Add a column stays readable over a board background (R3.1).
+
+On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, and a sideways scroll over a column moves the board.

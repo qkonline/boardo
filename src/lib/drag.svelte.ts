@@ -185,10 +185,19 @@ class Drag {
       else if (x > r.right - EDGE_PX) s.scrollLeft += 12;
     }
     const lane = this.drop && document.querySelector<HTMLElement>(`[data-lane="${this.drop.column}"] [data-scroll]`);
-    if (lane) {
+    if (lane && lane.scrollHeight > lane.clientHeight) {
       const r = lane.getBoundingClientRect();
       if (y < r.top + EDGE_PX) lane.scrollTop -= 10;
       else if (y > r.bottom - EDGE_PX) lane.scrollTop += 10;
+    } else if (lane) {
+      // A column as long as its cards (R3.1a): the page scrolls instead, below the board's header
+      // and above a tab bar at the bottom.
+      const head = document.querySelector('[data-board-head]')?.getBoundingClientRect();
+      const bar = document.querySelector('nav.bar')?.getBoundingClientRect();
+      const top = head ? head.bottom : 0;
+      const bottom = bar && bar.top > innerHeight / 2 ? bar.top : innerHeight;
+      if (y < top + EDGE_PX) window.scrollBy(0, -10);
+      else if (y > bottom - EDGE_PX) window.scrollBy(0, 10);
     }
     this.locate();
     this.raf = requestAnimationFrame(this.tick);

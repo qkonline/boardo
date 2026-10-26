@@ -25,6 +25,8 @@ export interface BoardRec {
   background?: { hue: Hue } | { image: string } | null;
   /** What every new card starts with (admins, R3.7): someone it's assigned to, and a status option's id. */
   newCards?: { assignee: string | null; status: string | null } | null;
+  /** Columns as long as their cards, with the whole page scrolling (admins, R3.1a). Off: each column scrolls. */
+  pageScroll?: boolean;
 }
 
 /** The `cardId` of files that belong to the board itself (its background image), not a card. */

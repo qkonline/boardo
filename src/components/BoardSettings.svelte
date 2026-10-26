@@ -36,6 +36,9 @@
   let bgKind = $state<BgKind>(kindOf(b?.board));
   // svelte-ignore state_referenced_locally
   let bgHue = $state<Hue>(hueOf(b?.board));
+  // How the board scrolls (R3.1a): each column on its own, or the whole page. Part of the Board draft.
+  // svelte-ignore state_referenced_locally
+  let pageScroll = $state(!!b?.board?.pageScroll);
 
   // What new cards start with (admins, R3.7): a draft of its own, kept until its Save. A person
   // who has left the board, or a status since deleted, shows as Nobody or None.
@@ -59,6 +62,7 @@
       limit = b.board.maxUploadMB;
       bgKind = kindOf(b.board);
       bgHue = hueOf(b.board);
+      pageScroll = !!b.board.pageScroll;
       ncAssignee = ncOf(b.board).assignee;
       ncStatus = ncOf(b.board).status;
     }
@@ -75,11 +79,13 @@
     bgKind === 'none' ? null : bgKind === 'colour' ? { hue: bgHue } : imageId ? { image: imageId } : (b?.board?.background ?? null),
   );
   const bgChanged = $derived(!!b?.board && JSON.stringify(draftBg ?? null) !== JSON.stringify(b.board.background ?? null));
-  const changed = $derived(!!b?.board && (name.trim() !== b.board.name || hue !== b.board.hue || bgChanged));
+  const changed = $derived(
+    !!b?.board && (name.trim() !== b.board.name || hue !== b.board.hue || bgChanged || pageScroll !== !!b.board.pageScroll),
+  );
   const previewUrl = $derived(bgKind !== 'image' ? undefined : newImage ? newImage.url : bgId ? app.files.links[bgId]?.url : undefined);
 
   async function saveSection() {
-    const patch: Partial<BoardRec> = { name: name.trim(), hue };
+    const patch: Partial<BoardRec> = { name: name.trim(), hue, pageScroll };
     if (bgChanged) patch.background = draftBg ?? null;
     await app.saveBoard(id, patch);
     dropNew();
@@ -203,6 +209,18 @@
               <HuePicker bind:value={bgHue} label="Background colour" />
             {/if}
             <p class="note">Everyone in the board sees it. Images are made smaller before they're uploaded.</p>
+          </div>
+          <div class="scroll-part">
+            <span class="label">Scrolling</span>
+            <div class="seg" role="group" aria-label="Scrolling">
+              <button aria-pressed={!pageScroll} onclick={() => (pageScroll = false)}>Each column</button>
+              <button aria-pressed={pageScroll} onclick={() => (pageScroll = true)}>Whole page</button>
+            </div>
+            <p class="note">
+              {pageScroll
+                ? 'Columns are as long as their cards, and the whole page scrolls.'
+                : 'Each column scrolls on its own, so its name and Add a card stay in view.'}
+            </p>
           </div>
           <div class="save-row">
             <button class="key ink" disabled={!changed || !name.trim()} onclick={saveSection}>Save</button>
@@ -441,7 +459,8 @@
     min-height: 40px;
     padding: 6px 8px;
   }
-  .bg-part {
+  .bg-part,
+  .scroll-part {
     display: grid;
     gap: 8px;
     margin-top: 10px;
