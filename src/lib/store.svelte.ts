@@ -24,7 +24,7 @@ import * as db from './db';
 import { splitRid } from './db';
 import { Files } from './files.svelte';
 import { arrival, type Carried, MOVED_TO, moveUrl } from './move';
-import { parsePath, pathOf, type Route, titleOf } from './route';
+import { parsePath, pathOf, type Route, type SettingsTab, titleOf } from './route';
 import { alertsOff } from './push';
 import { addPasskey, passkeySignIn, passkeysAvailable } from './passkeys';
 import { Sync } from './sync';
@@ -55,7 +55,7 @@ export interface Invite {
 export type Screen =
   | { name: 'home' }
   | { name: 'board'; id: string }
-  | { name: 'boardSettings'; id: string }
+  | { name: 'boardSettings'; id: string; tab?: SettingsTab }
   | { name: 'mycards' }
   | { name: 'settings' };
 
@@ -607,6 +607,13 @@ export class App {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0 });
   }
 
+  /** Another tab of Board settings: the same place, so drafts stay and the address is replaced. */
+  settingsTab(tab: SettingsTab): void {
+    if (this.screen.name !== 'boardSettings') return;
+    this.screen = { ...this.screen, tab };
+    writeLocal(SCREEN_KEY, JSON.stringify(this.screen));
+  }
+
   openCard(board: string, id: string): void {
     this.open = { board, id };
   }
@@ -1037,6 +1044,17 @@ export class App {
     if (i < 0 || j < 0 || j >= list.length) return;
     const [a, b] = dir < 0 ? [list[j - 1], list[j]] : [list[j], list[j + 1]];
     await this.saveField(board, { ...list[i], order: between(a?.order, b?.order) });
+  }
+
+  /** A field dragged to a new place (admins): it alone changes, ordered between its new neighbours. */
+  async placeField(board: string, id: string, ids: string[]): Promise<void> {
+    const fields = this.data[board].field;
+    const f = fields.get(id);
+    const i = ids.indexOf(id);
+    if (!f || i < 0) return;
+    const before = i > 0 ? fields.get(ids[i - 1]) : undefined;
+    const after = fields.get(ids[i + 1] ?? '');
+    await this.saveField(board, { ...f, order: between(before?.order, after?.order) });
   }
 
   async setRole(board: string, userId: string, role: Role): Promise<void> {

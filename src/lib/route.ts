@@ -4,11 +4,15 @@
 //   /my-cards                        My cards
 //   /account                         Account
 //   /b/<board>/<name>                a board (the name is only there to read; it may change)
-//   /b/<board>/<name>/settings       its settings
+//   /b/<board>/<name>/settings       its settings (Look; /settings/cards, /people, /fields, /leave)
 //   /b/<board>/<name>/c/<card>       a card open on it
 // The app is one page: the Worker serves it for these paths, and the store reads the address.
 
 import type { Screen } from './store.svelte';
+
+/** Board settings' tabs; Look is the first and has no word of its own in the address. */
+export const SETTINGS_TABS = ['look', 'cards', 'people', 'fields', 'leave'] as const;
+export type SettingsTab = (typeof SETTINGS_TABS)[number];
 
 export interface Route {
   screen: Screen;
@@ -48,7 +52,7 @@ export function pathOf(screen: Screen, card: Route['card'], nameOf: (board: stri
     case 'board':
       return board(screen.id);
     case 'boardSettings':
-      return `${board(screen.id)}/settings`;
+      return `${board(screen.id)}/settings${screen.tab && screen.tab !== 'look' ? `/${screen.tab}` : ''}`;
   }
 }
 
@@ -63,15 +67,20 @@ export function parsePath(pathname: string): Route | null {
   if (rest.length >= 2 && rest.at(-2) === 'c' && ID.test(rest.at(-1)!))
     return { screen: { name: 'board', id }, card: { board: id, id: rest.at(-1)! } };
   if (rest.at(-1) === 'settings') return { screen: { name: 'boardSettings', id }, card: null };
+  const tab = rest.at(-1) as SettingsTab;
+  if (rest.at(-2) === 'settings' && SETTINGS_TABS.includes(tab)) return { screen: { name: 'boardSettings', id, tab }, card: null };
   return { screen: { name: 'board', id }, card: null };
 }
 
-/** The same place, whatever its readable part says: moving between two such is a replace, not a step. */
+/**
+ * The same place, whatever its readable part says or which settings tab is open: moving between
+ * two such is a replace, not a step.
+ */
 export function samePlace(a: string, b: string): boolean {
   const key = (p: string) => {
     const r = parsePath(p);
     if (!r) return p === '/' ? 'home' : p;
-    return JSON.stringify([r.screen, r.card]);
+    return JSON.stringify([{ ...r.screen, tab: undefined }, r.card]);
   };
   return key(a) === key(b);
 }

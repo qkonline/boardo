@@ -5,11 +5,14 @@
   import HuePicker from './HuePicker.svelte';
   import Icon from './Icon.svelte';
   import StatusChip from './StatusChip.svelte';
+  import { flip } from 'svelte/animate';
+  import { tileDrag } from '../lib/tiledrag';
 
   /**
    * The board's fields (admins, R4.2 to R4.9): built-in dates can switch between date and date
    * and time; Status values can be renamed and added (the In progress and Completed ones can't
-   * be removed); custom fields can be added, renamed, retyped, reordered and removed.
+   * be removed); custom fields can be added, renamed, retyped and removed; any field is reordered
+   * by dragging its grip (or the arrow keys on it).
    */
   let { b }: { b: BoardState } = $props();
 
@@ -23,6 +26,25 @@
     checkbox: 'Checkbox',
     person: 'Person',
   };
+
+  // The order shown while a field is dragged.
+  let preview = $state<string[] | null>(null);
+  let lifted = $state<string | null>(null);
+  const shown = $derived(preview ? preview.map((id) => b.field.get(id)).filter((f) => !!f) : b.fields);
+  const arrange = (el: HTMLElement) =>
+    tileDrag(el, {
+      attr: 'field',
+      handle: '.grip',
+      ids: () => b.fields.map((f) => f.id),
+      preview: (ids, id) => ((preview = ids), (lifted = id ?? null)),
+      drop: (ids, id) => void app.placeField(b.id, id, ids),
+    });
+  function nudge(e: KeyboardEvent, id: string) {
+    const d = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
+    if (!d) return;
+    e.preventDefault();
+    void app.moveField(b.id, id, d);
+  }
 
   let open = $state<string | null>(null);
   let draft = $state<FieldRec | null>(null);
@@ -81,21 +103,20 @@
   }
 </script>
 
-<ul class="fields">
-  {#each b.fields as f, i (f.id)}
-    <li>
+<ul class="fields" {@attach arrange}>
+  {#each shown as f (f.id)}
+    <li data-field={f.id} class:lifted={lifted === f.id} animate:flip={{ duration: 160 }}>
       <div class="row">
-        <Icon name="field" />
+        <button class="grip" aria-label="Move {f.name}, or drag it" title="Drag to reorder, or use the arrow keys" onkeydown={(e) => nudge(e, f.id)}
+          ><svg width="12" height="18" viewBox="0 0 12 18" aria-hidden="true"
+            ><circle cx="3" cy="4" r="1.4" /><circle cx="9" cy="4" r="1.4" /><circle cx="3" cy="9" r="1.4" /><circle cx="9" cy="9" r="1.4" /><circle
+              cx="3"
+              cy="14"
+              r="1.4"
+            /><circle cx="9" cy="14" r="1.4" /></svg
+          ></button
+        >
         <span class="name">{f.name}<small>{TYPE_NAMES[f.type]}{f.builtin ? ', built in' : ''}{f.onCard ? ', shown on cards' : ''}</small></span>
-        <button class="icon-btn" aria-label="Move {f.name} up" disabled={i === 0} onclick={() => app.moveField(b.id, f.id, -1)}
-          ><Icon name="up" /></button
-        >
-        <button
-          class="icon-btn"
-          aria-label="Move {f.name} down"
-          disabled={i === b.fields.length - 1}
-          onclick={() => app.moveField(b.id, f.id, 1)}><Icon name="down" /></button
-        >
         <button class="btn small" aria-expanded={open === f.id} onclick={() => (open === f.id ? (open = null) : edit(f))}
           >{open === f.id ? 'Close' : 'Edit'}</button
         >
@@ -206,6 +227,32 @@
   }
   .row :global(.icon-btn:disabled) {
     opacity: 0.3;
+  }
+  /* The grip a field is dragged by (or moved with the arrow keys). */
+  .grip {
+    width: 32px;
+    height: 44px;
+    flex: none;
+    display: grid;
+    place-items: center;
+    margin-left: -6px;
+    border: none;
+    border-radius: var(--r-sm);
+    background: none;
+    fill: var(--faint);
+    cursor: grab;
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  @media (hover: hover) {
+    .grip:hover {
+      fill: var(--muted);
+    }
+  }
+  .lifted {
+    opacity: 0.35;
   }
   .name {
     flex: 1;

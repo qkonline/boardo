@@ -70,6 +70,7 @@ Each board has two roles.
 ### 2.3 Each person's views
 
 - **R2.5a** Each person arranges the boards on Boards in their own order: dragging a tile (holding it first on a touch screen, so a swipe still scrolls), or Alt and an arrow key on one. It's theirs alone, kept with their account so every device shows it, and saved at once like dragging a card (offline, it waits and is sent later). New boards, and boards they join, come after the ones they've placed. Each tile is a link to its board, so it can open in a new tab.
+- **R2.6b** A board's settings are in tabs, each with its own address: **Look** (name, colour, background, scrolling), **Cards** (what new cards go to and start as, the largest attachment), **People** (members, roles, invites), **Fields**, and **Leave or delete**; a side menu on a computer, a row of pills on a phone. A member sees People and Leave or delete. Whatever is changed in Look and Cards waits in one save bar at the foot of the screen, which names each change and saves or discards them together. Background and scrolling are chosen from small pictures of each. Fields are put in order by dragging their grip, or with the arrow keys on it.
 - **R2.6** Every person can switch between:
   - **a project board**, showing only that project's cards;
   - **My cards**, showing every card assigned to them across all their projects, visible only to them;
@@ -78,7 +79,7 @@ Each board has two roles.
 ## 3. Boards and columns
 
 - **R3.1** A board has a name and a colour. An admin can give it a background: a colour, or an image, which everyone in the board sees behind the columns and on the board's tile in the board list. Like every setting, a new background shows only once the admin presses Save; an image can be removed the same way. In the dark theme an image is dimmed by a see-through dark layer, unlike the frosted header and columns, so the board stays dark.
-- **R3.1a** An admin can choose how the board scrolls (Board settings, Board, Scrolling): **Each column** (the default), where every column scrolls on its own so its name and Add a card stay in view, or **Whole page**, where columns are as long as their cards and the page scrolls, with the board's header held at the top. It's saved with the Board section's Save and everyone in the board sees it.
+- **R3.1a** An admin can choose how the board scrolls (Board settings, Look, Scrolling): **Each column** (the default), where every column scrolls on its own so its name and Add a card stay in view, or **Whole page**, where columns are as long as their cards and the page scrolls, with the board's header held at the top. It's saved with the settings' save bar and everyone in the board sees it.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
@@ -87,7 +88,7 @@ Each board has two roles.
 - **R3.5** Cards can be dragged within a column and between columns, by mouse and by touch.
 - **R3.6** A board can be filtered by person and by status.
 - **R3.6a** A board can be searched from a box at the right of its header, just before Activity ("Search this board"; on a phone a magnifier there that opens the box across the filters' row, with a chip showing the words while a search is on; "/" goes to it). The columns narrow to the cards with every word (R9.17), together with the filters, the words marked on each card, and when the title doesn't have them all, the line under it shows where they are ("Sara Ali: …the venue is booked…"). The box counts the cards shown. Archived cards that match never show in the columns: a line says how many and opens them in Archived with the same words. Clear clears the search and the filters; Escape clears the search. A board keeps its search and filters while the app is open, also after leaving it. A card dragged while searching or filtering lands between the cards it was dropped between.
-- **R3.7** An admin can set what every new card in the board starts with (Board settings, New cards): someone it's assigned to, and a status. Both start as Nobody and None. Once saved, every card added after starts with them; cards already there stay as they are. A person who has left, or a status since deleted, is skipped.
+- **R3.7** An admin can set what every new card in the board starts with (Board settings, Cards): someone it's assigned to, and a status. Both start as Nobody and None. Once saved, every card added after starts with them; cards already there stay as they are. A person who has left, or a status since deleted, is skipped.
 
 ## 4. Cards
 
@@ -421,4 +422,4 @@ On 23 October 2026, all live:
 - removing a column works again (it had stopped doing anything), and column names are unique (R3.4a);
 - Add a column stays readable over a board background (R3.1).
 
-On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), Add a column is a slim strip beside columns (R3.4b), each place has its own address (R10.2a), each person's own order of their boards (R2.5a), and search, on a board and across all of them (R3.6a, R9.16 to R9.20).
+On 26 October 2026, live: a board can scroll as a whole page instead of column by column (R3.1a), cards keep their full size in a long column, a sideways scroll over a column moves the board, a background image is dimmed in the dark theme (R3.1), Add a column is a slim strip beside columns (R3.4b), each place has its own address (R10.2a), each person's own order of their boards (R2.5a), board settings in tabs with one save bar (R2.6b), and search, on a board and across all of them (R3.6a, R9.16 to R9.20).

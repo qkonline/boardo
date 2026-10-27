@@ -329,14 +329,13 @@ All of these are in Elastic's repository.
   - **Drafts.** Every edit is a draft until Save changes. A bar shows Unsaved changes with Discard and Save changes, and closing (or opening a linked card) with unsaved changes asks first. Mark done, Archive, comments and files act at once; Mark done shows a toast with Undo for 6 seconds.
 - **Archived cards** (`Archive.svelte`): a panel from the right like Activity (one or the other is open), opened from the Archived link and count beside the filters: a search over title, description and comments (every word typed must be found), each card with Open (stacked on top), Restore and Delete.
 - **Activity:** the project log, filterable by person and card, in a panel that slides in from the right over the board (a tap outside closes it). It reads as a feed (`src/lib/feed.ts`): days, then runs of one person's changes within 30 minutes (something automatic within a minute joins the run), then each run's changes by card under the card's name; consecutive new cards in one column fold into one line. 40 changes at a time, Load more for the next. A card opened from it stacks on top. The colours of the points (`logTone()`) and the day names (`dayName()`) are shared with the card's History.
-- **Board settings** (admin):
-  - Board: name, colour, background (none, a colour, or an image with Remove image) and Scrolling (`BoardRec.pageScroll`: each column scrolls, or the whole page does, with the header sticky and an image background in a fixed layer), all saved together with one Save;
-  - New cards: who every new card is assigned to and its status (`BoardRec.newCards`, applied by `withNewCardDefaults()` in `shared/rules.ts`, in the app's `addCard()` and on the board for a new card a device sent without them), with its own Save;
-  - members and roles;
-  - invites;
-  - the fields editor;
-  - the upload limit;
-  - leave or delete board.
+- **Board settings** (`BoardSettings.svelte`, R2.6b), in tabs (`SettingsTab` in `src/lib/route.ts`; each has its address, `/settings/<tab>`, Look none; switching is `app.settingsTab()`, a replace, so Back leaves settings); members get People and Leave or delete:
+  - Look: name, colour, background (None, Colour or Image as picture choices, with Change image and Remove image) and Scrolling (`BoardRec.pageScroll`, two pictured choices);
+  - Cards: who every new card goes to and its status (`BoardRec.newCards`, applied by `withNewCardDefaults()` in `shared/rules.ts`, in the app's `addCard()` and on the board for a new card a device sent without them), and the largest attachment;
+  - People: members and roles, inviting (Member or Admin), invites waiting with Resend and Cancel;
+  - Fields: the fields editor (`FieldsEditor.svelte`), each field dragged by its grip (`tiledrag.ts` with `attr: 'field'`, `handle: '.grip'`; `app.placeField()`) or moved with the arrow keys on it;
+  - Leave or delete.
+  Everything in Look and Cards is one draft: a save bar (`.save-row`) names the changes and saves them in one `saveBoard()`, or discards them.
 - **My cards:** grouped by deadline or by project.
 - **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, delete account.
 - **Boardo has moved** (`Moving.svelte`, only in the farewell build at the old address): says where Boardo is now, brings the latest changes across, then opens the new address.

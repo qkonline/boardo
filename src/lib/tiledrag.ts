@@ -1,7 +1,8 @@
-// Dragging the boards on Boards into each person's own order (R2.5a). As with cards
-// (drag.svelte.ts): with a mouse a tile lifts once it has moved a few pixels; on a touch screen
-// after pressing and holding it, so a swipe still scrolls. A floating copy follows the pointer
-// while the tiles move aside to show where it will land; Escape puts it back. A tap opens the board.
+// Dragging things in a list or grid into a new order: the boards on Boards (each person's own
+// order, R2.5a) and a board's fields (by their handle). As with cards (drag.svelte.ts): with a mouse
+// an item lifts once it has moved a few pixels; on a touch screen after pressing and holding it, so
+// a swipe still scrolls. A floating copy follows the pointer while the others move aside to show
+// where it will land; Escape puts it back. A tap is still a tap.
 
 const HOLD_MS = 320;
 const MOVE_PX = 6;
@@ -9,12 +10,16 @@ const SLOP_PX = 10;
 const EDGE_PX = 56;
 
 export interface TileDragOptions {
-  /** The boards' ids in their order now. */
+  /** What's dragged: the items with `data-<attr>` holding their id ('board' by default). */
+  attr?: string;
+  /** Only a press inside this (a grip) starts a drag. */
+  handle?: string;
+  /** The ids in their order now. */
   ids: () => string[];
   /** The order to show while dragging (null: back to the real one). */
   preview: (ids: string[] | null, id?: string) => void;
-  /** Dropped somewhere new: the new order. */
-  drop: (ids: string[]) => void;
+  /** Dropped somewhere new: the new order, and which one moved. */
+  drop: (ids: string[], id: string) => void;
 }
 
 let active = false;
@@ -28,14 +33,17 @@ if (typeof document !== 'undefined')
     { passive: false },
   );
 
-/** Make the `[data-board]` tiles inside `root` draggable. Returns the clean-up. */
+/** Make the `[data-<attr>]` items inside `root` draggable. Returns the clean-up. */
 export function tileDrag(root: HTMLElement, o: TileDragOptions): () => void {
+  const attr = o.attr ?? 'board';
+  const sel = `[data-${attr}]`;
   /** A drag just ended: the click that follows it mustn't open the board. */
   let justDropped = false;
 
   const down = (e: PointerEvent) => {
     if (e.button !== 0) return;
-    const el = (e.target as Element).closest<HTMLElement>('[data-board]');
+    if (o.handle && !(e.target as Element).closest(o.handle)) return;
+    const el = (e.target as Element).closest<HTMLElement>(sel);
     if (!el) return;
     const x0 = e.clientX;
     const y0 = e.clientY;
@@ -65,14 +73,14 @@ export function tileDrag(root: HTMLElement, o: TileDragOptions): () => void {
   };
 
   function lift(el: HTMLElement, x: number, y: number, touch: boolean) {
-    const id = el.dataset.board!;
+    const id = el.dataset[attr]!;
     const start = o.ids();
     let order = start;
     let point = { x, y };
     const r = el.getBoundingClientRect();
     const offset = { x: x - r.left, y: y - r.top };
     const ghost = el.cloneNode(true) as HTMLElement;
-    ghost.removeAttribute('data-board');
+    ghost.removeAttribute(`data-${attr}`);
     ghost.classList.add('drag-ghost');
     Object.assign(ghost.style, {
       position: 'fixed',
@@ -94,7 +102,7 @@ export function tileDrag(root: HTMLElement, o: TileDragOptions): () => void {
 
     /** The tile under the pointer (or the nearest one) takes the dragged one's place. */
     const locate = () => {
-      const tiles = [...root.querySelectorAll<HTMLElement>('[data-board]')];
+      const tiles = [...root.querySelectorAll<HTMLElement>(sel)];
       let best: { id: string; d: number } | null = null;
       for (const t of tiles) {
         // Where the tile rests, not where it is mid-slide (a moving tile would swap straight back).
@@ -103,7 +111,7 @@ export function tileDrag(root: HTMLElement, o: TileDragOptions): () => void {
         const cx = o.left + op.clientLeft + t.offsetLeft + t.offsetWidth / 2;
         const cy = o.top + op.clientTop + t.offsetTop + t.offsetHeight / 2;
         const d = Math.hypot(point.x - cx, point.y - cy);
-        if (!best || d < best.d) best = { id: t.dataset.board!, d };
+        if (!best || d < best.d) best = { id: t.dataset[attr]!, d };
       }
       if (!best || best.id === id) return;
       const next = order.filter((x) => x !== id);
@@ -147,7 +155,7 @@ export function tileDrag(root: HTMLElement, o: TileDragOptions): () => void {
       o.preview(null);
       justDropped = true;
       setTimeout(() => (justDropped = false), 0);
-      if (keep && order.join() !== start.join()) o.drop(order);
+      if (keep && order.join() !== start.join()) o.drop(order, id);
     };
     const up = () => end(true);
     const cancel = () => end(false);
@@ -173,7 +181,7 @@ export function tileDrag(root: HTMLElement, o: TileDragOptions): () => void {
   };
   // No long-press menu on a tile (iOS would show one instead of letting the hold lift it).
   const menu = (e: Event) => {
-    if ((e.target as Element).closest('[data-board]')) e.preventDefault();
+    if ((e.target as Element).closest(o.handle ?? sel)) e.preventDefault();
   };
   root.addEventListener('pointerdown', down);
   root.addEventListener('click', click, true);

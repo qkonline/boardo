@@ -42,6 +42,13 @@ describe('addresses', () => {
       else expect(parsePath(p)).toEqual({ screen, card });
     }
   });
+  it("for each of board settings' tabs, Look with no word of its own", () => {
+    expect(pathOf({ name: 'boardSettings', id: 'b1', tab: 'look' }, null, nameOf)).toBe('/b/b1/msc-computer-science/settings');
+    expect(pathOf({ name: 'boardSettings', id: 'b1', tab: 'people' }, null, nameOf)).toBe('/b/b1/msc-computer-science/settings/people');
+    expect(parsePath('/b/b1/msc-computer-science/settings/fields')).toEqual({ screen: { name: 'boardSettings', id: 'b1', tab: 'fields' }, card: null });
+    expect(parsePath('/b/b1/x/settings/nope')?.screen).toEqual({ name: 'board', id: 'b1' });
+    expect(samePlace('/b/b1/x/settings', '/b/b1/x/settings/people')).toBe(true);
+  });
   it('without the readable part, or with an old one', () => {
     expect(parsePath('/b/b1')).toEqual({ screen: { name: 'board', id: 'b1' }, card: null });
     expect(parsePath('/b/b1/an-old-name/c/k1')?.card).toEqual({ board: 'b1', id: 'k1' });
