@@ -287,7 +287,7 @@ All of these are in Elastic's repository.
   - signing out hides it all; another account signing in on the device wipes what was kept.
 
   The connect page comes from `VITE_BOARDO_APP`; without it, or without Elastic accounts, Projects stays off.
-- **`cardsFor(dayKey, cards, today, clock24)`** is a pure function that applies R8.12 to R8.18 and builds the deadline labels, read from the day being looked at: Overdue, Due today (with the time if there is one), Due tomorrow, a weekday within the next 6 days, otherwise a short date. An overdue In progress card shows on every day after its end up to today.
+- **`cardsFor(dayKey, cards, today, clock24)`** is a pure function that applies R8.12 to R8.18 and builds the deadline labels, read from the day being looked at: Overdue, Due today (with the time if there is one), Due tomorrow, a weekday within the next 6 days, otherwise a short date. An overdue card that isn't done shows on every day after its end up to today, whatever its status.
 - **`src/components/Projects.svelte` (new):**
   - built on Elastic's `Collapsible` component (R8.8);
   - placed in the plan after the Checklist and before the timeline (and above the empty-day message);
@@ -428,7 +428,7 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
 **Elastic unit tests**
 - `cardsFor`:
   - dates in range, one-date cards, no dates;
-  - overdue In Progress kept, overdue Blocked dropped;
+  - overdue cards kept whatever their status, until my part is done;
   - my part done hidden, Completed shown ticked on the day;
   - every deadline label.
 - The ops outbox is idempotent and survives a reload.

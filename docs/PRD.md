@@ -250,8 +250,8 @@ Every card has these fields.
 - **R8.12** Only cards **assigned to that person**.
 - **R8.13** Cards with **no dates at all** never show.
 - **R8.14** A card shows on **every day its date range covers**, from its start date to its end date. A card with only one date shows on that day.
-- **R8.15** A card whose end date has passed and whose status is **In Progress** keeps showing on every following day as **Overdue**, until it's done.
-- **R8.16** A card whose end date has passed and whose status is anything else (Not Started, Blocked, or a custom value) shows only on the days its range covered, then leaves Elastic. It stays on its board and in My cards as usual.
+- **R8.15** A card whose end date has passed keeps showing on every following day as **Overdue**, whatever its status, until the person's part is done or the card is Completed.
+- **R8.16** (Until 28 Oct 2026, only an In Progress card stayed as Overdue; any other status left Elastic after its days. Now every overdue card stays, under R8.15.)
 - **R8.17** Once the person's part is done, or the card is Completed, it shows ticked for the rest of that day and is gone after.
 - **R8.18** Archived cards never show.
 
