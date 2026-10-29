@@ -3,6 +3,11 @@
 // no code to wait for. The relying party is the site the app is served from (kaiserkhan.com),
 // which Elastic shares, so Boardo's passkeys are named "Boardo: <email>" to tell them apart in
 // the device's list, and a passkey that isn't Boardo's gets a clear message.
+//
+// A passkey answer is taken only from the app's own address (APP_URL), and the local copies
+// in development: any page on kaiserkhan.com can ask the device for a kaiserkhan.com passkey,
+// so the origin the device signed is what tells Boardo's own page apart. The device must also
+// check it's its owner (Face ID, a PIN), both to add a passkey and to sign in with one.
 
 import {
   generateAuthenticationOptions,
@@ -11,7 +16,7 @@ import {
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
 import { b64url, getUser, newSession, randomToken, Refusal, type User } from './auth';
-import type { Env } from './env';
+import { type Env, isDev, list } from './env';
 
 const CHALLENGE_MS = 5 * 60_000;
 const MAX_KEYS = 20;
@@ -29,9 +34,15 @@ function fromB64url(s: string): Uint8Array<ArrayBuffer> {
  * own host (localhost in development).
  */
 function rpOf(env: Env, origin: string) {
+  if (!origins(env).includes(origin)) throw new Refusal(403, 'Passkeys work only on Boardo itself.');
   const host = new URL(origin).hostname;
   const root = env.RP_ID;
   return { rpID: root && (host === root || host.endsWith('.' + root)) ? root : host, origin };
+}
+
+/** The pages a passkey answer is taken from: the app's own address, and local copies in development. */
+export function origins(env: Env): string[] {
+  return [new URL(env.APP_URL).origin, ...(isDev(env) ? list(env.DEV_ORIGINS) : [])];
 }
 
 async function saveChallenge(env: Env, challenge: string, userId: string, purpose: 'add' | 'login') {
@@ -76,7 +87,8 @@ export async function registerStart(env: Env, origin: string, userId: string) {
     userID: new TextEncoder().encode(`boardo:${userId}`) as Uint8Array<ArrayBuffer>,
     attestationType: 'none',
     excludeCredentials: keys.results.map((k) => ({ id: k.id, transports: k.transports ? JSON.parse(k.transports) : undefined })),
-    authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
+    // Signing in needs the device to check its owner, so a passkey that can't is never made.
+    authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
   });
   return { challengeId: await saveChallenge(env, options.challenge, userId, 'add'), options };
 }
@@ -105,9 +117,9 @@ export async function registerFinish(
     v = await verifyRegistrationResponse({
       response: body.response as Parameters<typeof verifyRegistrationResponse>[0]['response'],
       expectedChallenge: ch.challenge,
-      expectedOrigin: origin,
+      expectedOrigin: origins(env),
       expectedRPID: rpOf(env, origin).rpID,
-      requireUserVerification: false,
+      requireUserVerification: true,
     });
   } catch {
     throw new Refusal(400, "That passkey couldn't be checked. Try again.");
@@ -135,7 +147,7 @@ export async function registerFinish(
 
 /** Options for signing in: any passkey made for this site can answer. */
 export async function loginStart(env: Env, origin: string) {
-  const options = await generateAuthenticationOptions({ rpID: rpOf(env, origin).rpID, userVerification: 'preferred' });
+  const options = await generateAuthenticationOptions({ rpID: rpOf(env, origin).rpID, userVerification: 'required' });
   return { challengeId: await saveChallenge(env, options.challenge, '', 'login'), options };
 }
 
@@ -163,7 +175,7 @@ export async function loginFinish(
     v = await verifyAuthenticationResponse({
       response,
       expectedChallenge: ch.challenge,
-      expectedOrigin: origin,
+      expectedOrigin: origins(env),
       expectedRPID: rpOf(env, origin).rpID,
       credential: {
         id: id!,
@@ -171,7 +183,7 @@ export async function loginFinish(
         counter: key.counter,
         transports: key.transports ? JSON.parse(key.transports) : undefined,
       },
-      requireUserVerification: false,
+      requireUserVerification: true,
     });
   } catch {
     throw new Refusal(400, "That passkey couldn't be checked. Try again.");

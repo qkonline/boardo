@@ -3,14 +3,16 @@
 // PKCE verifier) for a long-lived token with scope `elastic`. That token works on `/elastic/*`
 // only, just as a session token never does; both are stored hashed.
 
-import { getUser, randomToken, Refusal, sha256 } from './auth';
+import { getUser, randomToken, Refusal, same, sha256 } from './auth';
 import { isId } from './checks';
-import type { Env } from './env';
+import { type Env, isDev } from './env';
 import { LINK, linksGone } from './notify';
 
 interface Client {
   name: string;
   redirects: string[];
+  /** Local copies of the app, allowed only when this Worker runs locally (`isDev`). */
+  devRedirects: string[];
   scope: string;
 }
 
@@ -18,15 +20,10 @@ interface Client {
 export const CLIENTS: Record<string, Client> = {
   elastic: {
     name: 'Elastic',
-    // Elastic lives at elastic.kaiserkhan.com since 23 Oct 2026; the /planner/ ones are its old address.
-    redirects: [
-      'https://elastic.kaiserkhan.com/',
-      'http://localhost:5173/',
-      'http://localhost:4173/',
-      'https://kaiserkhan.com/planner/',
-      'http://localhost:5173/planner/',
-      'http://localhost:4173/planner/',
-    ],
+    // Elastic lives at elastic.kaiserkhan.com since 23 Oct 2026. Its old address,
+    // kaiserkhan.com/planner/, now sends everyone on to the new one, so it's no longer listed.
+    redirects: ['https://elastic.kaiserkhan.com/'],
+    devRedirects: ['http://localhost:5173/', 'http://localhost:4173/'],
     scope: 'elastic',
   },
 };
@@ -35,10 +32,10 @@ const CODE_MS = 5 * 60_000;
 const IDLE_MS = 365 * 24 * 3600_000;
 const DAY_MS = 24 * 3600_000;
 
-function client(id: unknown, redirect: unknown): Client {
-  const c = typeof id === 'string' ? CLIENTS[id] : undefined;
-  if (!c || typeof redirect !== 'string' || !c.redirects.includes(redirect))
-    throw new Refusal(400, "That app isn't one Boardo knows, so it can't connect.");
+function client(env: Env, id: unknown, redirect: unknown): Client {
+  const c = typeof id === 'string' && Object.hasOwn(CLIENTS, id) ? CLIENTS[id] : undefined;
+  const ok = c && typeof redirect === 'string' && (c.redirects.includes(redirect) || (isDev(env) && c.devRedirects.includes(redirect)));
+  if (!ok) throw new Refusal(400, "That app isn't one Boardo knows, so it can't connect.");
   return c;
 }
 
@@ -50,7 +47,7 @@ function back(redirect: string, params: Record<string, string>): string {
 
 /** The person answered the connect page: a one-time code (or a refusal) to send back with. */
 export async function approve(env: Env, userId: string, body: Record<string, unknown>): Promise<{ redirect: string }> {
-  const c = client(body.client_id, body.redirect_uri);
+  const c = client(env, body.client_id, body.redirect_uri);
   const redirect = body.redirect_uri as string;
   const state = typeof body.state === 'string' && body.state.length <= 200 ? body.state : '';
   if (body.deny) return { redirect: back(redirect, { error: 'access_denied', state }) };
@@ -66,17 +63,21 @@ export async function approve(env: Env, userId: string, body: Record<string, unk
   return { redirect: back(redirect, { code, state }) };
 }
 
-/** Check a one-time code and its PKCE verifier, and use it up: whose it was, and for what. */
+/**
+ * Check a one-time code and its PKCE verifier, and use it up: whose it was, and for what. The
+ * `redirect_uri` it was given for must come too (RFC 6749 4.1.3); every version of Elastic sends it.
+ */
 export async function redeem(env: Env, body: Record<string, unknown>) {
   const bad = new Refusal(400, 'That code has expired or was already used. Connect again.');
   if (typeof body.code !== 'string' || typeof body.verifier !== 'string' || body.code.length > 100) throw bad;
+  if (typeof body.redirect_uri !== 'string') throw bad;
   if (!/^[A-Za-z0-9._~-]{43,128}$/.test(body.verifier)) throw bad;
   const row = await env.DB.prepare('DELETE FROM oauth_codes WHERE code_hash = ? RETURNING *')
     .bind(await sha256(body.code))
     .first<{ user_id: string; client_id: string; redirect_uri: string; challenge: string; scope: string; expires: number }>();
   if (!row || row.expires < Date.now()) throw bad;
-  if ((body.client_id ?? row.client_id) !== row.client_id || (body.redirect_uri ?? row.redirect_uri) !== row.redirect_uri) throw bad;
-  if ((await sha256(body.verifier)) !== row.challenge) throw bad;
+  if ((body.client_id ?? row.client_id) !== row.client_id || body.redirect_uri !== row.redirect_uri) throw bad;
+  if (!same(await sha256(body.verifier), row.challenge)) throw bad;
   const user = await getUser(env, row.user_id);
   if (!user) throw bad;
   return { user, clientId: row.client_id, scope: row.scope };

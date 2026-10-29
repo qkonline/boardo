@@ -9,7 +9,7 @@ import { appUser, approve, listApps, revokeApp, token } from './oauth';
 
 let db: ReturnType<typeof fakeD1>['db'];
 let env: any;
-const ELASTIC = 'https://kaiserkhan.com/planner/';
+const ELASTIC = 'https://elastic.kaiserkhan.com/';
 const verifier = 'v'.repeat(43);
 
 beforeEach(() => {

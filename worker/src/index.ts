@@ -32,16 +32,18 @@ import {
   getUser,
   handoffFinish,
   handoffStart,
+  network,
   Refusal,
   sendCode,
   sendEmailChange,
   sessionUser,
   signOut,
+  signOutOthers,
   updateMe,
   verifyCode,
   verifyEmailChange,
 } from './auth';
-import type { Env } from './env';
+import { type Env, isDev, list } from './env';
 import { links, putPhoto, remove as removeFile, removePhoto, serve as serveFile, servePhoto, upload } from './files';
 import { devOutbox } from './mail';
 import { elasticCards, elasticOps } from './elastic';
@@ -52,10 +54,10 @@ import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken 
 
 export { Board, ElasticLink };
 
-/** Routes anyone can call without signing in: limited per network, on top of auth.ts's limits. */
 /** The app's own addresses (src/lib/route.ts), served its page. */
 const APP_PAGE = /^\/(?:my-cards|account|b\/[A-Za-z0-9_-]{1,64}(?:\/[^/]+){0,4})\/?$/;
 
+/** Routes anyone can call without signing in: limited per network, on top of auth.ts's limits. */
 const OPEN = new Set([
   '/auth/code/send',
   '/auth/code/verify',
@@ -65,6 +67,59 @@ const OPEN = new Set([
   '/oauth/token',
 ]);
 
+/**
+ * Signed-in routes that write: limited per person (USER_LIMITER), so no one account can use up
+ * the day's database writes. Uploads (PUT) count too.
+ */
+const WRITES = new Set([
+  '/account/handoff',
+  '/auth/passkey/add/start',
+  '/auth/passkey/add/finish',
+  '/auth/signout/others',
+  '/me',
+  '/me/email/send',
+  '/me/email/verify',
+  '/me/photo',
+  '/me/photo/remove',
+  '/me/delete',
+  '/me/passkeys/remove',
+  '/boards/order',
+  '/boards/create',
+  '/boards/delete',
+  '/cards/delete',
+  '/members/role',
+  '/members/remove',
+  '/invites/create',
+  '/invites/accept',
+  '/invites/decline',
+  '/invites/revoke',
+  '/invites/resend',
+  '/files',
+  '/files/delete',
+  '/oauth/approve',
+  '/apps/revoke',
+  '/notes/seen',
+  '/notes/read',
+  '/push/subscribe',
+  '/push/unsubscribe',
+]);
+
+/**
+ * What the farewell build at the app's old address (LEGACY_ORIGINS) calls while it hands a copy
+ * over (src/lib/move.ts, App.moveHome()): the board list and the bell as it starts, syncing and
+ * uploading what's waiting, then the one-time code. Nothing else is taken from there, so no
+ * page on that site can sign in, use a passkey or change an account.
+ */
+const FAREWELL = new Set(['/sync', '/sync/http', '/boards', '/boards/order', '/notes', '/files', '/files/links', '/account/handoff', '/auth/signout']);
+
+/** Whether a page at `origin` may call `path`. */
+function originAllowed(env: Env, origin: string, path: string): boolean {
+  if (!origin) return false;
+  if (list(env.ALLOWED_ORIGINS).includes(origin)) return true;
+  if (isDev(env) && list(env.DEV_ORIGINS).includes(origin)) return true;
+  return FAREWELL.has(path) && list(env.LEGACY_ORIGINS).includes(origin);
+}
+
 const MAX_BODY = 64 * 1024;
 /** A put sent over /sync/http carries a batch of records (the app keeps a batch under 400 kB). */
 const MAX_SYNC_BODY = 1024 * 1024;
@@ -72,7 +127,13 @@ const MAX_SYNC_BODY = 1024 * 1024;
 export default {
   async fetch(req, env): Promise<Response> {
     const origin = req.headers.get('origin') ?? '';
-    const allowed = env.ALLOWED_ORIGINS.split(',').some((o) => o.trim() === origin);
+    // On the app's own address (boardo.kaiserkhan.com) the API is under /api, and everything
+    // else is the app's files (served before this runs). On workers.dev, which app versions from
+    // before the move call, it's at the root.
+    let { pathname } = new URL(req.url);
+    const prefix = pathname.startsWith('/api/') ? '/api' : '';
+    if (prefix) pathname = pathname.slice(prefix.length);
+    const allowed = originAllowed(env, origin, pathname);
     const cors: Record<string, string> = allowed
       ? {
           'access-control-allow-origin': origin,
@@ -85,29 +146,37 @@ export default {
     const reply = (status: number, body?: unknown) =>
       new Response(body === undefined ? null : JSON.stringify(body), {
         status,
-        headers: body === undefined ? cors : { ...cors, 'content-type': 'application/json' },
+        headers:
+          body === undefined ? cors : { ...cors, 'content-type': 'application/json', 'x-content-type-options': 'nosniff' },
       });
 
     if (req.method === 'OPTIONS') return reply(allowed ? 204 : 403);
-    // On the app's own address (boardo.kaiserkhan.com) the API is under /api, and everything
-    // else is the app's files (served before this runs). On workers.dev, which app versions from
-    // before the move call, it's at the root.
-    let { pathname } = new URL(req.url);
-    const prefix = pathname.startsWith('/api/') ? '/api' : '';
-    if (prefix) pathname = pathname.slice(prefix.length);
     // A place in the app (a board, a card, My cards, Account: src/lib/route.ts) is the app's page,
     // which reads the address itself. Only these paths, so nothing else is ever masked.
     if (!prefix && req.method === 'GET' && env.ASSETS && APP_PAGE.test(pathname))
       return env.ASSETS.fetch(new Request(new URL('/', req.url), { headers: req.headers }));
     // Signed file links are opened by <img> tags and downloads, which send no Origin: the
     // signature is the check.
-    if (req.method === 'GET' && pathname.startsWith('/files/')) return serveFile(req, env, pathname);
-    if (req.method === 'GET' && pathname.startsWith('/photos/')) return servePhoto(req, env, pathname);
+    if (req.method === 'GET' && (pathname.startsWith('/files/') || pathname.startsWith('/photos/')))
+      try {
+        return await (pathname.startsWith('/files/') ? serveFile(req, env, pathname) : servePhoto(req, env, pathname));
+      } catch (e) {
+        if (e instanceof Refusal) return new Response(e.message, { status: e.status });
+        console.error(e);
+        return new Response('Something went wrong. Try again.', { status: 500 });
+      }
     if (!allowed) return reply(403);
+
+    const ip = req.headers.get('cf-connecting-ip') ?? 'local';
+    /** One more write by this person; false once they've made too many this minute. */
+    const mayWrite = async (userId: string) => !env.USER_LIMITER || (await env.USER_LIMITER.limit({ key: userId })).success;
+    const tooMany = () => reply(429, { error: 'Too many changes at once. Try again in a minute.' });
 
     if (pathname === '/sync') return connect(req, env);
     if (req.method === 'PUT' && (pathname === '/files' || pathname === '/me/photo')) {
       try {
+        const who = await sessionUser(env, req.headers.get('authorization')?.replace(/^Bearer /, ''));
+        if (who && !(await mayWrite(who))) return tooMany();
         if (pathname === '/me/photo') {
           const res = await putPhoto(req, env);
           const id = await sessionUser(env, req.headers.get('authorization')?.replace(/^Bearer /, ''));
@@ -124,7 +193,7 @@ export default {
     }
     if (req.method !== 'POST') return reply(404);
     if (OPEN.has(pathname) && env.LIMITER) {
-      const { success } = await env.LIMITER.limit({ key: req.headers.get('cf-connecting-ip') ?? 'unknown' });
+      const { success } = await env.LIMITER.limit({ key: network(ip) });
       if (!success) return reply(429, { error: 'Too many requests. Try again in a minute.' });
     }
 
@@ -145,10 +214,13 @@ export default {
         if (!id) throw new Refusal(401, 'Disconnected');
         return id;
       };
+      let me: string | null = null;
       const mustUser = async () => {
+        if (me) return me;
         const id = await sessionUser(env, token);
         if (!id) throw new Refusal(401, 'Signed out');
-        return id;
+        if (WRITES.has(pathname) && !(await mayWrite(id))) throw new Refusal(429, 'Too many changes at once. Try again in a minute.');
+        return (me = id);
       };
 
       switch (pathname) {
@@ -159,19 +231,20 @@ export default {
           const m = body.m;
           if (!m || typeof m !== 'object' || Array.isArray(m)) return reply(400);
           if (!role) return reply(200, { msgs: [{ t: 'removed' }] });
-          return reply(200, {
-            msgs: await boardStub(env, body.board as string).httpSync(userId, role, m as Record<string, unknown>),
-          });
+          const msgs = await boardStub(env, body.board as string).httpSync(userId, role, m as Record<string, unknown>);
+          // Too many changes too fast: the device tries again after a pause.
+          if (!msgs) return tooMany();
+          return reply(200, { msgs });
         }
         case '/auth/code/send':
-          await sendCode(env, body, req.headers.get('cf-connecting-ip') ?? 'local');
+          await sendCode(env, body, ip);
           return reply(204);
         case '/auth/code/verify':
           return reply(200, await verifyCode(env, body));
         case '/auth/handoff':
           return reply(200, await handoffFinish(env, body));
         case '/account/handoff':
-          return reply(200, await handoffStart(env, await mustUser()));
+          return reply(200, await handoffStart(env, await mustUser(), token));
         case '/auth/passkey/login/start':
           return reply(200, await loginStart(env, origin));
         case '/auth/passkey/login/finish':
@@ -189,6 +262,9 @@ export default {
         case '/auth/signout':
           if (token) await signOut(env, token);
           return reply(204);
+        case '/auth/signout/others':
+          await signOutOthers(env, await mustUser(), token);
+          return reply(204);
 
         case '/me': {
           const id = await mustUser();
@@ -202,10 +278,10 @@ export default {
           return reply(200, { user });
         }
         case '/me/email/send':
-          await sendEmailChange(env, await mustUser(), body, req.headers.get('cf-connecting-ip') ?? 'local');
+          await sendEmailChange(env, await mustUser(), body, ip);
           return reply(204);
         case '/me/email/verify': {
-          const user = await verifyEmailChange(env, await mustUser(), body);
+          const user = await verifyEmailChange(env, await mustUser(), body, token);
           await refreshMemberships(env, user);
           return reply(200, { user });
         }

@@ -1,5 +1,6 @@
 # Boardo's API. Deploy from this folder with `npx wrangler deploy`. Secrets:
-# `npx wrangler secret put RESEND_API_KEY` and `FILE_SIGNING_KEY`. Database changes go in
+# `npx wrangler secret put RESEND_API_KEY`, `FILE_SIGNING_KEY` and `VAPID_PRIVATE_KEY` (and
+# `TURNSTILE_SECRET` to turn Turnstile on, with TURNSTILE_SITE_KEY below). Database changes go in
 # migrations/ and are applied with `npx wrangler d1 migrations apply boardo --remote`.
 name = "boardo-api"
 main = "src/index.ts"
@@ -18,16 +19,25 @@ binding = "ASSETS"
 run_worker_first = ["/api/*"]
 
 [vars]
-# boardo.kaiserkhan.com is the app; kaiserkhan.com (and www) is the old address, whose last build
-# hands each copy over to the new one and still calls the API meanwhile.
-ALLOWED_ORIGINS = "https://boardo.kaiserkhan.com,https://kaiserkhan.com,https://www.kaiserkhan.com,http://localhost:5174,http://localhost:4174,http://localhost:5173,http://localhost:4173,http://localhost:8788"
+# boardo.kaiserkhan.com is the app.
+ALLOWED_ORIGINS = "https://boardo.kaiserkhan.com"
+# kaiserkhan.com (and www) is the old address, whose last build hands each copy over to the new
+# one: it may call only the routes that needs (FAREWELL in src/index.ts).
+LEGACY_ORIGINS = "https://kaiserkhan.com,https://www.kaiserkhan.com"
+# Local copies of the app (Vite, previews, Elastic's): let in only when running locally, with
+# DEV_MAIL set in .dev.vars.
+DEV_ORIGINS = "http://localhost:5174,http://localhost:4174,http://localhost:5173,http://localhost:4173,http://localhost:8788"
 APP_URL = "https://boardo.kaiserkhan.com/"
 # Passkeys belong to kaiserkhan.com, so the ones made at kaiserkhan.com/boardo/ keep working here.
+# They're only taken from the app's own address (APP_URL), never from the old one.
 RP_ID = "kaiserkhan.com"
 MAIL_FROM = "Boardo <boardo@kaiserkhan.com>"
 # Alerts on phones and computers (Web Push). The private key is a secret: VAPID_PRIVATE_KEY.
 VAPID_PUBLIC_KEY = "BCZwduUiNMJZ_BYrLGtasWl7xFWR8_wkpwNtifm4KakkDilqYXPd-QdgnF1R8F4-bUBHUHdXArWJH5-Uiq9xyzc"
 VAPID_SUBJECT = "https://boardo.kaiserkhan.com/"
+# Turnstile on asking for a sign-in code: off until this and the secret TURNSTILE_SECRET are both
+# set (and VITE_TURNSTILE_SITE_KEY, the same key, in .env.production for the app).
+# TURNSTILE_SITE_KEY = ""
 
 [[durable_objects.bindings]]
 name = "BOARDS"
@@ -42,6 +52,13 @@ new_sqlite_classes = ["Board"]
 [[ratelimits]]
 name = "LIMITER"
 namespace_id = "1002"
+simple = { limit = 60, period = 60 }
+
+# Requests per signed-in person to the routes that write (index.ts, WRITES), so no one account
+# can use up the day's database writes.
+[[ratelimits]]
+name = "USER_LIMITER"
+namespace_id = "1012"
 simple = { limit = 60, period = 60 }
 
 [[d1_databases]]
