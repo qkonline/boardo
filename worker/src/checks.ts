@@ -52,7 +52,9 @@ export const LIMITS = {
   fields: 40,
   assignees: 50,
   deps: 50,
-  value: 5_000,
+  // What a long-text field could always hold, so no saved card is refused on its next edit; a
+  // board's byte budget (board.ts) is what bounds the storage.
+  value: 20_000,
   values: 60,
 };
 

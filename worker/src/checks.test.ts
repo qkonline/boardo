@@ -83,8 +83,8 @@ describe('a field shown on cards', () => {
 });
 
 describe("a card's field values", () => {
-  it('takes up to 5,000 characters in one value', () => {
-    expect(clean('card', 'k1', card({ values: { f1: 'x'.repeat(5000) } }))).not.toBeNull();
-    expect(clean('card', 'k1', card({ values: { f1: 'x'.repeat(5001) } }))).toBeNull();
+  it('takes up to 20,000 characters in one value', () => {
+    expect(clean('card', 'k1', card({ values: { f1: 'x'.repeat(20000) } }))).not.toBeNull();
+    expect(clean('card', 'k1', card({ values: { f1: 'x'.repeat(20001) } }))).toBeNull();
   });
 });

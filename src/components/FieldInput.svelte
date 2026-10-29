@@ -39,7 +39,7 @@
 {#if field.type === 'text'}
   <input {id} class="field" maxlength="500" value={str(value)} onchange={commitText} />
 {:else if field.type === 'longtext'}
-  <textarea {id} class="field" rows="3" maxlength="5000" value={str(value)} onchange={commitText}></textarea>
+  <textarea {id} class="field" rows="3" maxlength="20000" value={str(value)} onchange={commitText}></textarea>
 {:else if field.type === 'number'}
   <input {id} class="field" type="text" inputmode="decimal" value={str(value)} onchange={commitNumber} />
 {:else if field.type === 'date'}
