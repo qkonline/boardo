@@ -1,6 +1,6 @@
 # Boardo: architecture
 
-Last updated: 22 October 2026
+Last updated: 29 October 2026
 
 This document describes how Boardo is built and how it connects to Elastic. What Boardo does, and why, is in [PRD.md](PRD.md); requirement numbers like R8.15 refer to it.
 
@@ -37,7 +37,7 @@ This document describes how Boardo is built and how it connects to Elastic. What
 | App | Svelte ^5.57, Vite ^8.3, TypeScript ^6.0 |
 | Tests | Vitest ^4.1, fake-indexeddb ^6.2 |
 | Server | Cloudflare Workers, D1, Durable Objects (SQLite storage, hibernation API), R2 |
-| Tooling | Wrangler ^4.141, @cloudflare/workers-types (Wrangler needs Node 22) |
+| Tooling | Wrangler ^4.153, @cloudflare/workers-types (Wrangler needs Node 22); CI on GitHub Actions (`.github/workflows/ci.yml`: checks, unit tests and the build on every push and pull request, no secrets) |
 | Email | Resend HTTP API |
 | Hosting | The app and the API on one Cloudflare Worker at boardo.kaiserkhan.com, API under /api (`npm run deploy`: tests, build, `wrangler deploy`) |
 
@@ -73,12 +73,14 @@ Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](
 | `app_tokens` | hash PK, id (for listing and revoking), user_id, client_id, scope, label, created, used |
 | `passkeys` | id PK (the credential id), user_id, public_key, counter, transports, label (the device), created, used (`0002_passkeys.sql`) |
 | `challenges` | id, challenge, user_id, purpose (`add` or `login`), expires: each answered once, within 5 minutes |
-| `limits` | key PK, count, start (an hour-long window; rate limiting per email and per IP) |
-| `handoffs` | code_hash PK, user_id, expires (a sign-in carried to the app's new address: one use, two minutes) |
+| `limits` | key PK, count, start (a window from `start`, an hour or a day by key: codes per email and per network, tries at codes, emails sent, invites, new boards; rows over two days old are dropped as codes are sent) |
+| `handoffs` | code_hash PK, user_id, expires, session_hash (a sign-in carried to the app's new address: one use, two minutes; the session it came from ends when it's used, `0008_handoff_session.sql`) |
 | `notes` | id PK, user_id, board_id, card_id, kind, at, data (the rest of the update as JSON, names as they were), read_at; kept 60 days (`0006_notes.sql`) |
 | `push_subs` | endpoint PK, user_id, created: each browser that turned notifications on, for whom |
 
-Sessions, codes, invite tokens, OAuth codes and app tokens are only ever stored as SHA-256 hashes.
+Sessions, codes, invite tokens, OAuth codes and app tokens are only ever stored as SHA-256 hashes, and compared with them in constant time where the comparison is in code.
+
+Nothing grows for ever: each time a sign-in code is sent, old `limits` rows, codes that ran out over a day ago, OAuth codes past their five minutes, invites 30 days past their expiry and sessions idle for a year go too (`prune()` in `auth.ts`, as Elastic does it; Boardo has no cron). Notes go after 60 days, challenges and handoffs once expired.
 
 ### 2.2 Board Durable Object
 
@@ -108,6 +110,8 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - members can't write `board`, `field` or `member`;
   - nobody writes `log`, `session` or `file` directly;
   - a comment can only be changed by its author.
+- **Who's talking.** The Worker passes who a connection is in `x-user` and `x-role`, but the DO checks for itself: someone not in its own `member` records gets `{t:'removed'}` and a 4003 close (a socket) or `[{t:'removed'}]` (`httpSync`), and a role is never more than their member record says. Before each put it asks D1 too, so a connection left open by a removal the DO wasn't told of (every `tellBoard` try failed) closes at the next change it sends.
+- **Limits.** A board keeps at most 100,000 rows (records, log entries included, and Elastic's op ids) and 20 MB of record data, counted as they're written (kv `usage`). A change that would make a full board bigger is refused one record at a time, like any refusal (the device keeps a copy in Undone changes); one that makes nothing bigger still goes through. Elastic's op ids are kept 62 days (an op over 60 days old is refused anyway). One connection may send 120 puts a minute and one person 240 over all their connections; past that a socket is closed with 1013 and `/sync/http` answers 429, so the device waits and sends again (nothing is lost). One person's changes make at most 30 updates a minute and alert phones at most 10 times a minute; an alert goes to at most 25 browsers (the free plan's 50 requests per invocation). A put reads only the cards it writes (and, when a column goes, that column's cards), never every card on the board.
 - **Updates (the bell).** With each change it accepts (puts, Elastic's ops, members joining, changing role or leaving), the DO works out who should hear about it (`worker/src/notes.ts`, pure: `cardNotes`, `commentNotes`, `memberNote`; never the person who made the change, never someone not in the board). `sendNotes()` then stores them in D1 (`inbox.ts`), sends `{t:'note'}` on those people's sockets to this board so their devices fetch, and sends an empty Web Push to each browser they turned notifications on in (VAPID, `vapid.ts` and `push.ts` copied from Elastic). Mentions are found in the plain text against the board's member names (`shared/mentions.ts`, the same code the app uses to show them): "@Full Name", or a first name only one member has.
 - **Relations.** A new comment needs its card, either on the board or in the same put. A card whose column isn't there (added offline to a column someone removed, or left in one when it was removed) goes to the end of the first column, logged as moved (R9.5b).
 - **Column names.** A new or renamed column whose name another column already has (`sameNamed()` in `shared/rules.ts`: trimmed, spaces collapsed, any case) is refused (PRD R3.4a). The app checks the same before it sends.
@@ -137,7 +141,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - `outbox`;
   - `meta` (session, board list, revs per board, `owner`: whose data the device holds, and `refused:<board>`: copies of refused changes);
   - `uploads` (file blobs queued while offline).
-- **One leader tab** (`navigator.locks` lock `boardo-sync`) holds one WebSocket per board: `GET /sync?board=<id>`, with the token as the second subprotocol. Other tabs follow over a BroadcastChannel. The tab in front takes the lead (it steals the lock on opening and on coming to the front), because a browser can put a background tab to sleep while it still holds the lock; the tab it was taken from closes its sockets and follows. On a network that lets requests through but not WebSockets (two that never open, or one held up for 8 s), boards sync over `POST /sync/http {board, m}` instead: the same `hello` and `put` messages, answered by `Board.httpSync` with the replies a socket would get, and a `hello` from the last point reached every 4 s while the app is in front (`src/lib/pollsocket.ts`).
+- **One leader tab** (`navigator.locks` lock `boardo-sync`) holds one WebSocket per board: `GET /sync?board=<id>`, with the token as the second subprotocol. Other tabs follow over a BroadcastChannel. The tab in front takes the lead (it steals the lock on opening and on coming to the front), because a browser can put a background tab to sleep while it still holds the lock; the tab it was taken from closes its sockets and follows. On a network that lets requests through but not WebSockets (two that never open, or one held up for 8 s), boards sync over `POST /sync/http {board, m}` instead: the same `hello` and `put` messages, answered by `Board.httpSync` with the replies a socket would get, and a `hello` from the last point reached while the app is in front: every 4 s for the board on screen (`focusPolling()`, from `App.svelte`), every 15 s for the others, doubling while nothing changes up to 2 minutes, and none while the app is hidden (`src/lib/pollsocket.ts`).
 - **Protocol:**
   - `hello{since}` → `changes{recs, more}` chunks, ending with `done`;
   - `put{id, recs:[{kind, key, base, data}]}` → `ack{id, ok, conflicts, rejected}`. An `ok` entry carries `data` when the board stored something other than what was sent (the completion rule moved the status, or someone else's part was kept as it was); `rejected` holds changes the sender wasn't allowed to make, or that didn't pass the checks, with the board's version, which replaces the local copy. Each record is checked on its own, so one bad record never sinks the rest of a put. The device keeps what it had aside (the newest 50 per board, in `meta` `refused:<board>`) and says so in a toast (R9.5a);
@@ -151,7 +155,7 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
 - **Another account.** A device notes whose data it holds (`owner`). Signing out clears everything; if that was cut short and a different account signs in, everything is cleared first, so nothing of the last person's reaches the new one or is sent as theirs (R9.2a).
 - **Failed saves.** When IndexedDB refuses a write (out of storage, say), the change stays on screen and waits in memory, in order, behind any already waiting. A banner says so and offers the waiting changes as a JSON backup. Saving is tried again every 5 s, on coming back online and on coming to the front; once it works the changes go out as usual. Quiet updates and pull to refresh never reload while changes are waiting (R9.3a).
 - **Refused changes** are listed in Account under Undone changes, from the copies kept in `refused:<board>`, with Copy for their text and Clear the list (R9.5a).
-- **Moving to a new address** (kaiserkhan.com/boardo/ → boardo.kaiserkhan.com, `src/lib/move.ts`, as Elastic did). The last build left at the old address (`VITE_MOVED_TO` set) shows only "Boardo has moved" (`Moving.svelte`). It waits until every change has been saved on the device, uploaded and synced (`Sync.drained()`; a board that stays live but won't take something is left after 30 s), then asks for a one-time code and opens the new address with the code and this device's settings (theme, the passkey offer) in the fragment, which never reaches a server. The new address takes them off the address bar and signs in with the code. Offline it waits and says so; signed out it goes straight there. A Home Screen copy asks first, since its icon keeps the old address.
+- **Moving to a new address** (kaiserkhan.com/boardo/ → boardo.kaiserkhan.com, `src/lib/move.ts`, as Elastic did). The last build left at the old address (`VITE_MOVED_TO` set) shows only "Boardo has moved" (`Moving.svelte`). It waits until every change has been saved on the device, uploaded and synced (`Sync.drained()`; a board that stays live but won't take something is left after 30 s), then asks for a one-time code, clears its IndexedDB (other pages on the old site could read it) and opens the new address with the code and this device's settings (theme, the passkey offer) in the fragment, which never reaches a server. The new address takes them off the address bar, asks "Continue as <email>?" (`Handoff.svelte`; while signed in there as someone else it says so and doesn't use the code) and signs in with the code, which ends the old address's session. Offline it waits and says so; signed out it goes straight there. A Home Screen copy asks first, since its icon keeps the old address.
 - **Offline attachments** wait in `uploads` and are sent once back online. Files already viewed are cached by the service worker.
 - **Scale.** This approach is comfortable up to about 20 boards per person (R11.8). Beyond that, a per-user Durable Object could multiplex boards over one socket.
 
@@ -160,15 +164,18 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
 Everything is POST with a JSON body, except the sync socket and file transfers. The token travels as `Authorization: Bearer`.
 
 **Auth and profile**
-- `/auth/code/send {email}`: rate-limited per email and per IP, and silent on unknown emails.
-- The routes that need no sign-in (`/auth/code/send`, `/auth/code/verify`, passkey sign-in, `/oauth/token`) also go through Cloudflare's rate limiter, 60 requests a minute per network (binding `LIMITER`, namespace 1002; Elastic's is 1001).
-- `/auth/code/verify {email, code}` → `{token, user}`: creates the account on first use.
-- `/account/handoff` (signed in) → `{code}`, and `/auth/handoff {code}` → `{token, user, fresh}`: carry a sign-in from the app's old address to its new one. The code is stored only as a hash, works once, and lasts two minutes; `/auth/handoff` is rate-limited like the other open routes.
+- `/auth/code/send {email, turnstile?}`: rate-limited per email and per network (6 and 30 an hour), and silent on unknown emails. With Turnstile on (`TURNSTILE_SITE_KEY` in wrangler.toml and the secret `TURNSTILE_SECRET`, plus `VITE_TURNSTILE_SITE_KEY` for the app; off while any is missing), the sign-in page sends Turnstile's answer and the Worker checks it first (`src/lib/turnstile.ts`).
+- **Email budget.** Every email of every kind comes out of one daily budget, `MAIL_A_DAY` = 35 (`mail.ts`): Boardo shares one Resend free account (100 a day) with Elastic and highyieldprep.com. Once it's spent, a sign-in code is refused with a plain message (try tomorrow, or use a passkey) and nothing is kept, so asking again later works.
+- **Networks.** Limits per network count an IPv6 address by its /64 (`network()` in `auth.ts`), since one home or phone has a whole /64.
+- The routes that need no sign-in (`/auth/code/send`, `/auth/code/verify`, passkey sign-in, `/auth/handoff`, `/oauth/token`) also go through Cloudflare's rate limiter, 60 requests a minute per network (binding `LIMITER`, namespace 1002; Elastic's is 1001).
+- The signed-in routes that write (`WRITES` in `index.ts`, uploads included) go through a second one, 60 a minute per person (`USER_LIMITER`, namespace 1012), so no one account can use up the day's D1 writes. `/boards/create` is also 20 a day per person and `/boards/order` 120 an hour, writing only the boards whose place changed.
+- `/auth/code/verify {email, code}` → `{token, user}`: creates the account on first use. A code allows 5 tries, and an address 30 tries a day (`tries:<email>`, as Elastic's `TRIES_A_DAY`), counted only against a code that was sent, so guessing at an address can't lock its owner out.
+- `/account/handoff` (signed in) → `{code}`, and `/auth/handoff {code}` → `{token, user, fresh}`: carry a sign-in from the app's old address to its new one. The code is stored only as a hash, works once, and lasts two minutes; once used, the session it came from ends. `/auth/handoff {code, peek: true}` → `{email}` says whose it is without using it: the new address asks "Continue as <email>?" first, and while signed in there as someone else it doesn't use the code at all, so a link with someone else's code can't sign anyone in to that account unawares. `/auth/handoff` is rate-limited like the other open routes. The farewell build clears its IndexedDB as it leaves.
 - On the app's own address the API is under `/api` (the Worker strips it, and signed file links keep it); on workers.dev, which app versions from before the move call, it's at the root.
 - `/notes` → `{notes, unseen}`: the latest 50 updates and how many came since the bell was last opened, unread. `/notes/seen` (the bell opened), `/notes/read {ids?}` (some, or all without `ids`).
 - `/push/subscribe {endpoint}`, `/push/unsubscribe {endpoint}`, `/push/status {endpoint}` → `{on}`: notifications in this browser. Only the browsers' own push services are taken.
-- `/auth/signout`
-- `/me/email/send {email}`, `/me/email/verify {email, code}`: change one's email. A code goes to the new address (refused if another account has it) and only that changes it; every board's member record follows.
+- `/auth/signout`, `/auth/signout/others` (Account, Sign out other devices: every session of the account but this one).
+- `/me/email/send {email}`, `/me/email/verify {email, code}`: change one's email. A code goes to the new address and only that changes it; every board's member record follows, every other device is signed out, and the old address is told. Asking is limited to 5 an hour per account. An address another account has is answered the same way, but no email goes and no code works, so this says nothing about who has an account.
 - `/me {name?, hue?}`
 - `/me/delete`: refused while the person is the last admin of a board.
 
@@ -176,21 +183,23 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - `/cards/delete {board, card}`: deletes an archived card for good (an admin, or whoever made it), through the DO's `deleteCard()`: the card, its comments, files and sessions go, the files' bytes are removed from R2, and the log keeps its entries plus a `deleted` one. Devices never delete a card record themselves.
 
 **Passkeys** (`worker/src/passkeys.ts`, `@simplewebauthn/server`, as in Elastic)
-- `/auth/passkey/add/start`, `/auth/passkey/add/finish` (signed in): a passkey for this account on this device. The relying party is the page's host (`kaiserkhan.com`), which Elastic shares, so Boardo's passkeys are named `Boardo: <email>` to tell them apart in the device's list.
+- `/auth/passkey/add/start`, `/auth/passkey/add/finish` (signed in): a passkey for this account on this device. The relying party is `kaiserkhan.com` (RP_ID), which Elastic shares, so Boardo's passkeys are named `Boardo: <email>` to tell them apart in the device's list.
 - `/auth/passkey/login/start`, `/auth/passkey/login/finish` → `{token, user}`: any passkey for the site may answer (discoverable credentials, also offered in the email field's suggestions); one Boardo doesn't know (Elastic's, or removed) gets a message saying so.
+- Both take an answer only from the app's own address (`APP_URL`'s origin, and the local origins in development): any page on kaiserkhan.com can ask the device for a kaiserkhan.com passkey, so the origin the device signed is what tells Boardo's page apart. Both need the device to check its owner (`userVerification: 'required'`, `requireUserVerification`): signing in does, so a passkey that can't is never made.
 - `/me/passkeys`, `/me/passkeys/remove`.
 
 **Boards and members**
 - `/boards`, `/boards/create`, `/boards/delete` (admin)
 - `/members/role`, `/members/remove` (admin; at least one admin always remains, checked in the same D1 statement as the change, so two admins taking each other off at once can't leave none). D1 changes first; the board DO is then told, with two more tries if the call fails. Asking again passes the change on even when D1 already has it, so a failed call is finished by trying again.
-- `/invites/create {board, email, role}`: emails `https://boardo.kaiserkhan.com/?invite=<token>` (`APP_URL`) through Resend. (A query string rather than a path, so the static host needs no rewrites.)
+- `/invites/create {board, email, role}`: emails `https://boardo.kaiserkhan.com/?invite=<token>` (`APP_URL`) through Resend. (A query string rather than a path, so the static host needs no rewrites.) The subject is always "You're invited to a board on Boardo": the inviter's name and the board's, which they chose, are only in the body, escaped. Invite emails, new or sent again, are limited to 20 a day per inviter and 30 a day per board, and one address in a board gets one at most every 5 minutes.
 - `/invites {board}` (admin): the invites waiting in a board.
 - `/invites/accept {token}` or `{id}` (from the invites on Home): the signed-in email must match the invite.
 - `/invites/decline {id}`: the invitee turns it down.
-- `/invites/revoke`, `/invites/resend`: invites expire after 14 days.
+- `/invites/revoke`, `/invites/resend`: invites expire after 14 days. Resending waits 5 minutes after the last send.
 
 **Sync**
 - `GET /sync?board=<id>`: WebSocket upgrade. A bad token or a non-member still gets an upgrade, followed by `{t:'signedout'}` or `{t:'removed'}` and a close, so the app can tell this apart from a network drop.
+- `POST /sync/http {board, m}`: the same messages for networks that block WebSockets; a non-member gets `{msgs: [{t:'removed'}]}`, and too many changes too fast a 429.
 
 **Files**
 - `PUT /files?board=&card=&name=`: streams the body to R2. It checks:
@@ -201,7 +210,7 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
   It then writes the `file` record and a log entry through the DO.
 - `PUT /files?board=&thumb=<file id>`: an image's thumbnail (a JPEG made on the device, at most 480 px), stored next to the original as `<board>/<id>.thumb`; the `file` record gets `thumb: true`.
 - `POST /files/links {board, files}` (members): links good for an hour, `{id: {url, thumb?, exp}}`.
-- `GET /files/<board>/<id>[/thumb]?exp=&sig=`: a link, opened. Signed with HMAC (`FILE_SIGNING_KEY`), so `<img>` tags and downloads work without a token; this route is the one that skips the origin check, since they send no Origin. Responses send `X-Content-Type-Options: nosniff` and a sandboxing CSP, and non-images send `Content-Disposition: attachment`.
+- `GET /files/<board>/<id>[/thumb]?exp=&sig=`: a link, opened. Signed with HMAC (`FILE_SIGNING_KEY`) and checked in constant time, so `<img>` tags and downloads work without a token; this route (with `/photos/`) is the one that skips the origin check, since they send no Origin. Responses send `X-Content-Type-Options: nosniff` and a sandboxing CSP, and non-images send `Content-Disposition: attachment`.
 - `POST /files/delete {board, file}`: whoever added it, or an admin. The record goes, with a log entry, and so do the bytes in R2.
 - Files added offline wait in IndexedDB (`uploads`) and go once there's a connection.
 
@@ -212,10 +221,14 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 **Connected apps and Elastic:** `/oauth/approve`, `/oauth/token`, `/apps`, `/apps/revoke`, `/elastic/cards`, `/elastic/ops` (section 5).
 
 **CORS**
-- `https://kaiserkhan.com` and the dev origins (`http://localhost:5174` for Boardo, `http://localhost:5173` for Elastic) may call the API. Every other origin is refused.
-- Boardo and Elastic share the `https://kaiserkhan.com` origin, so the origin can't tell them apart. The tokens do: a session token (Boardo) is refused on `/elastic/*`, and an app token (scope `elastic`) is accepted only on `/elastic/*`.
+- `https://boardo.kaiserkhan.com` (`ALLOWED_ORIGINS`) may call the API. Every other origin is refused, with two exceptions:
+  - the old address, `https://kaiserkhan.com` and `www` (`LEGACY_ORIGINS`), only for what the farewell build calls while it hands a copy over (`FAREWELL` in `index.ts`: `/sync`, `/sync/http`, `/boards`, `/boards/order`, `/notes`, uploads, `/files/links`, `/account/handoff`, `/auth/signout`). Pages on that site (WordPress) can't sign in, use a passkey or change an account;
+  - the local origins (`DEV_ORIGINS`: Vite on :5174, previews, Elastic's :5173 and :4173), only when the Worker runs locally (`isDev()`: `DEV_MAIL` is set, in `worker/.dev.vars`), never live.
+- The tokens decide what a caller may do: a session token (Boardo) is refused on `/elastic/*`, and an app token (scope `elastic`) is accepted only on `/elastic/*`.
 
-**Secrets:** `RESEND_API_KEY` and `FILE_SIGNING_KEY` are Worker secrets. Local values go in the git-ignored `worker/.dev.vars`.
+**Headers.** `public/_headers` gives every page and file `X-Frame-Options: DENY` (the connect page's Allow can't be framed), `nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, HSTS for a year and a `Permissions-Policy` with no camera, microphone or location. The content policy is report-only for now (`Content-Security-Policy-Report-Only`: scripts from the app and the theme script in `index.html` by its hash, `connect-src` the API and its socket, `img-src` the app with `data:` and `blob:` (signed file links and photos are on the app's own address), Turnstile, `frame-ancestors 'none'`); `src/lib/headers.test.ts` checks the hash still matches. Once the browser's console shows nothing it would block, rename it `Content-Security-Policy`. The API's own answers carry `nosniff`.
+
+**Secrets:** `RESEND_API_KEY`, `FILE_SIGNING_KEY` and `VAPID_PRIVATE_KEY` are Worker secrets, and `TURNSTILE_SECRET` when Turnstile is on. Local values go in the git-ignored `worker/.dev.vars`.
 
 ## 5. Elastic connection (OAuth 2.0 authorization code with PKCE)
 
@@ -225,10 +238,10 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
    `https://boardo.kaiserkhan.com/?connect&client_id=elastic&redirect_uri=https://elastic.kaiserkhan.com/&code_challenge=…&code_challenge_method=S256&state=…`
 2. Boardo signs the person in if needed, then asks "Connect Elastic?", listing what Elastic may and may never see. The options are **Allow** and **Cancel**.
 3. **Allow** calls `/oauth/approve`, which:
-   - checks `client_id` and `redirect_uri` against the clients registered in the Worker (`worker/src/oauth.ts`: `https://elastic.kaiserkhan.com/`, and `http://localhost:5173/` and `:4173/` for development; the old `/planner/` ones still listed);
+   - checks `client_id` and `redirect_uri` against the clients registered in the Worker (`worker/src/oauth.ts`: `https://elastic.kaiserkhan.com/`, and `http://localhost:5173/` and `:4173/` only when the Worker runs locally; the old `https://kaiserkhan.com/planner/` was dropped on 29 Oct 2026, since that address now sends everyone on to elastic.kaiserkhan.com);
    - stores a one-time code, hashed, valid for 5 minutes;
    - answers with `redirect_uri?code=…&state=…` for the app to go to. **Cancel** answers with `redirect_uri?error=access_denied&state=…`.
-4. Elastic checks `state` and calls `/oauth/token {code, verifier, client_id, redirect_uri}`. It receives `{access_token, token_type: 'Bearer', scope: 'elastic', user: {email, name}}`.
+4. Elastic checks `state` and calls `/oauth/token {code, verifier, client_id, redirect_uri}` (`redirect_uri` is required, and must be the one the code was given for; every version of Elastic sends it). It receives `{access_token, token_type: 'Bearer', scope: 'elastic', user: {email, name}}`.
    - The token is stored hashed in `app_tokens`.
    - It's listed in Boardo → Settings → Connected apps, where it can be removed.
    - It works on `/elastic/*` only, and a session token never works there.
@@ -337,7 +350,7 @@ All of these are in Elastic's repository.
   - Leave or delete.
   Everything in Look and Cards, new roles and the fields' order are one draft: a save bar (`.save-row`) names the changes and saves them (one `saveBoard()`, `orderFields()`, then `setRole()` for each person; a refused role stays a draft), or discards them.
 - **My cards:** grouped by deadline or by project.
-- **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, delete account. Photo (made square on the device, uploaded on save), name and colour, notifications and theme are drafts in one save bar, as in Board settings.
+- **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, sign out other devices (asks first), delete account. Photo (made square on the device, uploaded on save), name and colour, notifications and theme are drafts in one save bar, as in Board settings.
 - **Boardo has moved** (`Moving.svelte`, only in the farewell build at the old address): says where Boardo is now, brings the latest changes across, then opens the new address.
 
 **Interaction**
@@ -404,13 +417,13 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
 ## 9. Testing
 
 **Boardo unit tests (Vitest)**
-- **Permissions:** member and admin puts for every kind; a removed member is refused.
-- **Completion:** one of two assignees done, both done, an undo, a new assignee on a Completed card, and a manual status change.
-- **Logs:** the right entries come from each kind of change, and a client can't write `log`.
-- **OAuth:** PKCE verification, an unregistered redirect refused, a used or expired code refused, a revoked token refused.
-- **Files:** types checked by their first bytes, a renamed executable refused, the size limit and an admin raise.
+- **Permissions:** a member's write to `field` is refused and the board's version put back (`sync.test.ts`); a role above the member record is never taken, someone not in the board's member list is answered as removed, and a connection left open after a removal the board wasn't told of closes at its next change (`board.guard.test.ts`); a client can't write `log` (`checks.test.ts`).
+- **Completion:** one of two assignees done, both done, an undo, a new assignee on a Completed card, and a manual status change (`shared/rules.test.ts`).
+- **Logs:** what a card change logs (`shared/rules.test.ts`), a completion logged as automatic (`sync.test.ts`).
+- **OAuth** (`oauth.test.ts`): a code swapped once with its PKCE verifier, an unregistered redirect refused (the old `/planner/` one too), local redirects only when running locally, a wrong verifier, a missing or different `redirect_uri`, an expired code, a token revoked from either side, and a token never taken for another scope.
+- **Files** (`files.test.ts`): types checked by their first bytes, programs and other zips refused, CSV read as text; signed links opening for an hour as downloads, refused once expired or when anything in them is changed, and given only to members.
 - **Merge:** per-field merges, comments are never lost, and dependencies merge as a set (`merge.test.ts`).
-- **Checks:** a card's dependency list is kept once each, and refused if it holds the card itself or isn't ids (`checks.test.ts`).
+- **Checks:** a card's dependency list is kept once each, and refused if it holds the card itself or isn't ids; a field value of up to 5,000 characters (`checks.test.ts`).
 - **Backgrounds:** an upload alone never changes the board, only an uploaded image can be saved, and unsaved or replaced images are swept (`background.test.ts`).
 - **Deleting:** an archived card goes with its comments, files and time, by an admin or whoever made it (`board.test.ts`).
 - **Sync:** two people plus a non-member, each with their own fake IndexedDB, against an in-memory board DO over a fake WebSocket. It checks:
@@ -418,12 +431,18 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
   - offline edits merge;
   - the non-member never receives the board;
   - removal wipes the local copy.
-- **Auth:** code tries, the resend wait, silence on unknown emails, and rate limits. The limits and a code's tries hold with many requests at once, and a code signs in only once (`auth.test.ts`; each is one D1 statement).
+- **The Worker's front door** (`index.test.ts`): only the app's own address may call the API; the old address only for the farewell build's routes; local origins only when running locally; `/sync` and `/sync/http` answer a non-member as removed and never reach the board; a signed link without the signing key is a plain refusal.
+- **A board's limits** (`board.guard.test.ts`): rows and bytes counted with log entries, a full board refusing what makes it bigger one record at a time, the most rows, Elastic's old op ids dropped, too many puts from one person or one connection, and the updates one person's changes make.
+- **Auth** (`auth.test.ts`): the limits and a code's tries hold with many requests at once, and a code signs in only once (each is one D1 statement); an IPv6 /64 limited as one network; 30 tries a day at sent codes, with guesses at an address with no code never counted; the day's email budget, and a sign-in code refused plainly once it's spent; old rows tidied as codes are sent; an email change to a taken address answered as sent and refused at the code, signing out the other devices and telling the old address; Sign out other devices.
+- **Passkeys** (`passkeys.test.ts`): taken only from the app's own address (local copies when running locally), never the old address or another subdomain, and asking the device to check its owner.
 - **Members:** the last admin stays when two admins take each other off at once, and a change the board DO didn't get is finished by asking again (`boards.test.ts`).
+- **Invites** (`boards.test.ts`): nothing the sender typed in the subject, names escaped in the body; only the address it was sent to can join; one sent again at most every 5 minutes; 20 a day per inviter and 30 per board.
 - **Refused changes:** one bad record is refused alone, the device keeps a copy and is told, a comment on a card that's gone is refused, and a card added offline to a removed column lands in the first one (`sync.test.ts`, `checks.test.ts`).
 - **Elastic:** a stop counts only for the session's own card (`elastic.test.ts`).
-- **The bell:** who hears about what, for cards, comments and members (`notes.test.ts`); updates stored by the real Board DO, the red count and seen, read marks, a live `note` to the person's sockets, only real push services (`inbox.test.ts`); mentions matched by full or unique first name, not inside words or email addresses (`shared/mentions.test.ts`); the wording of every kind (`notetext.test.ts`); VAPID signing (`vapid.test.ts`).
-- **Moving:** a handoff code signs in once, as the same person, within two minutes, and is kept only as a hash (`auth.test.ts`).
+- **The bell:** who hears about what, for cards, comments and members (`notes.test.ts`); updates stored by the real Board DO, the red count and seen, read marks, a live `note` to the person's sockets, only real push services, ten browsers per person at most (`inbox.test.ts`); mentions matched by full or unique first name, not inside words or email addresses (`shared/mentions.test.ts`); the wording of every kind (`notetext.test.ts`); VAPID signing (`vapid.test.ts`).
+- **Moving:** a handoff code signs in once, as the same person, within two minutes, is kept only as a hash, ends the session it came from, and can say whose it is without being used (`auth.test.ts`).
+- **Polling** (`pollsocket.test.ts`): the board on screen every 4 s, others backing off, one at once when a board comes on screen, none while hidden.
+- **Headers** (`headers.test.ts`): the content policy's hash matches the inline script, and every page refuses frames.
 
 **Elastic unit tests**
 - `cardsFor`:

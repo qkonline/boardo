@@ -329,9 +329,11 @@ Every card has these fields.
 ### 11.1 Security and privacy
 
 - **R11.1** Access is checked on the server for every request and every live connection. Hiding things on screen is never the only protection.
-- **R11.2** Sign-in codes expire after 10 minutes, allow 5 tries and work once. Sending is rate-limited per address and per network, and every request that needs no sign-in is limited to 60 a minute from one network. The app never reveals whether an email address has an account.
+- **R11.2** Sign-in codes expire after 10 minutes, allow 5 tries and work once, and an address gets 30 tries a day. Sending is rate-limited per address and per network, and every request that needs no sign-in is limited to 60 a minute from one network. The app never reveals whether an email address has an account, also when changing one's email. Boardo sends at most 35 emails a day in all (its share of a free email account it shares with other sites); once they're used, sign-in by code waits for the next day and says so.
+- **R11.2a** Changing one's email signs out every other device and tells the old address. Account can sign out every other device at once.
+- **R11.2b** Invite emails are limited per person and per board each day, and their subject never carries words the sender chose.
 - **R11.3** Sign-in sessions and connection tokens are stored only in scrambled (hashed) form on the server.
-- **R11.4** Only Boardo's own site, and Elastic for its narrow connection, may call the API.
+- **R11.4** Only Boardo's own site, and Elastic for its narrow connection, may call the API. Boardo's old address may only hand its copies over, and passkeys work only on Boardo's own site. Boardo's pages can't be shown inside another site.
 - **R11.5** Files are served only to board members, through short-lived links, and non-image files always download rather than open in the browser.
 - **R11.6** A person can delete their account. They can't while they're the last admin of a board (R2.4).
 
@@ -339,6 +341,7 @@ Every card has these fields.
 
 - **R11.7** Attachments: 30 MB each by default, adjustable by an admin up to 100 MB (R4.17).
 - **R11.8** The design should comfortably handle a person being in about 20 boards. More is allowed but may need later work.
+- **R11.8a** One board holds at most 100,000 records and 20 MB of text; once full, it takes only changes that make nothing bigger, and refuses the rest as any refused change (R9.5a). One person can't change a board, or Boardo's records, faster than people do.
 
 ### 11.3 Design and wording
 

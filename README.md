@@ -49,8 +49,10 @@ npm run build
 ```
 
 For local development, put `DEV_MAIL=1` and a `FILE_SIGNING_KEY` in `worker/.dev.vars`; sign-in
-codes are then kept in memory and readable at `POST /dev/mail` instead of being emailed. Apply
-the database schema with `npx wrangler d1 migrations apply boardo --local` from `worker/`.
+codes are then kept in memory and readable at `POST /dev/mail` instead of being emailed. It also
+lets in the local origins (`DEV_ORIGINS` in `worker/wrangler.toml`) and Elastic's local
+addresses, which the live Worker refuses. Apply the database schema with
+`npx wrangler d1 migrations apply boardo --local` from `worker/`.
 
 ## Licence
 
