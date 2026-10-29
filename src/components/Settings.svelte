@@ -6,6 +6,7 @@
   import type { CardRec, ColumnRec, CommentRec, FieldRec } from '../../shared/model';
   import { splitRid } from '../lib/db';
   import { cancelled, passkeysAvailable } from '../lib/passkeys';
+  import { squarePhoto } from '../lib/images';
   import { alertsOff, alertsOn, alertState, type AlertState } from '../lib/push';
   import { app, type Theme } from '../lib/store.svelte';
   import Avatar from './Avatar.svelte';
@@ -17,7 +18,6 @@
   // svelte-ignore state_referenced_locally
   let hue = $state<Hue>((app.user?.hue as Hue) ?? 'indigo');
   let saving = $state(false);
-  const changed = $derived(!!app.user && (name.trim() !== (app.user.name ?? '') || hue !== app.user.hue));
 
   // Changing the email: a code goes to the new address, and only that changes it.
   let emailStep = $state<'idle' | 'new' | 'code'>('idle');
@@ -58,9 +58,17 @@
     if (emailStep === 'code' && emailCode.replace(/\D/g, '').length === 6 && !emailBusy && !emailError) void confirmChange();
   });
 
-  // A profile photo: made square and small on the device, shown to the people in your boards.
+  // A profile photo: made square and small on the device, shown to the people in your boards. A
+  // new one (with a preview) or its removal is a draft until Save changes.
   let photoPicker: HTMLInputElement | null = $state(null);
   let photoBusy = $state(false);
+  let photoDraft = $state<{ blob: Blob; url: string } | 'remove' | null>(null);
+  const dropDraftPhoto = () => {
+    if (photoDraft && photoDraft !== 'remove') URL.revokeObjectURL(photoDraft.url);
+    photoDraft = null;
+  };
+  $effect(() => dropDraftPhoto);
+  const hasPhoto = $derived(photoDraft ? photoDraft !== 'remove' : !!app.user?.photo);
   async function pickPhoto(e: Event) {
     const input = e.currentTarget as HTMLInputElement;
     const f = input.files?.[0];
@@ -68,22 +76,18 @@
     if (!f) return;
     photoBusy = true;
     try {
-      await app.setPhoto(f);
+      const blob = await squarePhoto(f);
+      dropDraftPhoto();
+      photoDraft = { blob, url: URL.createObjectURL(blob) };
     } catch (err) {
       app.say((err as Error).message);
     } finally {
       photoBusy = false;
     }
   }
-  async function dropPhoto() {
-    photoBusy = true;
-    try {
-      await app.removePhoto();
-    } catch (err) {
-      app.say((err as Error).message);
-    } finally {
-      photoBusy = false;
-    }
+  function dropPhoto() {
+    dropDraftPhoto();
+    if (app.user?.photo) photoDraft = 'remove';
   }
 
   let keys = $state<{ id: string; label: string; created: number; used: number | null }[] | null>(null);
@@ -136,16 +140,68 @@
     if (app.online) void loadApps();
   });
 
-  async function save() {
+  // Notifications on this device for updates in the bell (push.ts), worded as in Elastic.
+  let alerts = $state<AlertState | null>(null);
+  let alertDraft = $state<boolean | null>(null);
+  const alertsShown = $derived(alertDraft == null ? alerts === 'on' : alertDraft);
+  void alertState().then((s) => (alerts = s));
+  const alertText = $derived(
+    alerts === 'install'
+      ? 'On iPhone and iPad, notifications work once Boardo is on your Home Screen.'
+      : alerts === 'unsupported'
+        ? "This browser can't show notifications. Updates still show in the bell."
+        : alerts === 'blocked'
+          ? "Notifications are blocked for this site. Allow them in your browser's site settings to turn them on here."
+          : alertsShown
+            ? "You'll get one for each update in the bell, even with Boardo closed or your phone locked."
+            : "Get a notification for each update in the bell, even when you're not looking at Boardo.",
+  );
+  function toggleAlerts() {
+    alertDraft = !alertsShown === (alerts === 'on') ? null : !alertsShown;
+  }
+
+  // Every choice on this page waits for the save bar's Save changes. Passkeys, connected apps,
+  // the email (its own code), signing out and deleting are actions with their own keys.
+  let themeDraft = $state<Theme | null>(null);
+  const theme = $derived(themeDraft ?? app.theme);
+  const changes = $derived([
+    ...(photoDraft ? ['Photo'] : []),
+    ...(app.user && name.trim() !== (app.user.name ?? '') ? ['Name'] : []),
+    ...(app.user && hue !== app.user.hue ? ['Colour'] : []),
+    ...(alertDraft != null && alertDraft !== (alerts === 'on') ? ['Notifications'] : []),
+    ...(themeDraft && themeDraft !== app.theme ? ['Theme'] : []),
+  ]);
+  async function saveAll() {
     saving = true;
     try {
-      await app.saveProfile({ name: name.trim(), hue });
+      // Notifications first, straight from the tap: the browser only asks for permission then.
+      if (changes.includes('Notifications')) {
+        try {
+          alerts = alertDraft ? await alertsOn() : await alertsOff();
+        } catch (e) {
+          app.say((e as Error).message);
+        }
+        alertDraft = null;
+      }
+      if (changes.includes('Theme')) app.setTheme(themeDraft!);
+      themeDraft = null;
+      if (changes.includes('Name') || changes.includes('Colour')) await app.saveProfile({ name: name.trim(), hue });
+      if (photoDraft === 'remove') await app.removePhoto();
+      else if (photoDraft) await app.setPhoto(photoDraft.blob);
+      dropDraftPhoto();
       app.say('Saved.');
     } catch (e) {
       app.say((e as Error).message);
     } finally {
       saving = false;
     }
+  }
+  function discard() {
+    name = app.user?.name ?? '';
+    hue = (app.user?.hue as Hue) ?? 'indigo';
+    dropDraftPhoto();
+    alertDraft = null;
+    themeDraft = null;
   }
 
   async function revoke(id: string) {
@@ -164,32 +220,6 @@
     } catch (e) {
       armed = null;
       app.say((e as Error).message);
-    }
-  }
-
-  // Notifications on this device for updates in the bell (push.ts), worded as in Elastic.
-  let alerts = $state<AlertState | null>(null);
-  let alertBusy = $state(false);
-  void alertState().then((s) => (alerts = s));
-  const alertText = $derived(
-    alerts === 'install'
-      ? 'On iPhone and iPad, notifications work once Boardo is on your Home Screen.'
-      : alerts === 'unsupported'
-        ? "This browser can't show notifications. Updates still show in the bell."
-        : alerts === 'blocked'
-          ? "Notifications are blocked for this site. Allow them in your browser's site settings to turn them on here."
-          : alerts === 'on'
-            ? "You'll get one for each update in the bell, even with Boardo closed or your phone locked."
-            : "Get a notification for each update in the bell, even when you're not looking at Boardo.",
-  );
-  async function toggleAlerts() {
-    alertBusy = true;
-    try {
-      alerts = alerts === 'on' ? await alertsOff() : await alertsOn();
-    } catch (e) {
-      app.say((e as Error).message);
-    } finally {
-      alertBusy = false;
     }
   }
 
@@ -236,7 +266,7 @@
   ];
 </script>
 
-<main class="page">
+<main class="page" class:saving-room={changes.length > 0}>
   <div class="title">
     <h1>Account</h1>
     <Bell where="head" />
@@ -270,13 +300,17 @@
     <h2>You</h2>
     <div class="card form">
       <div class="photo">
-        {#if app.user}<Avatar person={{ ...app.user, name: app.user.name ?? app.user.email }} size={64} />{/if}
+        {#if app.user}<Avatar
+            person={{ ...app.user, name: app.user.name ?? app.user.email, photo: photoDraft === 'remove' ? null : app.user.photo }}
+            src={photoDraft && photoDraft !== 'remove' ? photoDraft.url : undefined}
+            size={64}
+          />{/if}
         <div class="photo-acts">
-          <button class="btn" disabled={photoBusy || !app.online} onclick={() => photoPicker?.click()}
-            >{photoBusy ? 'Uploading…' : app.user?.photo ? 'Change photo' : 'Add a photo'}</button
+          <button class="btn" disabled={photoBusy || saving || !app.online} onclick={() => photoPicker?.click()}
+            >{photoBusy ? 'Getting it ready…' : hasPhoto ? 'Change photo' : 'Add a photo'}</button
           >
-          {#if app.user?.photo}
-            <button class="btn ghost" disabled={photoBusy || !app.online} onclick={dropPhoto}>Remove</button>
+          {#if hasPhoto}
+            <button class="btn ghost" disabled={photoBusy || saving} onclick={dropPhoto}>Remove</button>
           {/if}
         </div>
         <input bind:this={photoPicker} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" hidden onchange={pickPhoto} />
@@ -285,7 +319,6 @@
       <input id="me-name" class="field" maxlength="60" autocomplete="name" bind:value={name} />
       <span class="label">Colour</span>
       <HuePicker bind:value={hue} />
-      <div><button class="key ink" disabled={saving || !changed || !name.trim()} onclick={save}>Save</button></div>
 
       <div class="email-box">
         <span class="label">Email</span>
@@ -349,11 +382,11 @@
         </div>
         <button
           class="switch"
-          class:on={alerts === 'on'}
+          class:on={alertsShown}
           role="switch"
-          aria-checked={alerts === 'on'}
+          aria-checked={alertsShown}
           aria-label="Notifications on this device"
-          disabled={alertBusy || alerts === 'install' || alerts === 'unsupported' || alerts === 'blocked'}
+          disabled={saving || alerts === 'install' || alerts === 'unsupported' || alerts === 'blocked'}
           onclick={toggleAlerts}><span></span></button
         >
       </div>
@@ -389,7 +422,7 @@
     <h2>Theme</h2>
     <div class="seg" role="group" aria-label="Theme">
       {#each themes as t (t.id)}
-        <button aria-pressed={app.theme === t.id} onclick={() => app.setTheme(t.id)}><Icon name={t.icon} /> {t.label}</button>
+        <button aria-pressed={theme === t.id} onclick={() => (themeDraft = t.id === app.theme ? null : t.id)}><Icon name={t.icon} /> {t.label}</button>
       {/each}
     </div>
   </section>
@@ -431,6 +464,17 @@
     {/if}
     <p class="small">Boardo is open source: <a href="https://github.com/qkonline/boardo" target="_blank" rel="noopener">github.com/qkonline/boardo</a></p>
   </section>
+
+  {#if changes.length}
+    <!-- One bar for everything on this page not saved yet. -->
+    <div class="save-row" role="region" aria-label="Changes not saved">
+      <div class="save-in">
+        <span class="unsaved">Not saved yet: {changes.join(', ')}</span>
+        <button class="key" disabled={saving} onclick={discard}>Discard</button>
+        <button class="key ink" disabled={saving || !name.trim()} onclick={saveAll}>Save changes</button>
+      </div>
+    </div>
+  {/if}
 </main>
 
 <style>
@@ -441,6 +485,39 @@
       calc(var(--bar-h) + 40px + env(safe-area-inset-bottom)) max(var(--px), env(safe-area-inset-left));
     display: grid;
     gap: 24px;
+  }
+  .page.saving-room {
+    padding-bottom: calc(var(--bar-h) + 120px + env(safe-area-inset-bottom));
+  }
+  .save-row {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: calc(var(--bar-h) + env(safe-area-inset-bottom));
+    z-index: 4;
+    background: var(--raised);
+    border-top: 1px solid var(--border);
+  }
+  .save-in {
+    max-width: 640px;
+    margin: 0 auto;
+    box-sizing: border-box;
+    padding: 12px max(var(--px), env(safe-area-inset-right)) 12px max(var(--px), env(safe-area-inset-left));
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .unsaved {
+    flex: 1;
+    min-width: 160px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+  @media (min-width: 768px) {
+    .save-row {
+      bottom: 0;
+    }
   }
   h1 {
     margin: 0;

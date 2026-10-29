@@ -44,6 +44,7 @@ Afterwards:
 
 - **R2.1** Anyone can create an account with their email address and sign in from any device.
 - **R2.2** On first sign-in, a person gives their name. They can change it later, and their email (confirmed with a code sent to the new address), and add a profile photo, which the people in their boards see in place of their initials.
+- **R2.2a** In Account, nothing applies as it's changed: a new or removed photo, the name and colour, notifications on the device and the theme wait in one save bar that names them, with Discard and Save changes. Passkeys, connected apps, the email (its own code), signing out and deleting the account are actions with their own keys.
 - **R2.2a** Tapping someone's name, face or mention (in comments and descriptions, the People on a card, a card's History) shows who they are: their name (first and last), email (tap to write to them), their role in the board, and how many open cards they have there.
 
 ### 2.2 Board roles
@@ -70,7 +71,7 @@ Each board has two roles.
 ### 2.3 Each person's views
 
 - **R2.5a** Each person arranges the boards on Boards in their own order: dragging a tile (holding it first on a touch screen, so a swipe still scrolls), or Alt and an arrow key on one. It's theirs alone, kept with their account so every device shows it, and saved at once like dragging a card (offline, it waits and is sent later). New boards, and boards they join, come after the ones they've placed. Each tile is a link to its board, so it can open in a new tab.
-- **R2.6b** A board's settings are in tabs, each with its own address: **Look** (name, colour, background, scrolling), **Cards** (what new cards go to and start as, the largest attachment), **People** (members, roles, invites), **Fields**, and **Leave or delete**; a side menu on a computer, a row of pills on a phone. A member sees People and Leave or delete. Whatever is changed in Look and Cards waits in one save bar at the foot of the screen, which names each change and saves or discards them together. Background and scrolling are chosen from small pictures of each. Fields are put in order by dragging their grip, or with the arrow keys on it.
+- **R2.6b** A board's settings are in tabs, each with its own address: **Look** (name, colour, background, scrolling), **Cards** (what new cards go to and start as, the largest attachment), **People** (members, roles, invites), **Fields**, and **Leave or delete**; a side menu on a computer, a row of pills on a phone. A member sees People and Leave or delete. Whatever is changed in Look and Cards, someone's role, or the fields' order waits in one save bar at the foot of the screen, which names each change and saves or discards them together. Inviting, removing someone, a field's own Save field, leaving and deleting are actions with their own keys. Background and scrolling are chosen from small pictures of each. Fields are put in order by dragging their grip, or with the arrow keys on it.
 - **R2.6** Every person can switch between:
   - **a project board**, showing only that project's cards;
   - **My cards**, showing every card assigned to them across all their projects, visible only to them;

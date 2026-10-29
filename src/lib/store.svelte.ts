@@ -18,7 +18,7 @@ import {
 } from '../../shared/model';
 import { optionWithRole, sameNamed, settle, statusAsPart, withNewCardDefaults } from '../../shared/rules';
 import { API, ApiError, call, putBlob, setToken, whenSignedOut } from './api';
-import { fitImage, squarePhoto } from './images';
+import { fitImage } from './images';
 import { BoardState } from './board.svelte';
 import * as db from './db';
 import { splitRid } from './db';
@@ -472,9 +472,9 @@ export class App {
     await db.putMeta('session', { token: this.token, user: res.user });
   }
 
-  /** A profile photo: made square and small here, then uploaded. */
-  async setPhoto(file: File): Promise<void> {
-    const res = await putBlob<{ user: User | null }>('/me/photo', await squarePhoto(file));
+  /** A profile photo, already made square and small (`squarePhoto`), uploaded. */
+  async setPhoto(photo: Blob): Promise<void> {
+    const res = await putBlob<{ user: User | null }>('/me/photo', photo);
     if (res.user) this.user = res.user;
     await db.putMeta('session', { token: this.token, user: this.user });
   }
@@ -1037,28 +1037,32 @@ export class App {
     await this.put(board, changes);
   }
 
-  async moveField(board: string, id: string, dir: -1 | 1): Promise<void> {
-    const list = this.data[board].fields;
-    const i = list.findIndex((f) => f.id === id);
-    const j = i + dir;
-    if (i < 0 || j < 0 || j >= list.length) return;
-    const [a, b] = dir < 0 ? [list[j - 1], list[j]] : [list[j], list[j + 1]];
-    await this.saveField(board, { ...list[i], order: between(a?.order, b?.order) });
-  }
-
-  /** A field dragged to a new place (admins): it alone changes, ordered between its new neighbours. */
-  async placeField(board: string, id: string, ids: string[]): Promise<void> {
-    const fields = this.data[board].field;
-    const f = fields.get(id);
-    const i = ids.indexOf(id);
-    if (!f || i < 0) return;
-    const before = i > 0 ? fields.get(ids[i - 1]) : undefined;
-    const after = fields.get(ids[i + 1] ?? '');
-    await this.saveField(board, { ...f, order: between(before?.order, after?.order) });
+  /**
+   * The fields in a new order (admins, from Board settings' Save changes). Fields that keep their
+   * place among the others keep their order; only the moved ones change, each between its new
+   * neighbours. Fields missing from `ids` (added meanwhile) stay at the end.
+   */
+  async orderFields(board: string, ids: string[]): Promise<void> {
+    const b = this.data[board];
+    const list = [...ids.map((id) => b.field.get(id)).filter((f) => !!f), ...b.fields.filter((f) => !ids.includes(f.id))];
+    // The longest run already in order stays put (the rest move around it).
+    const keep = steady(list.map((f) => f.order));
+    const orders = list.map((f) => f.order);
+    for (let i = 0; i < list.length; i++) {
+      if (keep.has(i)) continue;
+      const next = list.findIndex((_, j) => j > i && keep.has(j));
+      orders[i] = between(i > 0 ? orders[i - 1] : null, next < 0 ? null : orders[next]);
+    }
+    const changes = list.flatMap((f, i) => (orders[i] === f.order ? [] : [{ kind: 'field' as Kind, key: f.id, data: { ...f, order: orders[i] } }]));
+    if (changes.length) await this.put(board, changes);
   }
 
   async setRole(board: string, userId: string, role: Role): Promise<void> {
     await call('/members/role', { board, user: userId, role });
+    // Shown at once; the board's own copy of the record follows over sync.
+    const b = this.data[board];
+    const m = b?.member.get(userId);
+    if (m) b.apply([{ kind: 'member', key: userId, data: { ...m, role } }]);
   }
 
   async removeMember(board: string, userId: string): Promise<void> {
@@ -1103,3 +1107,18 @@ export class App {
 
 export const app = new App();
 export { ApiError };
+
+/** The places of the longest run of numbers already in rising order (kept when reordering). */
+function steady(xs: number[]): Set<number> {
+  const len = xs.map(() => 1);
+  const prev = xs.map(() => -1);
+  for (let i = 0; i < xs.length; i++)
+    for (let j = 0; j < i; j++)
+      if (xs[j] < xs[i] && len[j] + 1 > len[i]) {
+        len[i] = len[j] + 1;
+        prev[i] = j;
+      }
+  const keep = new Set<number>();
+  for (let i = len.indexOf(Math.max(0, ...len)); i >= 0; i = prev[i]) keep.add(i);
+  return keep;
+}

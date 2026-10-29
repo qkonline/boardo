@@ -333,11 +333,11 @@ All of these are in Elastic's repository.
   - Look: name, colour, background (None, Colour or Image as picture choices, with Change image and Remove image) and Scrolling (`BoardRec.pageScroll`, two pictured choices);
   - Cards: who every new card goes to and its status (`BoardRec.newCards`, applied by `withNewCardDefaults()` in `shared/rules.ts`, in the app's `addCard()` and on the board for a new card a device sent without them), and the largest attachment;
   - People: members and roles, inviting (Member or Admin), invites waiting with Resend and Cancel;
-  - Fields: the fields editor (`FieldsEditor.svelte`), each field dragged by its grip (`tiledrag.ts` with `attr: 'field'`, `handle: '.grip'`; `app.placeField()`) or moved with the arrow keys on it;
+  - Fields: the fields editor (`FieldsEditor.svelte`), each field dragged by its grip (`tiledrag.ts` with `attr: 'field'`, `handle: '.grip'`) or moved with the arrow keys on it, kept as a draft order (`FieldsEditor`'s bindable `order`) and saved by `app.orderFields()`, which changes only the fields that moved;
   - Leave or delete.
-  Everything in Look and Cards is one draft: a save bar (`.save-row`) names the changes and saves them in one `saveBoard()`, or discards them.
+  Everything in Look and Cards, new roles and the fields' order are one draft: a save bar (`.save-row`) names the changes and saves them (one `saveBoard()`, `orderFields()`, then `setRole()` for each person; a refused role stays a draft), or discards them.
 - **My cards:** grouped by deadline or by project.
-- **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, delete account.
+- **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, delete account. Photo (made square on the device, uploaded on save), name and colour, notifications and theme are drafts in one save bar, as in Board settings.
 - **Boardo has moved** (`Moving.svelte`, only in the farewell build at the old address): says where Boardo is now, brings the latest changes across, then opens the new address.
 
 **Interaction**

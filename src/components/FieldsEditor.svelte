@@ -6,15 +6,17 @@
   import Icon from './Icon.svelte';
   import StatusChip from './StatusChip.svelte';
   import { flip } from 'svelte/animate';
+  import { tick } from 'svelte';
   import { tileDrag } from '../lib/tiledrag';
 
   /**
    * The board's fields (admins, R4.2 to R4.9): built-in dates can switch between date and date
    * and time; Status values can be renamed and added (the In progress and Completed ones can't
    * be removed); custom fields can be added, renamed, retyped and removed; any field is reordered
-   * by dragging its grip (or the arrow keys on it).
+   * by dragging its grip (or the arrow keys on it). A new order is a draft, `order`, kept until the
+   * settings' Save changes.
    */
-  let { b }: { b: BoardState } = $props();
+  let { b, order = $bindable(null) }: { b: BoardState; order?: string[] | null } = $props();
 
   const TYPE_NAMES: Record<FieldType, string> = {
     text: 'Text',
@@ -27,23 +29,40 @@
     person: 'Person',
   };
 
-  // The order shown while a field is dragged.
+  // The draft order (fields added since go at the end), and the order shown while one is dragged.
+  const ordered = $derived.by(() => {
+    if (!order) return b.fields;
+    const listed = order.map((id) => b.field.get(id)).filter((f) => !!f);
+    return [...listed, ...b.fields.filter((f) => !order!.includes(f.id))];
+  });
   let preview = $state<string[] | null>(null);
   let lifted = $state<string | null>(null);
-  const shown = $derived(preview ? preview.map((id) => b.field.get(id)).filter((f) => !!f) : b.fields);
+  const shown = $derived(preview ? preview.map((id) => b.field.get(id)).filter((f) => !!f) : ordered);
+  /** A new order: kept as a draft, or none when it's the saved one again. */
+  function place(ids: string[]) {
+    order = ids.join() === b.fields.map((f) => f.id).join() ? null : ids;
+  }
   const arrange = (el: HTMLElement) =>
     tileDrag(el, {
       attr: 'field',
       handle: '.grip',
-      ids: () => b.fields.map((f) => f.id),
+      ids: () => ordered.map((f) => f.id),
       preview: (ids, id) => ((preview = ids), (lifted = id ?? null)),
-      drop: (ids, id) => void app.placeField(b.id, id, ids),
+      drop: (ids) => place(ids),
     });
   function nudge(e: KeyboardEvent, id: string) {
     const d = e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0;
     if (!d) return;
     e.preventDefault();
-    void app.moveField(b.id, id, d);
+    const ids = ordered.map((f) => f.id);
+    const i = ids.indexOf(id);
+    const j = i + d;
+    if (i < 0 || j < 0 || j >= ids.length) return;
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+    const grip = e.currentTarget as HTMLElement;
+    place(ids);
+    // The row moves in the page, which drops its focus: keep it on the grip for the next key.
+    void tick().then(() => grip.focus());
   }
 
   let open = $state<string | null>(null);

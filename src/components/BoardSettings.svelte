@@ -16,8 +16,9 @@
    * A board's settings, one topic per tab (a side menu on a computer, pills on a phone; each tab
    * has its own address): Look (name, colour, background, scrolling), Cards (what new cards start
    * with, the largest attachment), People (members, roles, invites), Fields, and Leave or delete.
-   * Members see People and Leave. Everything in Look and Cards is a draft until the one save bar's
-   * Save changes, whichever tab it was made in.
+   * Members see People and Leave. Every change (Look, Cards, people's roles, the fields' order) is a
+   * draft until the one save bar's Save changes, whichever tab it was made in. Inviting, removing
+   * someone, a field's own Save field, leaving and deleting are actions with their own keys.
    */
   let { id }: { id: string } = $props();
   const b = $derived(app.data[id]);
@@ -103,6 +104,15 @@
     bgKind === 'none' ? null : bgKind === 'colour' ? { hue: bgHue } : imageId ? { image: imageId } : (b?.board?.background ?? null),
   );
 
+  // People's new roles (by user id), and the fields' new order.
+  let roles = $state<Record<string, Role>>({});
+  const roleChanges = $derived(Object.entries(roles).filter(([u, r]) => b?.member.get(u) && b.member.get(u)!.role !== r));
+  function pickRole(userId: string, r: Role) {
+    const { [userId]: _, ...rest } = roles;
+    roles = b?.member.get(userId)?.role === r ? rest : { ...rest, [userId]: r };
+  }
+  let fieldOrder = $state<string[] | null>(null);
+
   const changes = $derived.by(() => {
     const r = b?.board;
     if (!r) return [];
@@ -114,8 +124,11 @@
     const nc = ncOf(r);
     if (ncAssignee !== nc.assignee || ncStatus !== nc.status) out.push('New cards');
     if (limit !== r.maxUploadMB) out.push('Largest attachment');
+    if (roleChanges.length) out.push(roleChanges.length === 1 ? 'Role' : 'Roles');
+    if (fieldOrder) out.push('Field order');
     return out;
   });
+  const BOARD_PARTS = ['Name', 'Colour', 'Background', 'Scrolling', 'New cards', 'Largest attachment'];
   const limitOk = $derived(Number.isFinite(limit) && limit >= 1 && limit <= 100);
   const canSave = $derived(changes.length > 0 && !!name.trim() && limitOk);
   let saving = $state(false);
@@ -123,14 +136,30 @@
   async function saveAll() {
     if (!canSave || !b?.board) return;
     saving = true;
-    const patch: Partial<BoardRec> = { name: name.trim(), hue, pageScroll };
-    if (changes.includes('Background')) patch.background = draftBg ?? null;
-    if (changes.includes('New cards'))
-      patch.newCards = ncAssignee || ncStatus ? { assignee: ncAssignee || null, status: ncStatus || null } : null;
-    if (changes.includes('Largest attachment')) patch.maxUploadMB = Math.round(limit);
     try {
-      await app.saveBoard(id, patch);
-      dropNew();
+      if (changes.some((c) => BOARD_PARTS.includes(c))) {
+        const patch: Partial<BoardRec> = { name: name.trim(), hue, pageScroll };
+        if (changes.includes('Background')) patch.background = draftBg ?? null;
+        if (changes.includes('New cards'))
+          patch.newCards = ncAssignee || ncStatus ? { assignee: ncAssignee || null, status: ncStatus || null } : null;
+        if (changes.includes('Largest attachment')) patch.maxUploadMB = Math.round(limit);
+        await app.saveBoard(id, patch);
+        dropNew();
+      }
+      if (fieldOrder) {
+        await app.orderFields(id, fieldOrder);
+        fieldOrder = null;
+      }
+      // Roles go to the directory one by one; one refused (the last admin, say) stays a draft.
+      for (const [user, r] of roleChanges) {
+        try {
+          await app.setRole(id, user, r);
+          const { [user]: _, ...rest } = roles;
+          roles = rest;
+        } catch (e) {
+          app.say((e as Error).message);
+        }
+      }
     } finally {
       saving = false;
     }
@@ -138,6 +167,8 @@
   function discard() {
     dropNew();
     reset();
+    roles = {};
+    fieldOrder = null;
   }
 
   let bgPicker: HTMLInputElement | null = $state(null);
@@ -358,8 +389,8 @@
                     <select
                       class="field role"
                       aria-label="Role of {m.name}"
-                      value={m.role}
-                      onchange={(e) => act(() => app.setRole(id, m.userId, e.currentTarget.value as Role))}
+                      value={roles[m.userId] ?? m.role}
+                      onchange={(e) => pickRole(m.userId, e.currentTarget.value as Role)}
                     >
                       <option value="member">Member</option>
                       <option value="admin">Admin</option>
@@ -424,7 +455,7 @@
           {/if}
         {:else if tab.id === 'fields'}
           <p class="note">Every card in this board has these. Members fill them in; only admins change them.</p>
-          <FieldsEditor {b} />
+          <FieldsEditor {b} bind:order={fieldOrder} />
         {:else if tab.id === 'leave'}
           <div class="card out-card">
             <div class="what">

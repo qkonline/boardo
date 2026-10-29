@@ -5,11 +5,11 @@
 
   /** A person as a small coloured square with their initials. */
   type Person = Pick<MemberRec, 'name' | 'hue'> & { photo?: string | null; userId?: string; id?: string };
-  let { person, size = 24 }: { person: Person | null | undefined; size?: number } = $props();
+  let { person, size = 24, src }: { person: Person | null | undefined; size?: number; src?: string } = $props();
   const bg = $derived(hueColor(person?.hue));
-  // Their profile photo, when they have one.
+  // Their profile photo, when they have one (or `src`, a photo not saved yet).
   const photo = $derived(
-    person?.photo && (person.userId ?? person.id) ? `${API}/photos/${person.userId ?? person.id}/${person.photo}` : null,
+    src ?? (person?.photo && (person.userId ?? person.id) ? `${API}/photos/${person.userId ?? person.id}/${person.photo}` : null),
   );
 </script>
 
