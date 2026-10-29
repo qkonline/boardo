@@ -1,7 +1,8 @@
 // Members and roles (boards.ts): the directory on node:sqlite, and a board that can fail to answer.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeD1 } from '../../test/fake-d1';
-import { listBoards, orderBoards, removeMember, setRole } from './boards';
+import { acceptInvite, createInvite, listBoards, orderBoards, removeMember, resendInvite, setRole } from './boards';
+import { devOutbox } from './mail';
 
 let db: ReturnType<typeof fakeD1>['db'];
 let env: any;
@@ -109,5 +110,58 @@ describe("each person's order of their boards", () => {
     await orderBoards(env, 'cy', { ids: ['b3', 'b1'] });
     expect(await order('ann')).toEqual(['b1', 'b2', 'b3']);
     await expect(orderBoards(env, 'ann', { ids: 'b1' })).rejects.toThrow();
+  });
+});
+
+describe('invites', () => {
+  beforeEach(() => {
+    env.DEV_MAIL = '1';
+    env.APP_URL = 'https://boardo.kaiserkhan.com/';
+    devOutbox.length = 0;
+    db.exec(`UPDATE users SET name = '<b>Free money</b> at evil.example' WHERE id = 'ann'`);
+    db.exec(`UPDATE boards SET name = 'Click http://evil.example' WHERE id = 'b1'`);
+  });
+  const token = () => devOutbox.at(-1)!.text.match(/invite=([\w-]+)/)![1];
+
+  it('puts nothing the sender typed in the subject, and escapes it in the body', async () => {
+    await createInvite(env, 'ann', { board: 'b1', email: 'dee@x.com' });
+    const mail = devOutbox.at(-1)!;
+    expect(mail.subject).toBe("You're invited to a board on Boardo");
+    expect(mail.html).toContain('&#60;b&#62;Free money&#60;/b&#62;');
+    expect(mail.html).not.toContain('<b>Free money');
+  });
+
+  it('only lets in the address it was sent to', async () => {
+    db.exec(`INSERT INTO users (id, email, name, created) VALUES ('dee', 'dee@x.com', 'Dee', 1), ('eve', 'eve@x.com', 'Eve', 1)`);
+    await createInvite(env, 'ann', { board: 'b1', email: 'dee@x.com' });
+    const t = token();
+    await expect(acceptInvite(env, 'eve', { token: t })).rejects.toThrow(/That invite is for dee@x.com/);
+    expect(role('eve')).toBeNull();
+    await acceptInvite(env, 'dee', { token: t });
+    expect(role('dee')).toBe('member');
+  });
+
+  it('sends one invite again at most every five minutes', async () => {
+    await createInvite(env, 'ann', { board: 'b1', email: 'dee@x.com' });
+    const { id } = db.prepare('SELECT id FROM invites').get() as { id: string };
+    await expect(resendInvite(env, 'ann', { id })).rejects.toThrow(/just sent/);
+    await expect(createInvite(env, 'ann', { board: 'b1', email: 'dee@x.com' })).rejects.toThrow(/just sent/);
+    db.prepare('UPDATE invites SET created = created - 300001').run();
+    await resendInvite(env, 'ann', { id });
+    expect(devOutbox).toHaveLength(2);
+  });
+
+  it('sends at most 20 a day from one person', async () => {
+    const r = [];
+    for (let i = 0; i < 21; i++) r.push(await createInvite(env, 'ann', { board: 'b1', email: `p${i}@x.com` }).then(() => 'ok', (e) => e.message));
+    expect(r.filter((x) => x === 'ok')).toHaveLength(20);
+    expect(r[20]).toMatch(/as many invites/);
+  });
+
+  it('sends at most 30 a day for one board, whoever sends them', async () => {
+    let ok = 0;
+    for (let i = 0; i < 20; i++) await createInvite(env, 'ann', { board: 'b1', email: `a${i}@x.com` }).then(() => ok++, () => {});
+    for (let i = 0; i < 20; i++) await createInvite(env, 'bob', { board: 'b1', email: `b${i}@x.com` }).then(() => ok++, () => {});
+    expect(ok).toBe(30);
   });
 });

@@ -4,7 +4,7 @@
 
 import type { BoardRec, Hue, MemberRec, Role } from '../../shared/model';
 import { DEFAULT_UPLOAD_MB } from '../../shared/model';
-import { getUser, randomToken, Refusal, sha256, type User } from './auth';
+import { DAY_MS, esc, getUser, randomToken, Refusal, sha256, type User, withinLimit } from './auth';
 import { cleanEmail, isHue, isId, text } from './checks';
 import type { Env } from './env';
 import { dropBoardNotes } from './inbox';
@@ -12,6 +12,14 @@ import { sendMail } from './mail';
 
 const INVITE_MS = 14 * 24 * 3600_000;
 const MAX_BOARDS = 200;
+/** Invite emails (new and sent again) a day: per person sending them, and per board. */
+const INVITES_PER_INVITER = 20;
+const INVITES_PER_BOARD = 30;
+/** One invite is sent again at most this often. */
+const RESEND_GAP_MS = 5 * 60_000;
+/** New boards per person per day, and reorderings of their boards per hour. */
+const BOARDS_A_DAY = 20;
+const ORDERS_AN_HOUR = 120;
 
 export const boardStub = (env: Env, id: string) => env.BOARDS.get(env.BOARDS.idFromName(id));
 
@@ -56,18 +64,25 @@ const memberRec = (u: User, role: Role): MemberRec => ({
   photo: u.photo ?? null,
 });
 
-/** The boards someone is in, and the invites waiting for their address. */
-/** This person's own order of their boards (R2.5a). Boards they aren't in are ignored; boards left out keep their place. */
+/**
+ * This person's own order of their boards (R2.5a). Boards they aren't in are ignored; boards left
+ * out keep their place. Only the boards whose place changed are written.
+ */
 export async function orderBoards(env: Env, userId: string, body: { ids?: unknown }) {
   const ids = body.ids;
   if (!Array.isArray(ids) || ids.length > MAX_BOARDS || !ids.every((x) => typeof x === 'string' && x.length <= 64))
     throw new Refusal(400, 'Bad order');
   if (!ids.length) return;
+  if (!(await withinLimit(env, `order:${userId}`, ORDERS_AN_HOUR)))
+    throw new Refusal(429, 'Too many changes to the order of your boards. Try again in an hour.');
   await env.DB.batch(
-    ids.map((id, i) => env.DB.prepare('UPDATE members SET position = ? WHERE board_id = ? AND user_id = ?').bind(i + 1, id, userId)),
+    ids.map((id, i) =>
+      env.DB.prepare('UPDATE members SET position = ? WHERE board_id = ? AND user_id = ? AND position IS NOT ?').bind(i + 1, id, userId, i + 1),
+    ),
   );
 }
 
+/** The boards someone is in, and the invites waiting for their address. */
 export async function listBoards(env: Env, userId: string) {
   const user = await getUser(env, userId);
   if (!user) throw new Refusal(401, 'Signed out');
@@ -104,6 +119,8 @@ export async function createBoard(env: Env, userId: string, body: { name?: unkno
   if (!user) throw new Refusal(401, 'Signed out');
   const n = await env.DB.prepare('SELECT COUNT(*) AS n FROM members WHERE user_id = ?').bind(userId).first<{ n: number }>();
   if ((n?.n ?? 0) >= MAX_BOARDS) throw new Refusal(400, "You're in as many boards as Boardo allows.");
+  if (!(await withinLimit(env, `boards:${userId}`, BOARDS_A_DAY, Date.now(), DAY_MS)))
+    throw new Refusal(429, "You've made as many boards as Boardo allows in a day. Try again tomorrow.");
   const id = randomToken(12);
   const now = Date.now();
   await env.DB.batch([
@@ -225,21 +242,33 @@ function inviteLink(env: Env, token: string): string {
   return `${env.APP_URL.replace(/\/?$/, '/')}?invite=${token}`;
 }
 
+/**
+ * Whether one more invite email may go, from this person and this board, today. Each invite
+ * email carries words the sender chose (their name, the board's), so they're limited.
+ */
+async function mayInvite(env: Env, userId: string, boardId: string) {
+  const now = Date.now();
+  if (
+    !(await withinLimit(env, `invites:${userId}`, INVITES_PER_INVITER, now, DAY_MS)) ||
+    !(await withinLimit(env, `invites-board:${boardId}`, INVITES_PER_BOARD, now, DAY_MS))
+  )
+    throw new Refusal(429, "You've sent as many invites as Boardo allows in a day. Try again tomorrow.");
+}
+
 async function mailInvite(env: Env, to: string, token: string, boardName: string, by: User, role: Role) {
   const who = by.name ?? by.email;
   const link = inviteLink(env, token);
   const as = role === 'admin' ? 'an admin' : 'a member';
   await sendMail(env, {
     to,
-    subject: `${who} invited you to ${boardName} on Boardo`,
+    // Nothing the sender typed goes in the subject: the names are in the body, escaped.
+    subject: "You're invited to a board on Boardo",
     text: `${who} invited you to join ${boardName} on Boardo as ${as}.\n\nJoin the board: ${link}\n\nSign in with this email address (${to}). The invite works for 14 days.`,
     html: `<p style="font:16px/1.5 system-ui,sans-serif">${esc(who)} invited you to join <b>${esc(boardName)}</b> on Boardo as ${as}.</p>
 <p><a href="${link}" style="display:inline-block;font:600 15px system-ui,sans-serif;background:#16181d;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">Join the board</a></p>
 <p style="font:14px/1.5 system-ui,sans-serif;color:#5b6170">Sign in with this email address (${esc(to)}). The invite works for 14 days.</p>`,
   });
 }
-
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 export async function createInvite(env: Env, userId: string, body: { board?: unknown; email?: unknown; role?: unknown }) {
   const boardId = await mustAdmin(env, body.board, userId);
@@ -254,6 +283,12 @@ export async function createInvite(env: Env, userId: string, body: { board?: unk
   if (already) throw new Refusal(409, "They're already in this board.");
   const pending = await env.DB.prepare('SELECT COUNT(*) AS n FROM invites WHERE board_id = ?').bind(boardId).first<{ n: number }>();
   if ((pending?.n ?? 0) >= 100) throw new Refusal(400, 'Too many invites waiting. Cancel some first.');
+  const recent = await env.DB.prepare('SELECT created FROM invites WHERE board_id = ? AND email = ?')
+    .bind(boardId, email)
+    .first<{ created: number }>();
+  if (recent && Date.now() - recent.created < RESEND_GAP_MS)
+    throw new Refusal(429, 'An invite was just sent to that address. Wait a few minutes before sending another.');
+  await mayInvite(env, userId, boardId);
   const by = await getUser(env, userId);
   const board = await env.DB.prepare('SELECT name FROM boards WHERE id = ?').bind(boardId).first<{ name: string }>();
   if (!by || !board) throw new Refusal(404, "That board isn't there any more.");
@@ -277,7 +312,7 @@ export async function boardInvites(env: Env, userId: string, body: { board?: unk
   return { invites: rows.results };
 }
 
-type InviteRow = { id: string; board_id: string; email: string; role: Role; expires: number; invited_by: string };
+type InviteRow = { id: string; board_id: string; email: string; role: Role; created: number; expires: number; invited_by: string };
 
 /** Join a board from an invite: by the link's token, or by id from the invites on Home. */
 export async function acceptInvite(env: Env, userId: string, body: { token?: unknown; id?: unknown }) {
@@ -322,11 +357,15 @@ export async function resendInvite(env: Env, userId: string, body: { id?: unknow
   const row = await env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(body.id).first<InviteRow>();
   if (!row) throw new Refusal(404, 'That invite was cancelled.');
   await mustAdmin(env, row.board_id, userId);
-  const token = randomToken(24);
   const now = Date.now();
-  await env.DB.prepare('UPDATE invites SET token_hash = ?, created = ?, expires = ? WHERE id = ?')
-    .bind(await sha256(token), now, now + INVITE_MS, row.id)
+  if (now - row.created < RESEND_GAP_MS) throw new Refusal(429, 'That invite was just sent. Wait a few minutes before sending it again.');
+  await mayInvite(env, userId, row.board_id);
+  const token = randomToken(24);
+  // Only one of two resends at once gets through.
+  const r = await env.DB.prepare('UPDATE invites SET token_hash = ?, created = ?, expires = ? WHERE id = ? AND created = ?')
+    .bind(await sha256(token), now, now + INVITE_MS, row.id, row.created)
     .run();
+  if (!r.meta.changes) throw new Refusal(429, 'That invite was just sent. Wait a few minutes before sending it again.');
   const by = await getUser(env, userId);
   const board = await env.DB.prepare('SELECT name FROM boards WHERE id = ?').bind(row.board_id).first<{ name: string }>();
   if (by && board) await mailInvite(env, row.email, token, board.name, by, row.role);
