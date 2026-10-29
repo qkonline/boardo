@@ -125,7 +125,7 @@ function field(key: string, d: Record<string, unknown>): FieldRec | null {
 /** A card's value for one field: a short string, a number, a boolean or null. */
 function value(v: unknown): string | number | boolean | null | undefined {
   if (v === null || typeof v === 'boolean' || num(v)) return v;
-  if (typeof v === 'string') return text(v, LIMITS.desc, true) ?? undefined;
+  if (typeof v === 'string') return text(v, LIMITS.value, true) ?? undefined;
   return undefined;
 }
 

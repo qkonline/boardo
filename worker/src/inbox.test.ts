@@ -103,4 +103,13 @@ describe('alerts', () => {
     await unsubscribe(env, 'ann', { endpoint });
     expect(await subscribed(env, 'ann', { endpoint })).toBe(false);
   });
+
+  it('keeps ten browsers per person at most, the newest', async () => {
+    for (let i = 0; i < 12; i++) {
+      server.d1.db.prepare('UPDATE push_subs SET created = created - 1000').run();
+      await subscribe(env, 'bob', { endpoint: `https://fcm.googleapis.com/fcm/send/${i}` });
+    }
+    const kept = server.d1.db.prepare("SELECT endpoint FROM push_subs WHERE user_id = 'bob'").all().map((r) => String(r.endpoint).split('/').pop());
+    expect(kept.sort((a, b) => Number(a) - Number(b))).toEqual(['2', '3', '4', '5', '6', '7', '8', '9', '10', '11']);
+  });
 });

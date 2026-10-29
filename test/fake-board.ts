@@ -124,17 +124,26 @@ export class FakeServer {
     const b = await this.board(id);
     await b.init(id, { name: id, hue: 'cyan', maxUploadMB: 30 }, admin);
     this.roles.set(id, new Map([[admin.userId, 'admin']]));
+    this.directory(id, admin.userId, 'admin');
     return b;
   }
 
   async join(id: string, m: MemberRec) {
     this.roles.get(id)!.set(m.userId, m.role);
+    this.directory(id, m.userId, m.role);
     await (await this.board(id)).setMember(m, null);
   }
 
   async remove(id: string, userId: string) {
     this.roles.get(id)!.delete(userId);
+    this.directory(id, userId, null);
     await (await this.board(id)).removeMember(userId, null);
+  }
+
+  /** Who's in a board, in the directory (D1), which the board asks before each change. */
+  directory(board: string, userId: string, role: Role | null) {
+    this.d1.db.prepare('DELETE FROM members WHERE board_id = ? AND user_id = ?').run(board, userId);
+    if (role) this.d1.db.prepare('INSERT INTO members (board_id, user_id, role, added_at) VALUES (?, ?, ?, 1)').run(board, userId, role);
   }
 
   /** What the Worker's /sync does: check the token and membership, then hand over. */

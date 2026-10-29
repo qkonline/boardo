@@ -14,7 +14,13 @@
 //
 // The Worker checks the directory (D1) before handing a connection over, and passes who it is
 // in the `x-user` and `x-role` headers. It also tells the board when people join, leave or
-// change role, so the `member` records and open connections follow.
+// change role, so the `member` records and open connections follow. The board doesn't take the
+// headers' word alone: someone not in its own member list is turned away, a role is never more
+// than its member record says, and each put asks the directory again, so a connection left open
+// by a removal the board wasn't told of closes at the next change it sends.
+//
+// What one board keeps is capped (records, bytes, Elastic's op ids), and so is how fast one
+// person can change it and how many updates their changes can send.
 
 import { DurableObject } from 'cloudflare:workers';
 import {
@@ -82,11 +88,24 @@ interface Attachment {
   role: Role;
 }
 
-/** Big first syncs go out in pieces of about this size. */
 /** The records whose changes can change what Elastic shows. */
 const SHOWN_IN_ELASTIC = new Set<Kind>(['card', 'board', 'field', 'member']);
+/** Big first syncs go out in pieces of about this size. */
 const CHUNK = 400_000;
+/** What a board keeps at most: rows (records, log entries included, and Elastic's op ids) and their bytes. */
 const MAX_RECORDS = 100_000;
+const MAX_BYTES = 20 * 1024 * 1024;
+/** What a row costs beyond its data, roughly (its kind, key, rev and index entries). */
+const ROW_BYTES = 64;
+/** Elastic's op ids are kept this long; an op older than 60 days is refused anyway (elastic.ts). */
+const OPS_KEEP_MS = 62 * 24 * 3600_000;
+/** Puts in a minute: per connection, and per person over all their connections and requests. */
+const PUTS_PER_SOCKET = 120;
+const PUTS_PER_USER = 240;
+/** Updates (the bell) one person's changes can make in a minute, and times they can alert phones. */
+const NOTES_PER_ACTOR = 30;
+const ALERTS_PER_ACTOR = 10;
+const MINUTE = 60_000;
 /** Edits to the same field of a card by the same person this close together log as one. */
 const COALESCE_MS = 10 * 60_000;
 const COALESCED: LogAction[] = ['renamed', 'described', 'changed'];
@@ -104,6 +123,12 @@ interface PutResult {
 
 export class Board extends DurableObject<Env> {
   private sql: SqlStorage;
+  /** Rows and bytes kept, read once from kv `usage` and written back with each transaction (tx()). */
+  private usage: { rows: number; bytes: number } | null = null;
+  private usageChanged = false;
+  /** Counts in the current minute, for the limits above (kept in memory: they start again when the board sleeps). */
+  private rates = new Map<string, { start: number; n: number }>();
+  private socketRates = new WeakMap<WebSocket, { start: number; n: number }>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -127,8 +152,16 @@ export class Board extends DurableObject<Env> {
     const role = req.headers.get('x-role');
     if (!userId || (role !== 'admin' && role !== 'member')) return new Response(null, { status: 403 });
     const [client, server] = Object.values(new WebSocketPair());
-    this.ctx.acceptWebSocket(server, [userId]);
-    server.serializeAttachment({ userId, role } satisfies Attachment);
+    const me = this.get('member', userId);
+    if (!me) {
+      // Not in this board's own list: told so, as the Worker tells a non-member.
+      server.accept();
+      server.send(JSON.stringify({ t: 'removed' }));
+      server.close(4003, 'Not in this board');
+    } else {
+      this.ctx.acceptWebSocket(server, [userId]);
+      server.serializeAttachment({ userId, role: lesser(role, me.role) } satisfies Attachment);
+    }
     return new Response(null, { status: 101, webSocket: client, headers: { 'sec-websocket-protocol': 'boardo' } });
   }
 
@@ -140,28 +173,76 @@ export class Board extends DurableObject<Env> {
     } catch {
       return;
     }
-    for (const out of this.answer(m, ws.deserializeAttachment() as Attachment, ws)) ws.send(JSON.stringify(out));
+    if (m.t === 'put' && !this.within(this.socketRates, ws, PUTS_PER_SOCKET)) {
+      // Too fast: the device reconnects after a pause and sends what's waiting again.
+      ws.close(1013, 'Slow down');
+      return;
+    }
+    const out = await this.answer(m, ws.deserializeAttachment() as Attachment, ws);
+    if (!out) return ws.close(1013, 'Slow down');
+    for (const o of out) ws.send(JSON.stringify(o));
   }
 
   /**
    * The same conversation for a device whose network lets ordinary requests through but not
-   * WebSockets: one message in, the replies back. It asks for changes every few seconds.
+   * WebSockets: one message in, the replies back. It asks for changes every few seconds. Null:
+   * too many changes too fast (the Worker answers 429, and the device tries again later).
    */
-  async httpSync(userId: string, role: Role, m: Record<string, unknown>): Promise<object[]> {
+  async httpSync(userId: string, role: Role, m: Record<string, unknown>): Promise<object[] | null> {
     return this.answer(m, { userId, role }, null);
   }
 
   /** The replies to one message from a device: changes since a point, or a put's ack. */
-  private answer(m: Record<string, unknown>, who: Attachment, from: WebSocket | null): object[] {
+  private async answer(m: Record<string, unknown>, att: Attachment, from: WebSocket | null): Promise<object[] | null> {
+    const who = await this.who(att, m.t === 'put');
+    if (!who) {
+      if (from) from.close(4003, 'Removed from board');
+      return [{ t: 'removed' }];
+    }
     if (m.t === 'hello') return this.since(Number.isInteger(m.since) ? (m.since as number) : 0);
     if (m.t !== 'put') return [];
+    if (!this.within(this.rates, `puts:${who.userId}`, PUTS_PER_USER)) return null;
     const res = this.put(m.recs, who);
     if (!res) return [{ t: 'ack', id: m.id, ok: [], conflicts: [], rejected: [], error: 'bad' }];
     const out: object[] = [{ t: 'ack', id: m.id, ok: res.ok, conflicts: res.conflicts, rejected: res.rejected, rev: this.rev() }];
     if (res.extra.length) out.push({ t: 'changes', recs: res.extra, rev: this.rev() });
     if (res.changed.length) this.broadcast(res.changed, from);
-    this.sendNotes();
+    this.sendNotes(who.userId);
     return out;
+  }
+
+  /**
+   * Who a message is from, as this board sees it: someone in its member list, with a role no
+   * more than their member record's. Before a change (`ask`), the directory is asked too, so
+   * someone removed there while this board wasn't told can't change anything.
+   */
+  private async who(att: Attachment, ask: boolean): Promise<Attachment | null> {
+    const me = this.get('member', att.userId);
+    if (!me) return null;
+    let role = lesser(att.role, me.role);
+    const id = this.boardId();
+    if (ask && id) {
+      try {
+        const row = await this.env.DB.prepare('SELECT role FROM members WHERE board_id = ? AND user_id = ?')
+          .bind(id, att.userId)
+          .first<{ role: Role }>();
+        if (!row) return null;
+        role = lesser(role, row.role);
+      } catch (e) {
+        // The directory can't be reached: the board's own list stands.
+        console.error('Checking membership', e);
+      }
+    }
+    return { userId: att.userId, role };
+  }
+
+  /** Count one more in this minute for `key`; false once that's over `max`. */
+  private within<K>(map: { get(k: K): { start: number; n: number } | undefined; set(k: K, v: { start: number; n: number }): unknown }, key: K, max: number, add = 1): boolean {
+    const now = Date.now();
+    let r = map.get(key);
+    if (!r || now - r.start > MINUTE) map.set(key, (r = { start: now, n: 0 }));
+    r.n += add;
+    return r.n <= max;
   }
 
   async webSocketClose(ws: WebSocket, code: number): Promise<void> {
@@ -226,6 +307,13 @@ export class Board extends DurableObject<Env> {
   /** Updates from the changes being made, sent once they're stored (sendNotes()). */
   private notes: Outgoing[] = [];
 
+  /** Updates one person's change makes, up to how many they may make in a minute. */
+  private note(actor: string | null, list: Outgoing[]): void {
+    if (!list.length) return;
+    if (actor && !this.within(this.rates, `notes:${actor}`, NOTES_PER_ACTOR, list.length)) return;
+    this.notes.push(...list);
+  }
+
   private noteCtx(actor: string | null, now: number): NoteCtx {
     const b = this.get('board', 'main');
     return {
@@ -242,10 +330,12 @@ export class Board extends DurableObject<Env> {
    * Store the updates the last changes made (inbox.ts), tell the open devices of the people they're
    * for, which then fetch them, and alert the browsers those people turned alerts on in.
    */
-  private sendNotes(): void {
+  private sendNotes(actor: string | null = null): void {
     const out = this.notes;
     this.notes = [];
     if (!out.length) return;
+    // Phones are alerted a few times a minute at most for one person's changes; the bell still has them all.
+    const push = !actor || this.within(this.rates, `alerts:${actor}`, ALERTS_PER_ACTOR);
     this.ctx.waitUntil(
       (async () => {
         try {
@@ -258,7 +348,7 @@ export class Board extends DurableObject<Env> {
               } catch {
                 /* gone */
               }
-          await alert(this.env, users);
+          if (push) await alert(this.env, users);
         } catch (e) {
           console.error('Updates', e);
         }
@@ -273,11 +363,11 @@ export class Board extends DurableObject<Env> {
     return row ? Number(row.v) : 0;
   }
 
-  private current(kind: Kind, key: string): { rev: number; data: unknown } | null {
+  private current(kind: Kind, key: string): { rev: number; data: unknown; size: number } | null {
     const row = this.sql
       .exec<{ rev: number; data: string | null }>('SELECT rev, data FROM records WHERE kind = ? AND key = ?', kind, key)
       .toArray()[0];
-    return row ? { rev: row.rev, data: row.data == null ? null : JSON.parse(row.data) } : null;
+    return row ? { rev: row.rev, data: row.data == null ? null : JSON.parse(row.data), size: row.data?.length ?? 0 } : null;
   }
 
   private get<K extends Kind>(kind: K, key: string) {
@@ -291,18 +381,68 @@ export class Board extends DurableObject<Env> {
       .map((r) => JSON.parse(r.data));
   }
 
-  /** Store a record under the next rev. Call inside a transaction; returns it as sent out. */
+  /** Store a record under the next rev. Call inside a transaction (tx()); returns it as sent out. */
   private write(kind: Kind, key: string, data: unknown): Rec {
     const rev = this.rev() + 1;
+    const json = data == null ? null : JSON.stringify(data);
+    const old = this.sql
+      .exec<{ n: number | null }>('SELECT LENGTH(data) AS n FROM records WHERE kind = ? AND key = ?', kind, key)
+      .toArray()[0];
+    this.used(old ? 0 : 1, (json?.length ?? 0) - (old?.n ?? 0));
     this.sql.exec(
       'INSERT INTO records (kind, key, rev, data) VALUES (?, ?, ?, ?) ON CONFLICT (kind, key) DO UPDATE SET rev = excluded.rev, data = excluded.data',
       kind,
       key,
       rev,
-      data == null ? null : JSON.stringify(data),
+      json,
     );
     this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('rev', ?)", String(rev));
     return { kind, key, rev, data: data ?? null };
+  }
+
+  // ---------- what the board keeps ----------
+
+  /** Rows and bytes kept. Worked out once from the tables, then kept up to date as they change. */
+  private use(): { rows: number; bytes: number } {
+    if (this.usage) return this.usage;
+    const kept = this.sql.exec<{ v: string }>("SELECT v FROM kv WHERE k = 'usage'").toArray()[0];
+    if (kept) return (this.usage = JSON.parse(kept.v));
+    const r = this.sql.exec<{ n: number; b: number }>('SELECT COUNT(*) AS n, COALESCE(SUM(LENGTH(data)), 0) AS b FROM records').one();
+    const o = this.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM ops').one();
+    this.usageChanged = true;
+    return (this.usage = { rows: r.n + o.n, bytes: r.b + (r.n + o.n) * ROW_BYTES });
+  }
+
+  private used(rows: number, bytes: number): void {
+    const u = this.use();
+    u.rows += rows;
+    u.bytes += bytes + rows * ROW_BYTES;
+    this.usageChanged = true;
+  }
+
+  /** Whether the board has room for a change that adds `bytes` (and a new row, if `isNew`). */
+  private room(bytes: number, isNew: boolean): boolean {
+    const grow = bytes + (isNew ? ROW_BYTES : 0);
+    if (grow <= 0) return true;
+    const u = this.use();
+    return u.bytes + grow <= MAX_BYTES && (!isNew || u.rows < MAX_RECORDS);
+  }
+
+  /** A transaction that also keeps the board's usage. */
+  private tx(fn: () => void): void {
+    try {
+      this.ctx.storage.transactionSync(() => {
+        fn();
+        if (this.usageChanged && this.usage)
+          this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('usage', ?)", JSON.stringify(this.usage));
+        this.usageChanged = false;
+      });
+    } catch (e) {
+      // Rolled back: read it again next time.
+      this.usage = null;
+      this.usageChanged = false;
+      throw e;
+    }
   }
 
   /**
@@ -334,10 +474,6 @@ export class Board extends DurableObject<Env> {
     return this.write('log', id, { id, cardId, userId, at: now, action: e.action, detail: e.detail } satisfies LogRec);
   }
 
-  private count(): number {
-    return this.sql.exec<{ n: number }>('SELECT COUNT(*) AS n FROM records').one().n;
-  }
-
   /**
    * Apply changes from a device. Each one made on the record's current version, and allowed
    * for this person, is kept under the next rev (possibly adjusted: someone else's part of a
@@ -359,8 +495,7 @@ export class Board extends DurableObject<Env> {
     let nctx: NoteCtx | null = null;
     const noteCtx = () => (nctx ??= this.noteCtx(who.userId, now));
 
-    this.ctx.storage.transactionSync(() => {
-      let count: number | null = null;
+    this.tx(() => {
       const cards = new Set<string>();
       const goneColumns = new Set<string>();
       for (const c of parsed.list) {
@@ -376,26 +511,20 @@ export class Board extends DurableObject<Env> {
           const cardId = (data as CommentRec).cardId;
           if (!this.get('card', cardId) && !incoming.has(cardId)) data = undefined;
         }
-        if (data === undefined) {
+        // A full board takes only changes that make nothing bigger (refused one at a time, as any refusal).
+        if (data === undefined || !this.room((data == null ? 0 : JSON.stringify(data).length) - (cur?.size ?? 0), !cur)) {
           res.rejected.push(asNow(c.kind, c.key));
           continue;
-        }
-        if (!cur) {
-          count ??= this.count();
-          if (count++ >= MAX_RECORDS) {
-            res.rejected.push(asNow(c.kind, c.key));
-            continue;
-          }
         }
         const logs = this.logsFor(c.kind, prev, data, who.userId, now);
         const rec = this.write(c.kind, c.key, data);
         if (c.kind === 'card') {
           cards.add(c.key);
-          this.notes.push(...cardNotes(prev as CardRec | null, data as CardRec, noteCtx()));
+          this.note(who.userId, cardNotes(prev as CardRec | null, data as CardRec, noteCtx()));
         }
         if (c.kind === 'comment') {
           const cm = (data ?? prev) as CommentRec;
-          this.notes.push(...commentNotes(prev as CommentRec | null, data as CommentRec | null, this.get('card', cm.cardId), noteCtx()));
+          this.note(who.userId, commentNotes(prev as CommentRec | null, data as CommentRec | null, this.get('card', cm.cardId), noteCtx()));
         }
         if (c.kind === 'column' && prev && !data) goneColumns.add(c.key);
         const adjusted = JSON.stringify(data) !== JSON.stringify(c.data);
@@ -432,11 +561,16 @@ export class Board extends DurableObject<Env> {
     const columns = this.all('column').sort((a, b) => a.order - b.order);
     if (!columns.length) return [];
     const live = new Set(columns.map((c) => c.id));
-    const all = this.all('card');
-    const lost = all.filter((c) => !live.has(c.columnId) && (written.has(c.id) || goneColumns.has(c.columnId)));
+    // Only the cards just written and those in a column just removed are read, not every card.
+    const lost: CardRec[] = [];
+    for (const id of written) {
+      const c = this.get('card', id);
+      if (c && !live.has(c.columnId)) lost.push(c);
+    }
+    for (const col of goneColumns) for (const c of this.cardsIn(col)) if (!written.has(c.id) && !live.has(c.columnId)) lost.push(c);
     if (!lost.length) return [];
     const to = columns[0].id;
-    let order = Math.max(0, ...all.filter((c) => c.columnId === to).map((c) => c.order));
+    let order = Math.max(0, ...this.cardsIn(to).map((c) => c.order));
     const out: Rec[] = [];
     for (const card of lost) {
       const next = { ...card, columnId: to, order: (order += 1) };
@@ -445,6 +579,17 @@ export class Board extends DurableObject<Env> {
       for (const l of logs) out.push(this.log(l.cardId, l.userId, l.entry, now));
     }
     return out;
+  }
+
+  /** The cards in one column. */
+  private cardsIn(columnId: string): CardRec[] {
+    return this.sql
+      .exec<{ data: string }>(
+        "SELECT data FROM records WHERE kind = 'card' AND data IS NOT NULL AND json_extract(data, '$.columnId') = ?",
+        columnId,
+      )
+      .toArray()
+      .map((r) => JSON.parse(r.data));
   }
 
   /**
@@ -625,15 +770,17 @@ export class Board extends DurableObject<Env> {
    * A background image was uploaded (admins). It waits as a file of the board until an admin
    * saves the board with it; only then does it show behind the columns.
    */
-  async addBackground(f: FileRec): Promise<FileRec> {
+  async addBackground(f: FileRec): Promise<{ file: FileRec | null }> {
     const out: Rec[] = [];
     const file = { ...f, cardId: BOARD_FILE };
-    this.ctx.storage.transactionSync(() => {
+    // Null: the board is full.
+    if (!this.room(JSON.stringify(file).length, true)) return { file: null };
+    this.tx(() => {
       out.push(this.write('file', f.id, file));
       out.push(...this.sweepBackgrounds(this.get('board', 'main'), f.id));
     });
     this.broadcast(out, null);
-    return file;
+    return { file };
   }
 
   /** Keep the directory's copy of the board's name and colour (the board list reads it). */
@@ -654,7 +801,7 @@ export class Board extends DurableObject<Env> {
   /** A new board: its settings, default fields, first admin and first log entry. */
   async init(id: string, board: BoardRec, creator: MemberRec): Promise<void> {
     const now = Date.now();
-    this.ctx.storage.transactionSync(() => {
+    this.tx(() => {
       if (this.boardId()) return;
       this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('id', ?)", id);
       this.write('board', 'main', board);
@@ -671,16 +818,16 @@ export class Board extends DurableObject<Env> {
   async setMember(m: MemberRec, by: string | null): Promise<void> {
     const now = Date.now();
     const out: Rec[] = [];
-    this.ctx.storage.transactionSync(() => {
+    this.tx(() => {
       const before = this.get('member', m.userId);
       if (before && JSON.stringify(before) === JSON.stringify(m)) return;
       out.push(this.write('member', m.userId, m));
       if (!before) {
         out.push(this.log(null, by, { action: 'member_added', detail: { user: m.userId, role: m.role } }, now));
-        this.notes.push(...memberNote('added', m.userId, m.role, this.noteCtx(by, now)));
+        this.note(null, memberNote('added', m.userId, m.role, this.noteCtx(by, now)));
       } else if (before.role !== m.role) {
         out.push(this.log(null, by, { action: 'role_changed', detail: { user: m.userId, role: m.role } }, now));
-        this.notes.push(...memberNote('role', m.userId, m.role, this.noteCtx(by, now)));
+        this.note(null, memberNote('role', m.userId, m.role, this.noteCtx(by, now)));
       }
     });
     for (const ws of this.ctx.getWebSockets(m.userId)) ws.serializeAttachment({ userId: m.userId, role: m.role } satisfies Attachment);
@@ -695,9 +842,9 @@ export class Board extends DurableObject<Env> {
   async removeMember(userId: string, by: string | null): Promise<void> {
     const now = Date.now();
     const out: Rec[] = [];
-    this.ctx.storage.transactionSync(() => {
+    this.tx(() => {
       if (!this.get('member', userId)) return;
-      this.notes.push(...memberNote('removed', userId, null, this.noteCtx(by, now)));
+      this.note(null, memberNote('removed', userId, null, this.noteCtx(by, now)));
       out.push(this.write('member', userId, null));
       out.push(this.log(null, by, { action: 'member_removed', detail: { user: userId } }, now));
       const status = this.get('field', 'status') ?? undefined;
@@ -717,6 +864,7 @@ export class Board extends DurableObject<Env> {
   async erase(): Promise<void> {
     for (const ws of this.ctx.getWebSockets()) ws.close(4003, 'Board deleted');
     await this.ctx.storage.deleteAll();
+    this.usage = null;
   }
 
   /** The R2 keys of every file, so a deleted board's files can go too. */
@@ -790,7 +938,10 @@ export class Board extends DurableObject<Env> {
   async elasticOps(userId: string, ops: ElasticOp[]): Promise<{ id: string; ok: boolean; error?: string }[]> {
     const results: { id: string; ok: boolean; error?: string }[] = [];
     const out: Rec[] = [];
-    this.ctx.storage.transactionSync(() => {
+    this.tx(() => {
+      // Op ids past the age any op is taken at go: they can't come again.
+      const old = this.sql.exec('DELETE FROM ops WHERE at < ? RETURNING id', Date.now() - OPS_KEEP_MS).toArray().length;
+      if (old) this.used(-old, 0);
       for (const op of ops) {
         if (this.sql.exec('SELECT 1 FROM ops WHERE id = ?', op.id).toArray().length) {
           results.push({ id: op.id, ok: true });
@@ -801,13 +952,19 @@ export class Board extends DurableObject<Env> {
           results.push({ id: op.id, ok: false, error: 'not-assigned' });
           continue;
         }
+        // A full board takes no more (Elastic drops an answered op, refused or not).
+        if (!this.room(op.id.length + 1000, true)) {
+          results.push({ id: op.id, ok: false, error: 'bad' });
+          continue;
+        }
         this.sql.exec('INSERT INTO ops (id, at) VALUES (?, ?)', op.id, Date.now());
+        this.used(1, op.id.length);
         out.push(...this.applyOp(userId, card, op));
         results.push({ id: op.id, ok: true });
       }
     });
     this.broadcast(out, null);
-    this.sendNotes();
+    this.sendNotes(userId);
     return results;
   }
 
@@ -818,7 +975,7 @@ export class Board extends DurableObject<Env> {
     const save = (next: CardRec, via: string) => {
       const { card: settled, auto } = settle(card, next, status);
       out.push(this.write('card', card.id, settled));
-      this.notes.push(...cardNotes(card, settled, this.noteCtx(userId, op.at)));
+      this.note(userId, cardNotes(card, settled, this.noteCtx(userId, op.at)));
       for (const e of cardChanges(card, { ...settled, values: { ...settled.values, status: card.values.status ?? null } }, new Map(), new Map()))
         out.push(this.log(card.id, userId, { ...e, detail: { ...e.detail, via } }, op.at));
       if (auto)
@@ -836,7 +993,7 @@ export class Board extends DurableObject<Env> {
       if (prog && card.values.status !== prog.id) {
         const next = { ...card, values: { ...card.values, status: prog.id } };
         out.push(this.write('card', card.id, next));
-        this.notes.push(...cardNotes(card, next, this.noteCtx(userId, op.at)));
+        this.note(userId, cardNotes(card, next, this.noteCtx(userId, op.at)));
         out.push(
           this.log(card.id, userId, { action: 'status', detail: { field: 'status', name: status?.name ?? 'Status', from: statusName(card.values.status), to: prog.label, via: 'elastic' } }, op.at),
         );
@@ -881,11 +1038,12 @@ export class Board extends DurableObject<Env> {
     return ids.map((id) => this.get('file', id)).filter((f): f is FileRec => !!f);
   }
 
-  /** A file was stored: its record and a log entry. Null if the card went meanwhile. */
-  async addFile(userId: string, f: FileRec): Promise<FileRec | null> {
+  /** A file was stored: its record and a log entry. Null if the card went meanwhile, `full` if the board is. */
+  async addFile(userId: string, f: FileRec): Promise<{ file: FileRec | null; full?: boolean }> {
     const out: Rec[] = [];
     let ok = false;
-    this.ctx.storage.transactionSync(() => {
+    if (!this.room(JSON.stringify(f).length + 300, true)) return { file: null, full: true };
+    this.tx(() => {
       const card = this.get('card', f.cardId);
       if (!card || card.archived) return;
       ok = true;
@@ -893,7 +1051,7 @@ export class Board extends DurableObject<Env> {
       out.push(this.log(f.cardId, userId, { action: 'file_added', detail: { name: f.name } }, Date.now()));
     });
     this.broadcast(out, null);
-    return ok ? f : null;
+    return { file: ok ? f : null };
   }
 
   async markThumb(id: string): Promise<FileRec | null> {
@@ -901,7 +1059,7 @@ export class Board extends DurableObject<Env> {
     if (!f) return null;
     const next = { ...f, thumb: true };
     let rec: Rec | null = null;
-    this.ctx.storage.transactionSync(() => (rec = this.write('file', id, next)));
+    this.tx(() => void (rec = this.write('file', id, next)));
     if (rec) this.broadcast([rec], null);
     return next;
   }
@@ -919,7 +1077,7 @@ export class Board extends DurableObject<Env> {
     const board = this.boardId();
     const keys: string[] = [];
     const out: Rec[] = [];
-    this.ctx.storage.transactionSync(() => {
+    this.tx(() => {
       for (const c of this.all('comment')) if (c.cardId === cardId) out.push(this.write('comment', c.id, null));
       for (const s of this.all('session')) if (s.cardId === cardId) out.push(this.write('session', s.id, null));
       for (const f of this.all('file'))
@@ -940,7 +1098,7 @@ export class Board extends DurableObject<Env> {
     if (!f) return null;
     if (f.by !== userId && role !== 'admin') return 'denied';
     const out: Rec[] = [];
-    this.ctx.storage.transactionSync(() => {
+    this.tx(() => {
       out.push(this.write('file', id, null));
       out.push(this.log(f.cardId, userId, { action: 'file_removed', detail: { name: f.name } }, Date.now()));
     });
@@ -948,6 +1106,9 @@ export class Board extends DurableObject<Env> {
     return f;
   }
 }
+
+/** The lower of two roles. */
+const lesser = (a: Role, b: Role): Role => (a === 'admin' && b === 'admin' ? 'admin' : 'member');
 
 const bgKind = (b: BoardRec) => (!b.background ? 'none' : 'image' in b.background ? 'image' : 'colour');
 

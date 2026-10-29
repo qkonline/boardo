@@ -1,11 +1,14 @@
 // Attachments (R4.14 to R4.19). Files go to R2 under `<board>/<file id>` (and `.thumb` for an
 // image's thumbnail, made on the device). Only images, PDFs, CSV and Office documents are
 // taken, and a file's type is decided by its first bytes as well as its name, so a renamed file
-// of another kind is refused (CSV has no signature: it must read as text). Files are served only through short-lived signed links, which a
-// member gets from `/files/links`; anything that isn't an image always downloads.
+// of another kind is refused (CSV has no signature: it must read as text). A board's files are
+// served only through short-lived signed links, which a member gets from `/files/links`;
+// anything that isn't an image always downloads. Profile photos are the exception: they're at
+// `users/<user id>/<photo id>`, served without a link to anyone given the address, which is
+// long, random and new with each photo (servePhoto()).
 
 import { BOARD_FILE, MAX_UPLOAD_MB, newId } from '../../shared/model';
-import { b64url, Refusal, sessionUser } from './auth';
+import { b64url, Refusal, same, sessionUser } from './auth';
 import { boardStub, roleIn } from './boards';
 import { isId } from './checks';
 import type { Env } from './env';
@@ -141,7 +144,12 @@ export async function upload(req: Request, env: Env): Promise<unknown> {
     const id = newId();
     await env.FILES.put(`${board}/${id}`, stream.pipeThrough(new FixedLengthStream(size)), { httpMetadata: { contentType: mime } });
     const file = { id, cardId: BOARD_FILE, name: `background.${k}`, mime, size, by: userId, at: Date.now(), thumb: false };
-    return { file: await thenRecord(env, `${board}/${id}`, () => stub.addBackground(file)) };
+    const kept = await thenRecord(env, `${board}/${id}`, () => stub.addBackground(file));
+    if (!kept.file) {
+      await env.FILES.delete(`${board}/${id}`);
+      throw new Refusal(507, FULL);
+    }
+    return { file: kept.file };
   }
 
   const thumbOf = url.searchParams.get('thumb');
@@ -174,15 +182,18 @@ export async function upload(req: Request, env: Env): Promise<unknown> {
   await env.FILES.put(`${board}/${id}`, stream.pipeThrough(new FixedLengthStream(size)), {
     httpMetadata: { contentType: claimed.mime },
   });
-  const file = await thenRecord(env, `${board}/${id}`, () =>
+  const { file, full } = await thenRecord(env, `${board}/${id}`, () =>
     stub.addFile(userId, { id, cardId: card, name, mime: claimed.mime, size, by: userId, at: Date.now(), thumb: false }),
   );
   if (!file) {
     await env.FILES.delete(`${board}/${id}`);
+    if (full) throw new Refusal(507, FULL);
     throw new Refusal(404, 'That card was archived or removed.');
   }
   return { file };
 }
+
+const FULL = 'This board is full. Delete some archived cards or files first.';
 
 /**
  * Bytes just stored whose record comes next: if making the record fails, the bytes go too,
@@ -230,8 +241,10 @@ export async function links(env: Env, userId: string, body: { board?: unknown; f
   return { links: out };
 }
 
-/** `GET /files/<board>/<id>[/thumb]?exp=&sig=`: a signed link, opened. */
-/** `pathname`: the request's path without the /api prefix it has on the app's own address. */
+/**
+ * `GET /files/<board>/<id>[/thumb]?exp=&sig=`: a signed link, opened. `pathname`: the request's
+ * path without the /api prefix it has on the app's own address.
+ */
 export async function serve(req: Request, env: Env, pathname = new URL(req.url).pathname): Promise<Response> {
   const url = new URL(req.url);
   const [, , board, id, part] = pathname.split('/');
@@ -240,7 +253,7 @@ export async function serve(req: Request, env: Env, pathname = new URL(req.url).
   const sig = url.searchParams.get('sig') ?? '';
   const denied = () => new Response('This link has expired. Open the card again to get a new one.', { status: 403 });
   if (!isId(board) || !isId(id) || (part && !thumb) || !Number.isFinite(exp) || exp < Date.now()) return denied();
-  if ((await hmac(env, `${board}/${id}/${thumb ? 1 : 0}/${exp}`)) !== sig) return denied();
+  if (!same(await hmac(env, `${board}/${id}/${thumb ? 1 : 0}/${exp}`), sig)) return denied();
   const f = await boardStub(env, board).fileInfo(id);
   if (!f) return new Response('That file was removed.', { status: 404 });
   const obj = await env.FILES.get(`${board}/${id}${thumb ? '.thumb' : ''}`);

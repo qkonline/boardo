@@ -81,3 +81,10 @@ describe('a field shown on cards', () => {
     expect('onCard' in (clean('field', 'start', { id: 'start', name: 'Starts', type: 'date', order: 0, builtin: 'start', onCard: true }) as object)).toBe(false);
   });
 });
+
+describe("a card's field values", () => {
+  it('takes up to 5,000 characters in one value', () => {
+    expect(clean('card', 'k1', card({ values: { f1: 'x'.repeat(5000) } }))).not.toBeNull();
+    expect(clean('card', 'k1', card({ values: { f1: 'x'.repeat(5001) } }))).toBeNull();
+  });
+});

@@ -11,6 +11,13 @@ import { isPushEndpoint, sendPush } from './push';
 /** Updates older than this go. */
 const KEEP_MS = 60 * 24 * 3600_000;
 const LIST = 50;
+/** Browsers one person can have alerts in; a new one beyond this replaces the oldest. */
+const SUBS_PER_USER = 10;
+/**
+ * Alerts sent for one change at most. Each is a request of its own, and a Worker (or a board)
+ * on the free plan may make only 50 per invocation, the database's included.
+ */
+const MAX_ALERTS = 25;
 
 /** Store updates from a board. */
 export async function saveNotes(env: Env, out: Outgoing[]): Promise<void> {
@@ -92,9 +99,12 @@ export async function dropBoardNotes(env: Env, boardId: string): Promise<void> {
 /** This browser wants an alert for this person's updates (one person per browser). */
 export async function subscribe(env: Env, userId: string, body: { endpoint?: unknown }): Promise<boolean> {
   if (!isPushEndpoint(body.endpoint)) return false;
-  await env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, user_id, created) VALUES (?, ?, ?)')
-    .bind(body.endpoint, userId, Date.now())
-    .run();
+  await env.DB.batch([
+    env.DB.prepare('INSERT OR REPLACE INTO push_subs (endpoint, user_id, created) VALUES (?, ?, ?)').bind(body.endpoint, userId, Date.now()),
+    env.DB.prepare(
+      'DELETE FROM push_subs WHERE user_id = ? AND endpoint NOT IN (SELECT endpoint FROM push_subs WHERE user_id = ? ORDER BY created DESC LIMIT ?)',
+    ).bind(userId, userId, SUBS_PER_USER),
+  ]);
   return true;
 }
 
@@ -114,13 +124,19 @@ export async function alert(env: Env, userIds: string[]): Promise<void> {
   if (!env.VAPID_PRIVATE_KEY || !env.VAPID_PUBLIC_KEY || !userIds.length) return;
   const keys = { VAPID_PUBLIC_KEY: env.VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY: env.VAPID_PRIVATE_KEY, VAPID_SUBJECT: env.VAPID_SUBJECT ?? env.APP_URL };
   const users = [...new Set(userIds)].slice(0, 90);
-  const rows = await env.DB.prepare(`SELECT endpoint FROM push_subs WHERE user_id IN (${users.map(() => '?').join(',')})`)
-    .bind(...users)
+  const rows = await env.DB.prepare(
+    `SELECT endpoint FROM push_subs WHERE user_id IN (${users.map(() => '?').join(',')}) ORDER BY created DESC LIMIT ?`,
+  )
+    .bind(...users, MAX_ALERTS)
     .all<{ endpoint: string }>();
+  const gone: string[] = [];
   await Promise.all(
     rows.results.map(async ({ endpoint }) => {
-      const r = await sendPush(endpoint, keys).catch(() => 'failed' as const);
-      if (r === 'gone') await env.DB.prepare('DELETE FROM push_subs WHERE endpoint = ?').bind(endpoint).run();
+      if ((await sendPush(endpoint, keys).catch(() => 'failed' as const)) === 'gone') gone.push(endpoint);
     }),
   );
+  if (gone.length)
+    await env.DB.prepare(`DELETE FROM push_subs WHERE endpoint IN (${gone.map(() => '?').join(',')})`)
+      .bind(...gone)
+      .run();
 }
