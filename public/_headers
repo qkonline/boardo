@@ -1,6 +1,21 @@
-# Cache rules on boardo.kaiserkhan.com (Cloudflare reads this file; it isn't served). The page,
-# sw.js, version.json and the manifest keep Cloudflare's default: checked with the server every
-# time, so a new build is seen at once.
+# Headers on boardo.kaiserkhan.com (Cloudflare reads this file; it isn't served).
+
+# Every page and file: never shown inside another site's frame (the connect page's Allow
+# included), no guessing of file types, only the origin sent on to other sites, HTTPS only, and
+# no camera, microphone or location. The content policy only reports for now (in the browser's
+# console): once it has run quietly for a while, rename it Content-Security-Policy. The hash is
+# the theme script in index.html; change one and the other must follow (src/lib/headers.test.ts
+# checks). Turnstile (challenges.cloudflare.com) is there for when it's turned on.
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=()
+  Content-Security-Policy-Report-Only: default-src 'self'; script-src 'self' 'sha256-VLT1Bg6oMdwz2T5o3AXnbM52fDEFxG2GHQXR46tQJq0=' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' wss://boardo.kaiserkhan.com https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'
+
+# Cache rules. The page, sw.js, version.json and the manifest keep Cloudflare's default: checked
+# with the server every time, so a new build is seen at once.
 
 # Build files have their content's hash in the name, so they never change.
 /assets/*

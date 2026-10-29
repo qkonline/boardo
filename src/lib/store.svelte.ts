@@ -142,6 +142,8 @@ export class App {
   private noteWait: ReturnType<typeof setTimeout> | null = null;
   /** The last build at the old address, handing this copy over (moveHome()). */
   moving = $state<'saving' | 'offline' | 'going' | null>(null);
+  /** A sign-in carried from the old address, waiting for "Continue as …?" (arrive()). */
+  handoff = $state<{ code: string; email: string } | null>(null);
   /** My cards: group by deadline or by project. */
   myCardsBy = $state<'deadline' | 'project'>('deadline');
 
@@ -243,15 +245,41 @@ export class App {
     setInterval(() => typeof document !== 'undefined' && !document.hidden && void this.loadNotes(), 120_000);
   }
 
-  /** Arrived from the old address with its device settings and, if signed in there, a sign-in code. */
+  /**
+   * Arrived from the old address with its device settings and, if signed in there, a sign-in
+   * code. The code is only used once the person says it's them ("Continue as …?"), and never
+   * while signed in here as someone else: a link with someone else's code mustn't sign anyone
+   * in to that account unawares.
+   */
   private async arrive(came: NonNullable<ReturnType<typeof arrival>>): Promise<void> {
     if (came.settings.theme) this.setTheme(came.settings.theme);
     if (came.settings.passkeyAsk) writeLocal(PASSKEY_ASK_KEY, came.settings.passkeyAsk);
-    if (!came.code || this.token) return;
+    if (!came.code) return;
+    let email: string;
     try {
-      await this.signedIn(await call<{ token: string; user: User }>('/auth/handoff', { code: came.code }));
+      email = (await call<{ email: string }>('/auth/handoff', { code: came.code, peek: true })).email;
     } catch (e) {
       this.say((e as Error).message);
+      return;
+    }
+    if (this.token) {
+      if (this.user && this.user.email !== email)
+        this.say(`You're signed in here as ${this.user.email}, so the sign-in for ${email} wasn't used. Sign out first to use it.`);
+      return;
+    }
+    this.handoff = { code: came.code, email };
+  }
+
+  /** The answer to "Continue as …?": sign in with the carried code, or not. */
+  async takeHandoff(yes: boolean): Promise<void> {
+    const h = this.handoff;
+    if (!h) return;
+    try {
+      if (yes) await this.signedIn(await call<{ token: string; user: User }>('/auth/handoff', { code: h.code }));
+    } catch (e) {
+      this.say((e as Error).message);
+    } finally {
+      this.handoff = null;
     }
   }
 
@@ -283,7 +311,12 @@ export class App {
         try {
           const code = signedIn ? (await call<{ code: string }>('/account/handoff')).code : null;
           this.moving = 'going';
-          location.replace(moveUrl(code, this.carried()));
+          const to = moveUrl(code, this.carried());
+          // Nothing is left behind at the old address, which other pages on that site could read:
+          // everything has reached the boards, and this session ends once the new address uses the code.
+          this.sync.stop();
+          await db.clearAll().catch(() => {});
+          location.replace(to);
           return;
         } catch (e) {
           // Signed out meanwhile: go anyway, to sign in there.
@@ -395,8 +428,9 @@ export class App {
 
   // ---------- signing in ----------
 
-  async sendCode(email: string): Promise<void> {
-    await call('/auth/code/send', { email });
+  /** `turnstile`: Cloudflare Turnstile's answer, when it's on (src/lib/turnstile.ts). */
+  async sendCode(email: string, turnstile?: string): Promise<void> {
+    await call('/auth/code/send', turnstile ? { email, turnstile } : { email });
   }
 
   async verifyCode(email: string, code: string): Promise<void> {
@@ -494,6 +528,11 @@ export class App {
       /* gone anyway */
     }
     await this.signedOut();
+  }
+
+  /** Sign out every other device signed in to this account. */
+  async signOutOthers(): Promise<void> {
+    await call('/auth/signout/others');
   }
 
   async deleteAccount(): Promise<void> {

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { cancelled, passkeyAutofill, passkeysAvailable } from '../lib/passkeys';
   import { app } from '../lib/store.svelte';
+  import { humanCheck } from '../lib/turnstile';
   import Icon from './Icon.svelte';
 
   let step = $state<'email' | 'code'>('email');
@@ -15,15 +16,21 @@
   const invited = app.inviteToken != null;
   const canPasskey = passkeysAvailable();
 
+  // Cloudflare Turnstile, when it's on, before a code is sent (src/lib/turnstile.ts).
+  let checkBox: HTMLDivElement;
+  let check: ReturnType<typeof humanCheck> | null = null;
+
   // Passkeys made for Boardo are offered in the email field's suggestions too, where the
   // browser can: picking one signs in straight away.
   onMount(() => {
+    check = humanCheck(checkBox);
     void passkeyAutofill().then((ok) => {
       if (!ok) return;
       app.signInWithPasskey(true).catch((e) => {
         if (!cancelled(e)) error = (e as Error).message;
       });
     });
+    return () => check?.stop();
   });
 
   async function withPasskey() {
@@ -40,15 +47,20 @@
   async function send(e?: Event) {
     e?.preventDefault();
     error = '';
+    if (check?.on && !check.token()) {
+      error = 'Boardo is checking this browser. Try again in a moment.';
+      return;
+    }
     busy = true;
     try {
-      await app.sendCode(email.trim());
+      await app.sendCode(email.trim(), check?.token() || undefined);
       had = false;
       step = 'code';
       code = '';
     } catch (err) {
       error = (err as Error).message;
     } finally {
+      check?.reset();
       busy = false;
     }
   }
@@ -153,6 +165,7 @@
       </form>
     {/if}
     {#if error}<p class="err" role="alert">{error}</p>{/if}
+    <div class="check" bind:this={checkBox}></div>
   </div>
 </main>
 
@@ -170,6 +183,9 @@
   }
   img {
     border-radius: 12px;
+  }
+  .check:empty {
+    display: none;
   }
   h1 {
     margin: 0;

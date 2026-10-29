@@ -6,6 +6,7 @@
   import BoardView from './components/BoardView.svelte';
   import CardSheet from './components/CardSheet.svelte';
   import Connect from './components/Connect.svelte';
+  import Handoff from './components/Handoff.svelte';
   import Home from './components/Home.svelte';
   import MyCards from './components/MyCards.svelte';
   import NewBoard from './components/NewBoard.svelte';
@@ -20,6 +21,7 @@
   import Moving from './components/Moving.svelte';
   import { MOVED_TO } from './lib/move';
   import { samePlace } from './lib/route';
+  import { focusPolling } from './lib/pollsocket';
   import Icon from './components/Icon.svelte';
 
   // Another app asking to connect (`?connect&client_id=...`): kept until answered.
@@ -41,6 +43,9 @@
 
   const s = $derived(app.screen);
 
+  // Boards syncing over requests check the one on screen often, the others now and then.
+  $effect(() => focusPolling(s.name === 'board' || s.name === 'boardSettings' ? s.id : (app.open?.board ?? null)));
+
   // The address and the window's title follow what's shown (src/lib/route.ts): a new place is a
   // step Back can return to; the same place with a new name, or the first one shown, replaces it.
   // The old address's last build (its own base) never touches them.
@@ -61,6 +66,8 @@
   <Moving />
 {:else if !app.ready}
   <div class="loading" aria-busy="true"></div>
+{:else if !app.user && app.handoff}
+  <Handoff />
 {:else if !app.user}
   <SignIn />
 {:else if !app.user.name}

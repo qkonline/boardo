@@ -214,6 +214,17 @@
     }
   }
 
+  async function signOutOthers() {
+    try {
+      await app.signOutOthers();
+      app.say('Signed out of every other device.');
+    } catch (e) {
+      app.say((e as Error).message);
+    } finally {
+      armed = null;
+    }
+  }
+
   async function del() {
     try {
       await app.deleteAccount();
@@ -453,6 +464,15 @@
 
   <section class="end">
     <button class="btn" onclick={() => app.signOut()}>Sign out</button>
+    {#if armed === 'others'}
+      <p>Sign out of Boardo on every other device? This one stays signed in.</p>
+      <div class="row">
+        <button class="btn danger" onclick={signOutOthers}>Sign out other devices</button>
+        <button class="btn ghost" onclick={() => (armed = null)}>Cancel</button>
+      </div>
+    {:else}
+      <button class="btn" onclick={() => (armed = 'others')}>Sign out other devices</button>
+    {/if}
     {#if armed === 'delete'}
       <p>Delete your account? You'll leave every board, and this can't be undone.</p>
       <div class="row">
