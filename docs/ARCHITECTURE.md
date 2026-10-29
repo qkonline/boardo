@@ -423,7 +423,7 @@ Each phase is tested, deployed and pushed before the next starts. Phases 0 to 3 
 - **OAuth** (`oauth.test.ts`): a code swapped once with its PKCE verifier, an unregistered redirect refused (the old `/planner/` one too), local redirects only when running locally, a wrong verifier, a missing or different `redirect_uri`, an expired code, a token revoked from either side, and a token never taken for another scope.
 - **Files** (`files.test.ts`): types checked by their first bytes, programs and other zips refused, CSV read as text; signed links opening for an hour as downloads, refused once expired or when anything in them is changed, and given only to members.
 - **Merge:** per-field merges, comments are never lost, and dependencies merge as a set (`merge.test.ts`).
-- **Checks:** a card's dependency list is kept once each, and refused if it holds the card itself or isn't ids; a field value of up to 5,000 characters (`checks.test.ts`).
+- **Checks:** a card's dependency list is kept once each, and refused if it holds the card itself or isn't ids; a field value of up to 20,000 characters (`checks.test.ts`).
 - **Backgrounds:** an upload alone never changes the board, only an uploaded image can be saved, and unsaved or replaced images are swept (`background.test.ts`).
 - **Deleting:** an archived card goes with its comments, files and time, by an admin or whoever made it (`board.test.ts`).
 - **Sync:** two people plus a non-member, each with their own fake IndexedDB, against an in-memory board DO over a fake WebSocket. It checks:
