@@ -1390,7 +1390,7 @@
   }
   /* One box: the formatting keys along its top, the text below. */
   .editor {
-    border: 1px solid var(--line);
+    border: 1px solid var(--field-edge);
     border-radius: var(--r-ctl);
     background: var(--raised);
   }

@@ -49,6 +49,10 @@
   /* A mark on --s-lime (done ticks), and the bell's count: both readable in either theme. */
   --lime-ink: #ffffff;
   --badge: #e11d48;
+  /* The accent as text (links, an active filter): deeper than --accent in light, for 4.5:1. */
+  --accent-text: #4f46e5;
+  /* A text box's outline: 3:1 against the page, the sunk grey and white. */
+  --field-edge: #7d838f;
   /* The inner edge of the open tab for the screen you're on (the bottom bar, as in Elastic). */
   --tab-in: #e4e6eb;
   color-scheme: light;
@@ -104,6 +108,8 @@
     --go-ink: #0f1115;
     --go-edge: #15803d;
     --lime-ink: #0f1115;
+    --accent-text: #a5b4fc;
+    --field-edge: #6e7480;
     --tab-in: #08090b;
     --veil: rgb(8 10 15 / 0.55);
     color-scheme: dark;
@@ -147,6 +153,8 @@
   --go-ink: #0f1115;
   --go-edge: #15803d;
   --lime-ink: #0f1115;
+  --accent-text: #a5b4fc;
+  --field-edge: #6e7480;
   --tab-in: #08090b;
   --veil: rgb(8 10 15 / 0.55);
   color-scheme: dark;
@@ -227,7 +235,7 @@ input[type='datetime-local'] {
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
 :focus-visible {
@@ -365,7 +373,7 @@ a {
   min-height: var(--btn);
   padding: 10px 12px;
   border-radius: var(--r-ctl);
-  border: 1px solid var(--line);
+  border: 1px solid var(--field-edge);
   background: var(--raised);
   color: var(--text);
   font: 400 15px/1.35 var(--font);

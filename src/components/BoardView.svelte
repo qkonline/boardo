@@ -492,7 +492,7 @@
     }
   }
   .sel.on {
-    color: var(--accent);
+    color: var(--accent-text);
   }
   .val {
     font: 500 14px var(--font);
@@ -589,7 +589,7 @@
     min-height: 34px;
     border: none;
     background: none;
-    color: var(--accent);
+    color: var(--accent-text);
     cursor: pointer;
   }
   .find-chip .q {
@@ -613,7 +613,7 @@
     border: 0;
     border-radius: var(--r-ctl);
     background: var(--sunk);
-    color: var(--accent);
+    color: var(--accent-text);
     font: 500 13px var(--font);
     cursor: pointer;
   }

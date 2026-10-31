@@ -185,7 +185,7 @@
     border-bottom: 1px solid var(--border);
   }
   .editor {
-    border: 1px solid var(--line);
+    border: 1px solid var(--field-edge);
     border-radius: var(--r-ctl);
     background: var(--raised);
   }
@@ -226,7 +226,7 @@
   }
   /* One box: the text, with the emoji balloon and Comment along its foot. */
   .compose {
-    border: 1px solid var(--line);
+    border: 1px solid var(--field-edge);
     border-radius: var(--r-ctl);
     background: var(--raised);
     gap: 0;

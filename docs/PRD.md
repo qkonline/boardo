@@ -357,7 +357,7 @@ Every card has these fields.
   - light and dark themes;
   - phone tap targets at least 44 px.
 - **R11.10** Wording is short, plain and in sentence case. No em dashes, no filler.
-- **R11.10a** Text that carries meaning (times, counts, sizes, notes) uses the muted grey or darker, never the faint one, which is kept for icons and dividers; every key is at least 44 px to tap on a touch screen; a key or name inside a line of text gets a larger tap area without moving the line. Pickers opened by keyboard take the focus and give it back when they close; a date can be cleared by keyboard.
+- **R11.10a** Text that carries meaning (times, counts, sizes, notes) uses the muted grey or darker, never the faint one, which is kept for icons and dividers; the accent as text (links, an active filter) is at least 4.5:1, and a text box's outline at least 3:1, in both themes; every key is at least 44 px to tap on a touch screen; a key or name inside a line of text gets a larger tap area without moving the line. Pickers opened by keyboard take the focus and give it back when they close; a date can be cleared by keyboard.
 - **R11.11** Before screens are built, two or three design directions are shown and one is chosen.
 - **R11.12** It works well on a phone and on a computer.
 - **R11.13** Nothing a person changes anywhere in Boardo is saved automatically. Changes wait for Save, Add, Update or Comment, as in Elastic (R4.27, R3.1).

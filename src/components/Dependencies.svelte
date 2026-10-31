@@ -259,7 +259,7 @@
     gap: 14px;
     min-height: 30px;
     font: 600 13px var(--font);
-    color: var(--accent);
+    color: var(--accent-text);
   }
   .me {
     position: relative;

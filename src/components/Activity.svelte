@@ -252,7 +252,7 @@
     }
   }
   .sel.on {
-    color: var(--accent);
+    color: var(--accent-text);
   }
   .val {
     font: 500 14px var(--font);
