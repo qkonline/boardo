@@ -403,7 +403,7 @@
   }
   .sync {
     font-size: 12px;
-    color: var(--faint);
+    color: var(--muted);
   }
   .acts {
     margin-left: auto;
@@ -724,5 +724,10 @@
   }
   :global(body.dragging) {
     cursor: grabbing;
+  }
+  @media (pointer: coarse) {
+    .find-chip button {
+      min-height: 44px;
+    }
   }
 </style>

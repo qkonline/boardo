@@ -355,7 +355,7 @@
     font: 600 14.5px/28px var(--font);
   }
   time {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 12.5px;
     white-space: nowrap;
   }
@@ -474,7 +474,18 @@
     padding: 4px 0 8px;
   }
   .more span {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 13px;
+  }
+  @media (pointer: coarse) {
+    /* A card's name in the feed: a 44px tap area without spacing the feed apart. */
+    .card {
+      position: relative;
+    }
+    .card::after {
+      content: '';
+      position: absolute;
+      inset: -11px 0;
+    }
   }
 </style>

@@ -95,7 +95,7 @@
     font: 600 12px/1 var(--font);
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--faint);
+    color: var(--muted);
   }
   .list {
     display: grid;
@@ -116,6 +116,13 @@
     .tabs button:hover {
       background: var(--sunk);
       opacity: 1;
+    }
+  }
+  @media (pointer: coarse) {
+    /* Eight tabs fill the picker's width at 38px. */
+    .tabs button {
+      width: 38px;
+      height: 44px;
     }
   }
 </style>

@@ -245,7 +245,7 @@
   }
   .col {
     font-size: 12px;
-    color: var(--faint);
+    color: var(--muted);
   }
   .x {
     width: 36px;
@@ -274,7 +274,7 @@
   }
   .empty {
     margin: 0;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 13px;
   }
 
@@ -323,5 +323,14 @@
     margin: 6px 8px;
     color: var(--muted);
     font-size: 13px;
+  }
+  @media (pointer: coarse) {
+    .btn.small {
+      min-height: 44px;
+    }
+    .x {
+      width: 44px;
+      height: 44px;
+    }
   }
 </style>

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import type { CardRec, FieldRec } from '../../shared/model';
+  import { fieldName, type CardRec, type FieldRec } from '../../shared/model';
   import { allPartsDone } from '../../shared/rules';
   import { dayBefore, deadline, duration, fromLocalInput, longDate, toLocalInput, when } from '../lib/dates';
   import { fieldText } from '../lib/fields';
@@ -216,6 +216,16 @@
     // A due date on a card with no start: it starts the day before.
     if (field === 'end' && v && !view?.values.start) setValue('start', dayBefore(v, startF?.type === 'datetime'));
   }
+  // A date's clear key: a mouse clears on mousedown, before the date box's blur takes the key
+  // away; by keyboard the box stays open while Tab reaches the key, and a press clears it.
+  const keepForClear = (e: FocusEvent) => !(e.currentTarget as HTMLElement).parentElement?.contains(e.relatedTarget as Node | null) && (editing = null);
+  async function clearDate(field: 'start' | 'end', e: MouseEvent) {
+    const row = (e.currentTarget as HTMLElement).closest('.prop');
+    setValue(field, null);
+    editing = null;
+    await tick();
+    row?.querySelector<HTMLElement>('.val')?.focus();
+  }
   /** A custom field's value as text (dropdowns and people are drawn separately). */
   const shown = (f: FieldRec, v: Value | undefined) => fieldText(f, v);
 
@@ -341,10 +351,10 @@
                     value={dateIn(startF, view.values.start)}
                     onchange={(e) => pickDate('start', e)}
                     onclick={openPicker}
-                    onblur={() => (editing = null)}
+                    onblur={keepForClear}
                     {@attach focusIn}
                   />
-                  {#if view.values.start}<button class="icon-btn sm" aria-label="Clear the start date" onmousedown={() => setValue('start', null)}
+                  {#if view.values.start}<button class="icon-btn sm" aria-label="Clear the start date" onmousedown={() => setValue('start', null)} onclick={(e) => clearDate('start', e)} onblur={keepForClear}
                       ><Icon name="close" size={13} /></button
                     >{/if}
                 </span>
@@ -362,14 +372,14 @@
                   <input
                     class="field date"
                     type={endF?.type === 'datetime' ? 'datetime-local' : 'date'}
-                    aria-label={endF?.name ?? 'End date'}
+                    aria-label={endF ? fieldName(endF) : 'Due date'}
                     value={dateIn(endF, view.values.end)}
                     onchange={(e) => pickDate('end', e)}
                     onclick={openPicker}
-                    onblur={() => (editing = null)}
+                    onblur={keepForClear}
                     {@attach focusIn}
                   />
-                  {#if view.values.end}<button class="icon-btn sm" aria-label="Clear the due date" onmousedown={() => setValue('end', null)}
+                  {#if view.values.end}<button class="icon-btn sm" aria-label="Clear the due date" onmousedown={() => setValue('end', null)} onclick={(e) => clearDate('end', e)} onblur={keepForClear}
                       ><Icon name="close" size={13} /></button
                     >{/if}
                 </span>
@@ -1019,7 +1029,7 @@
   }
   .val.empty,
   .desc.empty {
-    color: var(--faint);
+    color: var(--muted);
     font-weight: 400;
   }
   .edit {
@@ -1444,6 +1454,40 @@
   @media (max-width: 400px) {
     .prop {
       grid-template-columns: 80px minmax(0, 1fr);
+    }
+  }
+  /* Every key at least 44px to tap on a touch screen; last, so it wins over the rules above. */
+  @media (pointer: coarse) {
+    .prop.dated .pl,
+    .val,
+    .elastic-btn,
+    .link,
+    .opt,
+    .undo-key,
+    .btn.sm,
+    .tabs button {
+      min-height: 44px;
+    }
+    .add-person {
+      min-height: 44px;
+      min-width: 44px;
+    }
+    /* Small keys within a line: a bigger tap area without moving the line. */
+    .col-btn,
+    .icon-btn.sm,
+    .title {
+      position: relative;
+    }
+    .col-btn::after,
+    .title::after {
+      content: '';
+      position: absolute;
+      inset: -8px 0;
+    }
+    .icon-btn.sm::after {
+      content: '';
+      position: absolute;
+      inset: -6px;
     }
   }
 </style>

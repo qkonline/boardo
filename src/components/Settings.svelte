@@ -460,7 +460,7 @@
   <section>
     <h2>Connected apps</h2>
     <p class="note">
-      Apps you've let see the cards assigned to you, like Elastic. Each connection belongs to one device. Remove one to cut it off.
+      Apps you've let see the cards assigned to you, like Elastic. Disconnect one to stop it.
     </p>
     {#if apps?.length}
       <ul class="card list">
@@ -725,7 +725,7 @@
     display: grid;
   }
   .who small {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 12.5px;
   }
   .end {
@@ -742,7 +742,7 @@
     gap: 8px;
   }
   .small {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 13px;
   }
 </style>

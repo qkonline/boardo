@@ -1,6 +1,6 @@
 // A log entry as a sentence: "Sara moved this card from Campaign 1 to Campaign 2".
 
-import type { LogRec } from '../../shared/model';
+import { fieldName, type LogRec } from '../../shared/model';
 import type { BoardState } from './board.svelte';
 import { dayOf, hasTime, longDate } from './dates';
 import { duration } from './dates';
@@ -46,12 +46,12 @@ export function logText(l: LogRec, b: BoardState, onCard: boolean): string {
         ? `${onCard ? 'This card' : it} became ${q(d.to)} automatically`
         : `${d.via === 'elastic' ? 'started work in Elastic, which set' : 'set'} ${its} status to ${q(d.to)}${d.from ? ` (was ${d.from})` : ''}`;
     case 'changed': {
-      const f = q(d.name ?? 'a field');
+      const f = q(d.name ? fieldName({ builtin: String(d.field), name: String(d.name) }) : 'a field');
       if (d.to == null || d.to === '') return `cleared ${f}${onCard ? '' : ` on ${it}`}`;
       return `set ${f}${onCard ? '' : ` on ${it}`} to ${val(d.to)}${d.from != null && d.from !== '' ? ` (was ${val(d.from)})` : ''}`;
     }
     case 'assigned':
-      return d.user === l.userId ? `took ${it}` : `assigned ${it} to ${name(d.user)}`;
+      return d.user === l.userId ? `added themselves to ${it}` : `assigned ${it} to ${name(d.user)}`;
     case 'unassigned':
       return d.user === l.userId ? `took themselves off ${it}` : `took ${name(d.user)} off ${it}`;
     case 'part_done':

@@ -71,7 +71,7 @@ Each board has two roles.
 ### 2.3 Each person's views
 
 - **R2.5a** Each person arranges the boards on Boards in their own order: dragging a tile (holding it first on a touch screen, so a swipe still scrolls), or Alt and an arrow key on one. It's theirs alone, kept with their account so every device shows it, and saved at once like dragging a card (offline, it waits and is sent later). New boards, and boards they join, come after the ones they've placed. Each tile is a link to its board, so it can open in a new tab.
-- **R2.6b** A board's settings are in tabs, each with its own address: **Look** (name, colour, background, scrolling), **Cards** (what new cards go to and start as, the largest attachment), **People** (members, roles, invites), **Fields**, and **Leave or delete**; a side menu on a computer, a row of pills on a phone. A member sees People and Leave or delete. Whatever is changed in Look and Cards, someone's role, or the fields' order waits in one save bar at the foot of the screen, which names each change and saves or discards them together. Inviting, removing someone, a field's own Save field, leaving and deleting are actions with their own keys. Background and scrolling are chosen from small pictures of each. Fields are put in order by dragging their grip, or with the arrow keys on it.
+- **R2.6b** A board's settings are in tabs, each with its own address: **Look** (name, colour, background, scrolling), **Cards** (what new cards go to and start as, the largest attachment), **People** (members, roles, invites), **Fields**, and **Leave or delete**; a side menu on a computer, a row of pills on a phone. A member sees People and Leave board (a member can only leave). Whatever is changed in Look and Cards, someone's role, or the fields' order waits in one save bar at the foot of the screen, which names each change and saves or discards them together. Inviting, removing someone, a field's own Save field, leaving and deleting are actions with their own keys. Background and scrolling are chosen from small pictures of each. Fields are put in order by dragging their grip, or with the arrow keys on it.
 - **R2.6** Every person can switch between:
   - **a project board**, showing only that project's cards;
   - **My cards**, showing every card assigned to them across all their projects, visible only to them;
@@ -102,12 +102,12 @@ Every card has these fields.
 | Title | one line of text | required |
 | Description | longer text | optional |
 | Start date | date | an admin can switch it to date and time |
-| End date | date | an admin can switch it to date and time |
+| Due date | date | an admin can switch it to date and time. The card calls it Due; boards made before 31 October 2026 named it End date, and show it as Due date too |
 | Status | dropdown | Not Started, In Progress, Completed, Blocked; an admin can add more values. Optional: a new card has no status until someone picks one |
 | Assignees | people | one or more members of the board |
 | Time spent | read-only | total timer time from everyone, through Elastic, with a breakdown per person |
 
-- **R4.1** Title, Description, Start date, End date, Status, Assignees and Time spent are on every card in every board.
+- **R4.1** Title, Description, Start date, Due date, Status, Assignees and Time spent are on every card in every board.
 - **R4.2** An admin can change a date field from date to date and time, and back.
 - **R4.2a** Setting a due date on a card with no start date fills the start with the day before (at the due time, or 9:00, when the start has a time). A start already set is left alone. Like any change, it waits for Save.
 - **R4.3** An admin can rename Status values and add new ones. The values that mean "in progress" and "completed" can be renamed but not removed, because the Elastic connection relies on them.
@@ -354,6 +354,7 @@ Every card has these fields.
   - light and dark themes;
   - phone tap targets at least 44 px.
 - **R11.10** Wording is short, plain and in sentence case. No em dashes, no filler.
+- **R11.10a** Text that carries meaning (times, counts, sizes, notes) uses the muted grey or darker, never the faint one, which is kept for icons and dividers; every key is at least 44 px to tap on a touch screen; a key or name inside a line of text gets a larger tap area without moving the line. Pickers opened by keyboard take the focus and give it back when they close; a date can be cleared by keyboard.
 - **R11.11** Before screens are built, two or three design directions are shown and one is chosen.
 - **R11.12** It works well on a phone and on a computer.
 - **R11.13** Nothing a person changes anywhere in Boardo is saved automatically. Changes wait for Save, Add, Update or Comment, as in Elastic (R4.27, R3.1).

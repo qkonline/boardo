@@ -142,7 +142,7 @@
     overflow-wrap: anywhere;
   }
   .n {
-    color: var(--faint);
+    color: var(--muted);
     font-weight: 500;
     font-size: 13px;
   }
@@ -166,7 +166,7 @@
   }
   .none {
     margin: 4px 6px;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 13px;
   }
   .add {

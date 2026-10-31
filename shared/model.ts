@@ -198,9 +198,16 @@ export const STATUS_FIELD: FieldRec = {
 /** The fields every new board starts with. */
 export const DEFAULT_FIELDS: FieldRec[] = [
   { id: 'start', builtin: 'start', name: 'Start date', type: 'date', order: 1 },
-  { id: 'end', builtin: 'end', name: 'End date', type: 'date', order: 2 },
+  { id: 'end', builtin: 'end', name: 'Due date', type: 'date', order: 2 },
   STATUS_FIELD,
 ];
+
+/**
+ * A field's name as shown. The card calls the end date Due, so boards made before 31 Oct 2026,
+ * whose end date is still under its first name, "End date", show it as "Due date" too (in Fields,
+ * History and Activity). A name an admin chose stays as it is.
+ */
+export const fieldName = (f: { builtin?: string; name: string }) => (f.builtin === 'end' && f.name === 'End date' ? 'Due date' : f.name);
 
 export const MAX_UPLOAD_MB = 100;
 export const DEFAULT_UPLOAD_MB = 30;

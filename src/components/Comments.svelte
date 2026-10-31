@@ -173,7 +173,7 @@
     font-size: 14px;
   }
   .when {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 12.5px;
   }
   .text {
@@ -261,5 +261,19 @@
     gap: 8px;
     justify-content: space-between;
     align-items: center;
+  }
+  @media (pointer: coarse) {
+    .post {
+      min-height: 44px;
+    }
+    /* Edit and Delete under a comment: a 44px tap area without spacing the comments apart. */
+    .link {
+      position: relative;
+    }
+    .link::after {
+      content: '';
+      position: absolute;
+      inset: -6px -6px;
+    }
   }
 </style>

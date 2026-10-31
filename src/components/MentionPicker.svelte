@@ -216,14 +216,14 @@
   }
   .role {
     font-size: 12px;
-    color: var(--faint);
+    color: var(--muted);
   }
   .hint {
     margin: 4px 0 0;
     padding: 6px 8px 2px;
     border-top: 1px solid var(--border);
     font-size: 12px;
-    color: var(--faint);
+    color: var(--muted);
   }
   @keyframes pop {
     from {

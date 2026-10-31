@@ -175,7 +175,7 @@
     gap: 8px;
   }
   h2 small {
-    color: var(--faint);
+    color: var(--muted);
     font-weight: 500;
   }
   h2.late {
@@ -205,5 +205,10 @@
     justify-self: start;
     color: var(--muted);
     padding: 0;
+  }
+  @media (pointer: coarse) {
+    .seg button {
+      min-height: 44px;
+    }
   }
 </style>

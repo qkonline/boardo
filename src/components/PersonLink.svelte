@@ -63,4 +63,15 @@
       text-underline-offset: 2px;
     }
   }
+  @media (pointer: coarse) {
+    /* A name or face in a line of text: a 44px tap area without spacing the lines apart. */
+    .plink {
+      position: relative;
+    }
+    .plink::after {
+      content: '';
+      position: absolute;
+      inset: -12px -2px;
+    }
+  }
 </style>

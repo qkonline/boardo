@@ -31,11 +31,29 @@
   /** Where it sits from the control's left edge, and where its point goes, once measured. */
   let shift = $state<{ x: number; point: number } | null>(null);
   const close = () => (open = false);
-  // Tell the owner when it closes, however it closed.
+  const FOCUSABLE = 'button, input, textarea, select, a[href], [tabindex]:not([tabindex="-1"])';
+  // Tell the owner when it closes, however it closed. Used by keyboard, the focus that was in it
+  // (and went with it) goes back to the control that opened it. Used by pointer, focus is left as
+  // it was, so Enter in the card window still saves after a pick with the mouse.
   let was = false;
+  let keyed = false;
   $effect(() => {
-    if (was && !open) onclose?.();
+    if (was && !open) {
+      onclose?.();
+      const at = document.activeElement;
+      if (keyed && (!at || at === document.body)) root?.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true });
+    }
     was = open;
+  });
+  // Opened from a control reached by keyboard: focus moves in, onto the value already chosen,
+  // unless something in it took focus itself.
+  $effect(() => {
+    if (!open || !box || !root) return;
+    const at = document.activeElement;
+    keyed = !!at?.matches(':focus-visible');
+    if (!keyed || !root.contains(at) || box.contains(at)) return;
+    const chosen = box.querySelector<HTMLElement>('[aria-selected=true], [aria-checked=true], [aria-pressed=true]');
+    (chosen ?? box.querySelector<HTMLElement>(FOCUSABLE))?.focus({ preventScroll: true });
   });
   const toggle = () => (open = !open);
 
@@ -69,9 +87,11 @@
   $effect(() => {
     if (!open) return;
     const away = (e: PointerEvent) => {
+      keyed = false;
       if (root && !root.contains(e.target as Node)) close();
     };
     const key = (e: KeyboardEvent) => {
+      keyed = true;
       if (e.key === 'Escape') {
         e.stopPropagation();
         close();

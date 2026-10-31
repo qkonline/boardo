@@ -34,7 +34,8 @@
     { id: 'fields', label: 'Fields', icon: 'field', admin: true },
     { id: 'leave', label: 'Leave or delete', icon: 'trash', admin: false },
   ];
-  const tabs = $derived(TABS.filter((t) => admin || !t.admin));
+  // A member can only leave, so their last tab says just that.
+  const tabs = $derived(TABS.filter((t) => admin || !t.admin).map((t) => (t.id === 'leave' && !admin ? { ...t, label: 'Leave board' } : t)));
   const asked = $derived(app.screen.name === 'boardSettings' ? app.screen.tab : undefined);
   const tab = $derived(tabs.find((t) => t.id === asked) ?? tabs[0]);
   const count = (t: SettingsTab) =>
@@ -444,8 +445,10 @@
                         disabled={busy}
                         onclick={() => act(() => call('/invites/resend', { id: inv.id }).then(loadInvites), 'Invite sent again.')}>Resend</button
                       >
-                      <button class="btn small danger" disabled={busy} onclick={() => act(() => call('/invites/revoke', { id: inv.id }).then(loadInvites))}
-                        >Cancel</button
+                      <button
+                        class="btn small danger"
+                        disabled={busy}
+                        onclick={() => act(() => call('/invites/revoke', { id: inv.id }).then(loadInvites), 'Invite cancelled.')}>Cancel invite</button
                       >
                     </li>
                   {/each}
@@ -585,7 +588,7 @@
   }
   .tab .n {
     margin-left: auto;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 12.5px;
   }
   .pane {

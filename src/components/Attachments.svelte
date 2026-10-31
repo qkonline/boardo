@@ -254,12 +254,12 @@
     font-size: 14px;
   }
   .name small {
-    color: var(--faint);
+    color: var(--muted);
     font-size: 12px;
   }
   .none {
     margin: 0;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 13px;
   }
   .viewer {
@@ -302,5 +302,10 @@
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
+  }
+  @media (pointer: coarse) {
+    .btn.small {
+      min-height: 44px;
+    }
   }
 </style>

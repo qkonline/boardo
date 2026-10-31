@@ -124,7 +124,7 @@
   }
   time {
     font: 500 11.5px/1.9 var(--font);
-    color: var(--faint);
+    color: var(--muted);
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
   }

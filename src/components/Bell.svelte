@@ -253,7 +253,7 @@
     font: 600 12px/1 var(--font);
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    color: var(--faint);
+    color: var(--muted);
   }
   .empty {
     margin: 0;
@@ -331,7 +331,7 @@
   }
   .meta {
     font-size: 12px;
-    color: var(--faint);
+    color: var(--muted);
   }
   .unread .meta {
     color: var(--t-indigo);
@@ -360,6 +360,12 @@
   @media (prefers-reduced-motion: reduce) {
     .list {
       animation: none;
+    }
+  }
+  @media (pointer: coarse) {
+    .seg button {
+      height: 44px;
+      border-radius: 22px;
     }
   }
 </style>

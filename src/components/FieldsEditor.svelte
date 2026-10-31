@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { type FieldOption, type FieldRec, type FieldType, newId } from '../../shared/model';
+  import { type FieldOption, type FieldRec, type FieldType, fieldName, newId } from '../../shared/model';
   import type { BoardState } from '../lib/board.svelte';
   import { app } from '../lib/store.svelte';
   import HuePicker from './HuePicker.svelte';
@@ -135,7 +135,7 @@
             /><circle cx="9" cy="14" r="1.4" /></svg
           ></button
         >
-        <span class="name">{f.name}<small>{TYPE_NAMES[f.type]}{f.builtin ? ', built in' : ''}{f.onCard ? ', shown on cards' : ''}</small></span>
+        <span class="name">{fieldName(f)}<small>{TYPE_NAMES[f.type]}{f.builtin ? ', built in' : ''}{f.onCard ? ', shown on cards' : ''}</small></span>
         <button class="btn small" aria-expanded={open === f.id} onclick={() => (open === f.id ? (open = null) : edit(f))}
           >{open === f.id ? 'Close' : 'Edit'}</button
         >
@@ -281,7 +281,7 @@
     overflow-wrap: anywhere;
   }
   small {
-    color: var(--faint);
+    color: var(--muted);
     font-weight: 400;
     font-size: 12.5px;
   }

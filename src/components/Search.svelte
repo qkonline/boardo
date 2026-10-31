@@ -504,7 +504,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--faint);
+    color: var(--muted);
     font-size: 12px;
   }
   .tag {
@@ -520,5 +520,10 @@
     border-radius: 2px;
     background: color-mix(in oklab, var(--accent) 30%, transparent);
     color: inherit;
+  }
+  @media (pointer: coarse) {
+    .link {
+      min-height: 44px;
+    }
   }
 </style>
