@@ -265,7 +265,7 @@
     place-items: center;
     border-radius: 50%;
     background: var(--s-lime);
-    color: #fff;
+    color: var(--lime-ink);
     box-shadow: 0 0 0 2px var(--raised);
   }
   /* The chip sits on the row's line, so the icons beside it stay level with it. */

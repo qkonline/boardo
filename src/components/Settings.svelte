@@ -214,6 +214,25 @@
     }
   }
 
+  // Signing out clears this device, so changes that haven't reached the boards would be lost.
+  // Online, a change just made usually goes out within a moment: wait a little before asking.
+  let unsent = $state(0);
+  let checking = $state(false);
+  async function signOut() {
+    checking = true;
+    try {
+      unsent = await app.unsent();
+      for (let i = 0; unsent && navigator.onLine && i < 12; i++) {
+        await new Promise((r) => setTimeout(r, 250));
+        unsent = await app.unsent();
+      }
+    } finally {
+      checking = false;
+    }
+    if (unsent) armed = 'signout';
+    else await app.signOut();
+  }
+
   async function signOutOthers() {
     try {
       await app.signOutOthers();
@@ -463,7 +482,19 @@
   </section>
 
   <section class="end">
-    <button class="btn" onclick={() => app.signOut()}>Sign out</button>
+    {#if armed === 'signout'}
+      <p>
+        {unsent === 1 ? "1 change hasn't" : `${unsent} changes haven't`} reached Boardo yet. Signing out now loses
+        {unsent === 1 ? 'it' : 'them'}.{navigator.onLine ? '' : ` Connect to send ${unsent === 1 ? 'it' : 'them'} first.`}
+      </p>
+      <div class="row">
+        <button class="btn danger" onclick={() => app.signOut()}>Sign out anyway</button>
+        <button class="btn" onclick={() => app.downloadUnsaved()}>Download a backup</button>
+        <button class="btn ghost" onclick={() => (armed = null)}>Stay signed in</button>
+      </div>
+    {:else}
+      <button class="btn" disabled={checking} onclick={signOut}>Sign out</button>
+    {/if}
     {#if armed === 'others'}
       <p>Sign out of Boardo on every other device? This one stays signed in.</p>
       <div class="row">
@@ -707,6 +738,7 @@
   }
   .row {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
   }
   .small {

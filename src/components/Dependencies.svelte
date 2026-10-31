@@ -208,7 +208,7 @@
     border: 2px solid var(--node);
     display: grid;
     place-items: center;
-    color: #fff;
+    color: var(--lime-ink);
   }
   .done .node {
     background: var(--s-lime);

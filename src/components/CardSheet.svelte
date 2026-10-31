@@ -1138,7 +1138,7 @@
     place-items: center;
     border-radius: 50%;
     background: var(--s-lime);
-    color: #fff;
+    color: var(--lime-ink);
     box-shadow: 0 0 0 2px var(--bg);
   }
   .unassign {

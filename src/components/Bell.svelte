@@ -144,7 +144,7 @@
     padding: 0 5px;
     box-sizing: border-box;
     border-radius: 9px;
-    background: var(--s-rose);
+    background: var(--badge);
     color: #fff;
     font: 600 11px/18px var(--font);
     text-align: center;

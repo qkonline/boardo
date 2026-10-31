@@ -796,10 +796,24 @@ export class App {
     return this.unsaved.length > 0 || this.saving;
   }
 
-  /** The changes that couldn't be stored, as a file to keep. */
-  downloadUnsaved(): void {
+  /**
+   * How many changes made here haven't reached the boards: not stored yet, stored but not sent,
+   * or files waiting to upload. Signing out clears the device, so it asks first when there are any.
+   */
+  async unsent(): Promise<number> {
+    const outbox = await db.getOutbox().catch(() => [] as string[]);
+    return this.unsaved.length + outbox.length + this.files.queue.length;
+  }
+
+  /** The changes that haven't reached the boards (see `unsent`), as a file to keep. */
+  async downloadUnsaved(): Promise<void> {
     const names = new Map(this.boards.map((b) => [b.id, b.name]));
-    const out = this.unsaved.map((r) => ({ board: names.get(r.board) ?? r.board, kind: r.kind, data: r.data }));
+    const out: object[] = this.unsaved.map((r) => ({ board: names.get(r.board) ?? r.board, kind: r.kind, data: r.data }));
+    for (const id of await db.getOutbox().catch(() => [] as string[])) {
+      const [board, kind] = splitRid(id);
+      out.push({ board: names.get(board) ?? board, kind, data: await db.getRecord(id).catch(() => null) });
+    }
+    for (const u of this.files.queue) out.push({ board: names.get(u.board) ?? u.board, kind: 'file', data: { card: u.card, name: u.name } });
     const url = URL.createObjectURL(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;

@@ -350,7 +350,7 @@ All of these are in Elastic's repository.
   - Leave or delete.
   Everything in Look and Cards, new roles and the fields' order are one draft: a save bar (`.save-row`) names the changes and saves them (one `saveBoard()`, `orderFields()`, then `setRole()` for each person; a refused role stays a draft), or discards them.
 - **My cards:** grouped by deadline or by project.
-- **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out, sign out other devices (asks first), delete account. Photo (made square on the device, uploaded on save), name and colour, notifications and theme are drafts in one save bar, as in Board settings.
+- **Account** (the person icon; far right on a computer, a tab on a phone): Undone changes (only when a board has refused some: each with its board and time, Copy, and Clear the list), name, photo, email (changed with a code sent to the new address), passkeys, theme, connected apps, sign out (asks first when the outbox, unstored changes or the upload queue aren't empty, `app.unsent()`, with a backup of them, `downloadUnsaved()`), sign out other devices (asks first), delete account. Photo (made square on the device, uploaded on save), name and colour, notifications and theme are drafts in one save bar, as in Board settings.
 - **Boardo has moved** (`Moving.svelte`, only in the farewell build at the old address): says where Boardo is now, brings the latest changes across, then opens the new address.
 
 **Interaction**

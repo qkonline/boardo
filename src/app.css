@@ -43,9 +43,12 @@
   /* The five colours as a wheel, for the custom colour swatch. */
   --hue-stops: #f43f5e, #facc15, #84cc16, #22d3ee, #818cf8, #f43f5e;
   /* The green key (Mark done). */
-  --go: #16a34a;
+  --go: #15803d;
   --go-ink: #ffffff;
-  --go-edge: #15803d;
+  --go-edge: #166534;
+  /* A mark on --s-lime (done ticks), and the bell's count: both readable in either theme. */
+  --lime-ink: #ffffff;
+  --badge: #e11d48;
   /* The inner edge of the open tab for the screen you're on (the bottom bar, as in Elastic). */
   --tab-in: #e4e6eb;
   color-scheme: light;
@@ -100,6 +103,7 @@
     --go: #22c55e;
     --go-ink: #0f1115;
     --go-edge: #15803d;
+    --lime-ink: #0f1115;
     --tab-in: #08090b;
     --veil: rgb(8 10 15 / 0.55);
     color-scheme: dark;
@@ -142,6 +146,7 @@
   --go: #22c55e;
   --go-ink: #0f1115;
   --go-edge: #15803d;
+  --lime-ink: #0f1115;
   --tab-in: #08090b;
   --veil: rgb(8 10 15 / 0.55);
   color-scheme: dark;

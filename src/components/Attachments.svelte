@@ -47,6 +47,33 @@
     }
   }
 
+  // The viewer sits inside the card window: it keeps its own keys, so Escape closes only the
+  // viewer (not the card) and Tab stays on its keys. Focus goes to it, and back to the thumbnail.
+  function holdFocus(node: HTMLElement) {
+    const prev = document.activeElement as HTMLElement | null;
+    node.querySelector<HTMLElement>('.bar [aria-label=Close]')?.focus({ preventScroll: true });
+    return () => {
+      if (prev?.isConnected) prev.focus({ preventScroll: true });
+    };
+  }
+  function viewerKeys(e: KeyboardEvent) {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      viewing = null;
+      armed = null;
+      return;
+    }
+    if (e.key !== 'Tab') return;
+    e.stopPropagation();
+    const keys = [...(e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('a[href], button')];
+    const i = keys.indexOf(document.activeElement as HTMLElement);
+    const next = i < 0 ? keys[e.shiftKey ? keys.length - 1 : 0] : keys[(i + (e.shiftKey ? keys.length - 1 : 1)) % keys.length];
+    if (next) {
+      e.preventDefault();
+      next.focus();
+    }
+  }
+
   const size = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`);
   const ext = (n: string) => n.split('.').pop()?.toUpperCase() ?? '';
   const canRemove = (f: FileRec) => f.by === app.user?.id || isAdmin;
@@ -105,7 +132,7 @@
 
 {#if viewing}
   {@const f = viewing}
-  <div class="viewer" role="dialog" aria-modal="true" aria-label={f.name}>
+  <div class="viewer" role="dialog" aria-modal="true" aria-label={f.name} tabindex="-1" onkeydown={viewerKeys} {@attach holdFocus}>
     <div class="bar">
       <span class="vname">{f.name}</span>
       {#if links[f.id]}<a class="btn small" href={links[f.id].url} download={f.name}>Download</a>{/if}

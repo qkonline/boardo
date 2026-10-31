@@ -275,6 +275,7 @@ Every card has these fields.
 - **R9.1a** Once signed in, a person can add a passkey on each device (Face ID, Touch ID or the device's screen lock), and then sign in with it instead of a code. Boardo offers this after a sign-in with a code. Passkeys are listed in Account, where they can be removed.
 - **R9.2** A person stays signed in on a device until they sign out.
 - **R9.2a** When a different person signs in on a device, nothing of the last person's boards stays on it.
+- **R9.2b** Signing out clears the device, so when changes made on it haven't reached the boards yet (made offline, say, or files still uploading), Sign out says how many and asks first: Sign out anyway, Download a backup (the changes as a file), or Stay signed in. Online, it first gives a change just made a moment to go out.
 - **R9.3** **Offline first:** every board a person belongs to is kept on their device. They can open boards, read cards and make changes without a connection.
 - **R9.3a** If the device can't save (it's out of storage, say), changes stay on screen and a banner says so, with a backup to download. Boardo keeps trying, and never reloads for an update while changes are waiting.
 - **R9.4** Changes sync when the device is back online, and show up live on everyone else's devices while they're online.
