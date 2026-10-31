@@ -194,6 +194,7 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - `/invites/create {board, email, role}`: emails `https://boardo.kaiserkhan.com/?invite=<token>` (`APP_URL`) through Resend. (A query string rather than a path, so the static host needs no rewrites.) The subject is always "You're invited to a board on Boardo": the inviter's name and the board's, which they chose, are only in the body, escaped. Invite emails, new or sent again, are limited to 20 a day per inviter and 30 a day per board, and one address in a board gets one at most every 5 minutes.
 - `/invites {board}` (admin): the invites waiting in a board.
 - `/invites/accept {token}` or `{id}` (from the invites on Home): the signed-in email must match the invite.
+- `/invites/peek {token}` (open, no session; the per-network `LIMITER` like the other open routes): the board's name and hue and the inviter's name, for the sign-in page an invite link opens (R9.10a). Never the invited address; an expired or cancelled invite is a 404.
 - `/invites/decline {id}`: the invitee turns it down.
 - `/invites/revoke`, `/invites/resend`: invites expire after 14 days. Resending waits 5 minutes after the last send.
 

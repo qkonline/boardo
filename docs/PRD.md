@@ -88,7 +88,8 @@ Each board has two roles.
 - **R3.4a** No two columns in a board have the same name, letter case and spaces aside. Adding or renaming one to a name in use says so and waits; the server refuses it too. A removed column's name is free again.
 - **R3.5** Cards can be dragged within a column and between columns, by mouse and by touch.
 - **R3.6** A board can be filtered by person and by status.
-- **R3.6a** A board can be searched from a box at the right of its header, just before Activity ("Search this board"; on a phone a magnifier there that opens the box across the filters' row, with a chip showing the words while a search is on; "/" goes to it). The columns narrow to the cards with every word (R9.17), together with the filters, the words marked on each card, and when the title doesn't have them all, the line under it shows where they are ("Sara Ali: …the venue is booked…"). The box counts the cards shown. Archived cards that match never show in the columns: a line says how many and opens them in Archived with the same words. Clear clears the search and the filters; Escape clears the search. A board keeps its search and filters while the app is open, also after leaving it. A card dragged while searching or filtering lands between the cards it was dropped between.
+- **R3.6a** A board can be searched from a box at the right of its header, before the board's people and Activity ("Search this board"; on a phone a magnifier there that opens the box across the filters' row, with a chip showing the words while a search is on; "/" goes to it). The columns narrow to the cards with every word (R9.17), together with the filters, the words marked on each card, and when the title doesn't have them all, the line under it shows where they are ("Sara Ali: …the venue is booked…"). The box counts the cards shown. Archived cards that match never show in the columns: a line says how many and opens them in Archived with the same words. Clear clears the search and the filters; Escape clears the search. A board keeps its search and filters while the app is open, also after leaving it. A card dragged while searching or filtering lands between the cards it was dropped between.
+- **R3.6b** A board's header shows who's in it: a few faces (three on a computer, two on a phone, then how many more), which open Board settings' People. An admin also has **Invite** (a + on a phone), which opens the invite form over the board, with the invites waiting and a link to everyone in the board. On a computer they sit between the board's search and Activity; on a phone, at the end of the filters' row, which makes room for them by leaving out the filter mark and showing Archived as its box and count (still read out as Archived).
 - **R3.7** An admin can set what every new card in the board starts with (Board settings, Cards): someone it's assigned to, and a status. Both start as Nobody and None. Once saved, every card added after starts with them; cards already there stay as they are. A person who has left, or a status since deleted, is skipped.
 
 ## 4. Cards
@@ -168,6 +169,7 @@ Every card has these fields.
 ### 4.7 The open card
 
 - **R4.26** Opening a card shows it in a large window in the middle of the screen on a computer, and as a tall sheet on a phone, with two tabs: **Details** and **History** (its log, grouped by day).
+- **R4.26a** On a phone the card reads its content first, in one column: the description (three lines, then Show more), when it's due, its people and status, Mark done, the comments; then the start date, time and other fields, attachments, dependencies, and Archive card last. Once the card is scrolled, its coloured band shrinks to the title on one line, and grows back at the top. A computer keeps the two columns.
 - **R4.27** **Nothing a person changes on a card is saved until they press Save changes.** While there are unsaved changes, a bar offers Discard and Save changes, and closing the card (or opening another one from it) asks first. Comments, attachments, Mark done and Archive happen when tapped.
 - **R4.28** Values read as plain text and become editable when tapped. Status, column, people and emoji open in small balloons over the card, so nothing moves when they open.
 - **R4.28b** A dropdown field picks its value the way Status does: a balloon with its values as coloured chips and None at the end. A people field lists the board's people with their faces, and Nobody. Neither has a Done key.
@@ -290,6 +292,7 @@ Every card has these fields.
 
 - **R9.9** An admin invites someone by email address, choosing admin or member.
 - **R9.10** The invitee gets an email with a link. They sign in or sign up with that same email address and join the board.
+- **R9.10a** Opened before signing in, an invite link says who sent it and to which board ("Ann Lee invited you to Spring launch"), with the board's colour: only what the email said, never the address it went to. A link that has expired or was cancelled says so.
 - **R9.11** People who already have an account also see pending invites when they open Boardo.
 - **R9.12** Invites expire after 14 days. An admin can resend or cancel them.
 

@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { call } from '../lib/api';
+  import { hueColor } from '../lib/hue';
   import { cancelled, passkeyAutofill, passkeysAvailable } from '../lib/passkeys';
   import { app } from '../lib/store.svelte';
   import { humanCheck } from '../lib/turnstile';
@@ -14,6 +16,14 @@
   // Came straight to the code, with one already sent (asked for on another device, say).
   let had = $state(false);
   const invited = app.inviteToken != null;
+  // An invite link names the board and who sent it, as the email did; or says it has gone.
+  let about = $state<{ board: { name: string; hue: string }; by: string | null } | null>(null);
+  let inviteGone = $state(false);
+  if (app.inviteToken)
+    call<NonNullable<typeof about>>('/invites/peek', { token: app.inviteToken }).then(
+      (r) => (about = r),
+      (e) => (inviteGone = (e as { status?: number }).status === 404),
+    );
   const canPasskey = passkeysAvailable();
 
   // Cloudflare Turnstile, when it's on, before a code is sent (src/lib/turnstile.ts).
@@ -109,7 +119,14 @@
   <div class="card">
     <img src="{import.meta.env.BASE_URL}icon.svg?v=1" alt="" width="56" height="56" />
     <h1>Boardo</h1>
-    {#if invited}
+    {#if invited && about}
+      <p class="lede invite">
+        <span class="mark" style:background={hueColor(about.board.hue)}></span>
+        <span>{about.by ?? 'Someone'} invited you to <b>{about.board.name}</b>. Sign in with the email address the invite was sent to.</span>
+      </p>
+    {:else if invited && inviteGone}
+      <p class="lede">This invite has expired or was cancelled. Ask whoever sent it for a new one. You can still sign in.</p>
+    {:else if invited}
       <p class="lede">You've been invited to a board. Sign in with the email address the invite was sent to.</p>
     {:else}
       <p class="lede">Shared project boards. Sign in with your email, and we'll send you a code.</p>
@@ -195,6 +212,22 @@
   .lede {
     margin: 0;
     color: var(--muted);
+  }
+  .lede.invite {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+  }
+  .lede b {
+    color: var(--text);
+    font-weight: 600;
+  }
+  .mark {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    translate: 0 1px;
   }
   form {
     display: grid;

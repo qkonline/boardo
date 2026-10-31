@@ -1,7 +1,7 @@
 // Members and roles (boards.ts): the directory on node:sqlite, and a board that can fail to answer.
 import { beforeEach, describe, expect, it } from 'vitest';
 import { fakeD1 } from '../../test/fake-d1';
-import { acceptInvite, createInvite, listBoards, orderBoards, removeMember, resendInvite, setRole } from './boards';
+import { acceptInvite, createInvite, listBoards, orderBoards, peekInvite, removeMember, resendInvite, setRole } from './boards';
 import { devOutbox } from './mail';
 
 let db: ReturnType<typeof fakeD1>['db'];
@@ -139,6 +139,18 @@ describe('invites', () => {
     expect(role('eve')).toBeNull();
     await acceptInvite(env, 'dee', { token: t });
     expect(role('dee')).toBe('member');
+  });
+
+  it('shows the board and who sent it before signing in, and nothing once it has gone', async () => {
+    await createInvite(env, 'ann', { board: 'b1', email: 'dee@x.com' });
+    const t = token();
+    const seen = await peekInvite(env, { token: t });
+    expect(seen).toEqual({ board: { name: 'Click http://evil.example', hue: 'cyan' }, by: '<b>Free money</b> at evil.example' });
+    expect(JSON.stringify(seen)).not.toContain('dee@x.com');
+    await expect(peekInvite(env, { token: 'nope' })).rejects.toThrow(/expired or was cancelled/);
+    await expect(peekInvite(env, {})).rejects.toThrow(/expired or was cancelled/);
+    db.exec(`UPDATE invites SET expires = 1`);
+    await expect(peekInvite(env, { token: t })).rejects.toThrow(/expired or was cancelled/);
   });
 
   it('sends one invite again at most every five minutes', async () => {

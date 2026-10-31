@@ -8,9 +8,12 @@
   import { hueColor } from '../lib/hue';
   import { matchBoard, queryWords } from '../lib/search';
   import { app } from '../lib/store.svelte';
+  import Avatar from './Avatar.svelte';
   import ColumnMenu from './ColumnMenu.svelte';
   import Icon from './Icon.svelte';
+  import InviteForm from './InviteForm.svelte';
   import Lane from './Lane.svelte';
+  import Sheet from './Sheet.svelte';
 
   let { id }: { id: string } = $props();
   const b = $derived(app.data[id]);
@@ -38,6 +41,12 @@
     return () => mq.removeEventListener('change', set);
   });
   let finding = $state(false);
+  // Who's in the board, in the header: a few faces that open People, and Invite for admins, which
+  // opens the invite form over the board.
+  const admin = $derived(app.isAdmin(id));
+  const faces = $derived(b ? b.members.slice(0, narrow ? 2 : 3) : []);
+  const moreFaces = $derived(b ? Math.max(0, b.members.length - faces.length) : 0);
+  let inviting = $state(false);
   let findInput: HTMLInputElement | null = null;
   const findRef = (el: HTMLInputElement) => {
     findInput = el;
@@ -145,6 +154,26 @@
   </label>
 {/snippet}
 
+{#snippet people()}
+  <span class="board-people">
+    <button
+      class="faces"
+      aria-label="People in this board: {b?.members.map((m) => m.name).join(', ')}"
+      onclick={() => app.go({ name: 'boardSettings', id, tab: 'people' })}
+    >
+      {#each faces as m (m.userId)}<span class="face"><Avatar person={m} size={26} /></span>{/each}
+      {#if moreFaces}<span class="more-faces">+{moreFaces}</span>{/if}
+    </button>
+    {#if admin}
+      {#if narrow}
+        <button class="icon-btn invite-key" aria-label="Invite people" onclick={() => (inviting = true)}><Icon name="plus" /></button>
+      {:else}
+        <button class="btn invite-key" onclick={() => (inviting = true)}><Icon name="plus" /> Invite</button>
+      {/if}
+    {/if}
+  </span>
+{/snippet}
+
 {#if b && item}
   <div
     class="screen"
@@ -198,8 +227,9 @@
         {/if}
         <!-- The archived cards, in a panel like Activity. -->
         <button class="arch" onclick={() => ((app.activity = null), (app.archive = id))}
-          ><Icon name="archive" size={16} /> Archived{#if b.archived.length}<span class="n">{b.archived.length}</span>{/if}</button
+          ><Icon name="archive" size={16} /> <span class="arch-word">Archived</span>{#if b.archived.length}<span class="n">{b.archived.length}</span>{/if}</button
         >
+        {#if narrow && !finding}{@render people()}{/if}
       </div>
       {#if b.status !== 'live' && app.online && b.loaded}
         <span class="sync" title="Connecting">Connecting</span>
@@ -210,6 +240,7 @@
         {:else}
           <button class="icon-btn find-key" class:on={!!f.q} aria-label="Search this board" onclick={openFind}><Icon name="search" /></button>
         {/if}
+        {#if !narrow}{@render people()}{/if}
         <button class="btn" onclick={() => ((app.archive = null), (app.activity = id))}><Icon name="log" /><span class="wide">Activity</span></button>
         <button class="icon-btn" aria-label="Board settings" onclick={() => app.go({ name: 'boardSettings', id })}
           ><Icon name="gear" /></button
@@ -277,6 +308,20 @@
   </div>
   {#if menuFor}
     <ColumnMenu board={id} colId={menuFor} onclose={() => (menuFor = null)} />
+  {/if}
+  {#if inviting}
+    <Sheet variant="form" label="Invite people" onclose={() => (inviting = false)}>
+      <div class="invite-body">
+        <div class="invite-top">
+          <h2>Invite to {b.board?.name ?? item.name}</h2>
+          <button type="button" class="icon-btn" aria-label="Close" onclick={() => (inviting = false)}><Icon name="close" /></button>
+        </div>
+        <InviteForm {id} autofocus />
+        <button class="link-key" onclick={() => ((inviting = false), app.go({ name: 'boardSettings', id, tab: 'people' }))}
+          >See everyone in the board</button
+        >
+      </div>
+    </Sheet>
   {/if}
 {/if}
 
@@ -728,6 +773,93 @@
   @media (pointer: coarse) {
     .find-chip button {
       min-height: 44px;
+    }
+  }
+  /* Who's in the board: faces that open People, and Invite (admins). */
+  .board-people {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+  }
+  .filters .board-people {
+    margin-left: auto;
+    padding-left: 8px;
+  }
+  .faces {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--btn);
+    padding: 0 6px;
+    border: none;
+    border-radius: var(--r-ctl);
+    background: none;
+    cursor: pointer;
+  }
+  .face {
+    display: inline-flex;
+  }
+  .face + .face {
+    margin-left: 3px;
+  }
+  .more-faces {
+    margin-left: 6px;
+    color: var(--muted);
+    font: 500 13px var(--font);
+  }
+  @media (hover: hover) {
+    .faces:hover {
+      background: var(--sunk);
+    }
+  }
+  .acts .invite-key {
+    color: var(--text);
+  }
+  .invite-body {
+    display: grid;
+    gap: 14px;
+    padding: 8px 20px max(20px, env(safe-area-inset-bottom));
+    overflow: auto;
+  }
+  .invite-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .invite-top h2 {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+  .link-key {
+    justify-self: start;
+    min-height: var(--btn);
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    font: 500 14px var(--font);
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+  }
+  /* On a phone the filters' row also holds the faces: the filter mark goes, and Archived is its
+     box and count (still read out as Archived). */
+  @media (max-width: 640px) {
+    .filters > :global(svg) {
+      display: none;
+    }
+    .arch-word {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+    .arch {
+      margin-left: 0;
     }
   }
 </style>

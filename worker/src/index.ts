@@ -20,6 +20,7 @@ import {
   leaveAll,
   listBoards,
   orderBoards,
+  peekInvite,
   refreshMemberships,
   removeMember,
   resendInvite,
@@ -65,6 +66,7 @@ const OPEN = new Set([
   '/auth/passkey/login/finish',
   '/auth/handoff',
   '/oauth/token',
+  '/invites/peek',
 ]);
 
 /**
@@ -327,6 +329,8 @@ export default {
         case '/invites/create':
           await createInvite(env, await mustUser(), body);
           return reply(204);
+        case '/invites/peek':
+          return reply(200, await peekInvite(env, body));
         case '/invites/accept':
           return reply(200, await acceptInvite(env, await mustUser(), body));
         case '/invites/decline':

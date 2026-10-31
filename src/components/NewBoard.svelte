@@ -36,7 +36,7 @@
     <input id="bname" class="field" maxlength="100" placeholder="Spring launch" bind:value={name} data-autofocus required />
     <span class="label">Colour</span>
     <HuePicker bind:value={hue} />
-    <p class="note">You'll be its admin. Invite people from the board's settings.</p>
+    <p class="note">You'll be its admin, and can invite people from the board.</p>
     {#if error}<p class="err" role="alert">{error}</p>{/if}
     <button class="key ink" type="submit" disabled={busy || !name.trim()}>Create board</button>
   </form>

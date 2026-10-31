@@ -312,6 +312,22 @@ export async function boardInvites(env: Env, userId: string, body: { board?: unk
   return { invites: rows.results };
 }
 
+/**
+ * What an invite link shows before signing in: the board's name and colour, and who sent it,
+ * nothing the email didn't already say. Never the address it was sent to.
+ */
+export async function peekInvite(env: Env, body: { token?: unknown }) {
+  const gone = new Refusal(404, 'That invite has expired or was cancelled. Ask for a new one.');
+  if (typeof body.token !== 'string' || !body.token || body.token.length > 100) throw gone;
+  const row = await env.DB.prepare(
+    'SELECT i.expires, b.name, b.hue, u.name AS by_name FROM invites i JOIN boards b ON b.id = i.board_id LEFT JOIN users u ON u.id = i.invited_by WHERE i.token_hash = ?',
+  )
+    .bind(await sha256(body.token))
+    .first<{ expires: number; name: string; hue: string; by_name: string | null }>();
+  if (!row || row.expires < Date.now()) throw gone;
+  return { board: { name: row.name, hue: row.hue }, by: row.by_name };
+}
+
 type InviteRow = { id: string; board_id: string; email: string; role: Role; created: number; expires: number; invited_by: string };
 
 /** Join a board from an invite: by the link's token, or by id from the invites on Home. */

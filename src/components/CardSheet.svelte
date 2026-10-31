@@ -6,6 +6,7 @@
   import { fieldText } from '../lib/fields';
   import { hueColor, statusColors } from '../lib/hue';
   import { app } from '../lib/store.svelte';
+  import { desktop } from '../lib/ui.svelte';
   import Attachments from './Attachments.svelte';
   import Avatar from './Avatar.svelte';
   import Balloon from './Balloon.svelte';
@@ -172,6 +173,25 @@
   let tab = $state<'details' | 'history'>('details');
   /** The value being edited in place: 'title', 'desc', 'start', 'end' or a field's id. */
   let editing = $state<string | null>(null);
+  // On a phone the description shows three lines first, with Show more when there's more.
+  let descMore = $state(false);
+  let descLong = $state(false);
+  const measureDesc = (el: HTMLElement) => {
+    const fit = () => (descLong = el.classList.contains('clamped') && el.scrollHeight > el.clientHeight + 1);
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    fit();
+    return () => ro.disconnect();
+  };
+  // On a phone the band shrinks to the title alone once the card is scrolled, and grows back at
+  // the top; only when there's enough to scroll that it can't flicker back and forth.
+  let compact = $state(false);
+  function shrinkBand(e: Event) {
+    if (desktop.current) return (compact = false);
+    const el = e.currentTarget as HTMLElement;
+    if (compact) compact = el.scrollTop > 4;
+    else compact = el.scrollTop > 48 && el.scrollHeight - el.clientHeight > 200;
+  }
   let armedArchive = $state(false);
   let descEl = $state<HTMLTextAreaElement | null>(null);
   let armedDelete = $state(false);
@@ -246,6 +266,7 @@
     <!-- The card's own status band, as on the board. -->
     <header
       class="band"
+      class:compact
       class:plain={!band}
       style:--tint={band?.tint ?? 'var(--sunk)'}
       style:--ink={band?.text ?? 'var(--muted)'}
@@ -318,7 +339,7 @@
         <CardHistory {b} logs={b.logsOn(id)} />
       </div>
     {:else}
-      <div class="scroll" id="pane-details" role="tabpanel" aria-labelledby="tab-details">
+      <div class="scroll" id="pane-details" role="tabpanel" aria-labelledby="tab-details" onscroll={shrinkBand}>
         {#if card.archived}
           <div class="archived">
             <Icon name="archive" />
@@ -340,7 +361,7 @@
 
         <div class="layout">
           <aside class="props" aria-label="About this card">
-            <div class="prop">
+            <div class="prop p-start">
               <span class="pl"><Icon name="cal" size={16} /> Starts</span>
               {#if editing === 'start'}
                 <span class="pv edit when">
@@ -365,7 +386,7 @@
               {/if}
             </div>
 
-            <div class="prop" class:dated={editing !== 'end'}>
+            <div class="prop p-due" class:dated={editing !== 'end'}>
               <span class="pl"><Icon name="cal" size={16} /> Due</span>
               {#if editing === 'end'}
                 <span class="pv edit when">
@@ -475,7 +496,7 @@
 
             <!-- The total, whether a timer runs and Elastic's mark on one line; who put in how much
                  below it, once more than one person has. -->
-            <div class="prop" class:top={time && time.by.size > 1}>
+            <div class="prop p-time" class:top={time && time.by.size > 1}>
               <span class="pl"><Icon name="clock" size={16} /> Time</span>
               <span class="pv info">
                 <span class="line">
@@ -507,7 +528,7 @@
               </span>
             </div>
 
-            <div class="prop">
+            <div class="prop p-status">
               <span class="pl"><Icon name="status" size={16} /> Status</span>
               <span class="pv">
                 <Balloon label="Status" align="start">
@@ -536,7 +557,7 @@
 
             {#each custom as f (f.id)}
               {@const v = view.values[f.id]}
-              <div class="prop">
+              <div class="prop p-field">
                 <span class="pl"><Icon name="field" size={16} /> {f.name}</span>
                 {#if f.type === 'checkbox'}
                   <span class="pv">
@@ -632,7 +653,7 @@
           </aside>
 
           <div class="main">
-            <section class="sect">
+            <section class="sect s-desc">
               <h2><Icon name="log" size={16} /> Description</h2>
               {#if editing === 'desc'}
                 <!-- Open until focus leaves the box and its formatting keys together. -->
@@ -660,26 +681,32 @@
                 <!-- A block, not a button: lists and paragraphs can't go in a button. -->
                 <div
                   class="desc"
+                  class:clamped={!desktop.current && !descMore}
+                  class:long={descLong}
                   role="button"
                   tabindex="0"
                   aria-label="Edit the description"
                   onclick={(e) => !(e.target as Element).closest('a, button, .balloon') && (editing = 'desc')}
                   onkeydown={(e) => (e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget && (e.preventDefault(), (editing = 'desc'))}
+                  {@attach measureDesc}
                 >
                   <Rich text={view.desc} {b} />
                 </div>
+                {#if !desktop.current && descLong && !descMore}
+                  <button class="more-key" onclick={() => (descMore = true)}>Show more</button>
+                {/if}
               {:else}
                 <button class="desc empty" onclick={() => (editing = 'desc')}>Add a description</button>
               {/if}
             </section>
 
-            <Attachments {b} cardId={id} />
+            <div class="s-files"><Attachments {b} cardId={id} /></div>
 
-            <section class="sect">
+            <section class="sect s-deps">
               <Dependencies {b} cardId={id} deps={view.deps ?? []} onchange={(d) => setDraft('deps', d)} onopen={openCard} />
             </section>
 
-            <section class="sect"><Comments {b} cardId={id} /></section>
+            <section class="sect s-comments"><Comments {b} cardId={id} /></section>
           </div>
         </div>
       </div>
@@ -1478,16 +1505,118 @@
     .title {
       position: relative;
     }
-    .col-btn::after,
-    .title::after {
+    .col-btn::after {
       content: '';
       position: absolute;
       inset: -8px 0;
+    }
+    .title::after {
+      content: '';
+      position: absolute;
+      inset: -10px 0;
     }
     .icon-btn.sm::after {
       content: '';
       position: absolute;
       inset: -6px;
+    }
+  }
+
+  /* ---------- a phone: the card's content first ---------- */
+  /* One column: the description, then when it's due, who's on it and its status, Mark done, the
+     comments; then the start date, time and other fields, attachments, dependencies; Archive last.
+     The two columns a computer shows are let go of (display: contents) so each part can be placed. */
+  @media (max-width: 767px) {
+    .layout {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .props,
+    .main {
+      display: contents;
+    }
+    .s-desc {
+      order: 1;
+      margin-bottom: 10px;
+    }
+    .p-due {
+      order: 2;
+    }
+    .people-row {
+      order: 3;
+    }
+    .p-status {
+      order: 4;
+    }
+    .part {
+      order: 5;
+    }
+    .s-comments {
+      order: 6;
+      margin-top: 22px;
+    }
+    .p-start {
+      order: 7;
+      margin-top: 22px;
+    }
+    .p-time {
+      order: 8;
+    }
+    .p-field {
+      order: 9;
+    }
+    .s-files {
+      order: 10;
+      margin-top: 22px;
+    }
+    .s-deps {
+      order: 11;
+      margin-top: 22px;
+    }
+    .archive {
+      order: 12;
+      margin-top: 22px;
+    }
+    /* Three lines of the description, fading out, until Show more. */
+    /* Its top padding and three lines, cut there; the third fades out. */
+    .desc.clamped {
+      max-height: calc(3lh + 8px);
+      overflow: hidden;
+    }
+    .desc.clamped.long {
+      mask-image: linear-gradient(to bottom, #000 calc(100% - 1lh), transparent);
+    }
+    .more-key {
+      justify-self: start;
+      min-height: var(--btn);
+      padding: 0;
+      margin-top: -6px;
+      border: none;
+      background: none;
+      color: var(--t-indigo);
+      font: 500 14px var(--font);
+      cursor: pointer;
+    }
+    /* Scrolled: the band is the title alone, on one line. */
+    .band.compact {
+      padding-top: 10px;
+      padding-bottom: 10px;
+    }
+    .band.compact .band-row,
+    .band.compact .where {
+      display: none;
+    }
+    .band.compact .title {
+      margin-top: 0;
+      font-size: 17px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .band.compact .close {
+      top: 50%;
+      translate: 0 -50%;
     }
   }
 </style>

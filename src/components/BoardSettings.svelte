@@ -10,6 +10,7 @@
   import Avatar from './Avatar.svelte';
   import FieldsEditor from './FieldsEditor.svelte';
   import HuePicker from './HuePicker.svelte';
+  import InviteForm, { type Waiting, waitingInvites } from './InviteForm.svelte';
   import Icon, { type IconName } from './Icon.svelte';
 
   /**
@@ -202,23 +203,13 @@
 
   // ---------- People ----------
 
-  let email = $state('');
-  let role = $state<Role>('member');
-  let inviting = $state(false);
-  let invites = $state<{ id: string; email: string; role: Role; created: number; expires: number }[]>([]);
+  let invites = $state<Waiting[]>([]);
   let armed = $state<string | null>(null);
   let busy = $state(false);
 
-  async function loadInvites() {
-    if (!admin || !app.online) return;
-    try {
-      invites = (await call<{ invites: typeof invites }>('/invites', { board: id })).invites;
-    } catch {
-      /* offline */
-    }
-  }
+  // Waiting invites count on the People tab; the form there keeps them up to date.
   $effect(() => {
-    void loadInvites();
+    if (admin && app.online) void waitingInvites(id).then((got) => got && (invites = got));
   });
 
   async function act(fn: () => Promise<unknown>, done?: string) {
@@ -234,21 +225,7 @@
     }
   }
 
-  async function invite(e: Event) {
-    e.preventDefault();
-    const to = email.trim();
-    inviting = true;
-    try {
-      await call('/invites/create', { board: id, email: to, role });
-      email = '';
-      app.say(`Invite sent to ${to}.`);
-      await loadInvites();
-    } catch (err) {
-      app.say((err as Error).message);
-    } finally {
-      inviting = false;
-    }
-  }
+
 </script>
 
 {#if b}
@@ -412,49 +389,7 @@
           </div>
 
           {#if admin}
-            <form class="part" onsubmit={invite}>
-              <label class="label" for="inv-email">Invite someone</label>
-              <input
-                id="inv-email"
-                class="field"
-                type="email"
-                inputmode="email"
-                autocomplete="off"
-                placeholder="name@example.com"
-                bind:value={email}
-                required
-              />
-              <div class="row">
-                <div class="seg" role="group" aria-label="Invite as">
-                  <button type="button" aria-pressed={role === 'member'} onclick={() => (role = 'member')}>Member</button>
-                  <button type="button" aria-pressed={role === 'admin'} onclick={() => (role = 'admin')}>Admin</button>
-                </div>
-                <button class="key ink" type="submit" disabled={inviting || !email.trim() || !app.online}><Icon name="mail" plain /> Send invite</button>
-              </div>
-              <p class="note">They get an email with a link, and join once they sign in with that address. Invites work for 14 days.</p>
-            </form>
-            {#if invites.length}
-              <div class="part">
-                <span class="label">Waiting to join</span>
-                <ul class="card list">
-                  {#each invites as inv (inv.id)}
-                    <li>
-                      <span class="who"><b>{inv.email}</b><small>{inv.role === 'admin' ? 'Admin' : 'Member'}, sent {when(inv.created)}</small></span>
-                      <button
-                        class="btn small"
-                        disabled={busy}
-                        onclick={() => act(() => call('/invites/resend', { id: inv.id }).then(loadInvites), 'Invite sent again.')}>Resend</button
-                      >
-                      <button
-                        class="btn small danger"
-                        disabled={busy}
-                        onclick={() => act(() => call('/invites/revoke', { id: inv.id }).then(loadInvites), 'Invite cancelled.')}>Cancel invite</button
-                      >
-                    </li>
-                  {/each}
-                </ul>
-              </div>
-            {/if}
+            <InviteForm {id} bind:invites />
           {/if}
         {:else if tab.id === 'fields'}
           <p class="note">Every card in this board has these. Members fill them in; only admins change them.</p>
@@ -724,28 +659,6 @@
     color: var(--muted);
     font-size: 14px;
   }
-  .seg {
-    display: flex;
-    background: var(--sunk);
-    border-radius: var(--r-ctl);
-    padding: 3px;
-    gap: 2px;
-  }
-  .seg button {
-    border: none;
-    background: transparent;
-    color: var(--muted);
-    font: 500 14px var(--font);
-    min-height: 36px;
-    padding: 0 14px;
-    border-radius: var(--r-sm);
-    cursor: pointer;
-  }
-  .seg button[aria-pressed='true'] {
-    background: var(--raised);
-    color: var(--text);
-    box-shadow: 0 1px 0 var(--line);
-  }
 
   .card {
     background: var(--raised);
@@ -791,11 +704,6 @@
     background: var(--sunk);
     color: var(--muted);
     font-size: 12.5px;
-  }
-  .btn.small {
-    min-height: 36px;
-    padding: 0 12px;
-    font-size: 13px;
   }
   .out-card {
     display: flex;
