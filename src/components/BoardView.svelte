@@ -299,7 +299,11 @@
           {:else}
             <button class="add-col" onclick={() => (addingCol = true)}><Icon name="plus" /> <span>Add a column</span></button>
             {#if !b.columns.length}
-              <p class="hint">Columns group cards however suits the project, like Campaign 1 and Campaign 2. Each card has its own status.</p>
+              <!-- A new board's first steps; gone once it has a column. -->
+              <p class="hint">Add a column for each stage or campaign, like Campaign 1 or To do. Each card has its own status, whatever its column.</p>
+              {#if admin && b.member.size <= 1}
+                <button class="btn first-invite" onclick={() => (inviting = true)}><Icon name="people" /> Invite people</button>
+              {/if}
             {/if}
           {/if}
         </div>
@@ -751,6 +755,9 @@
     color: var(--muted);
     font-size: 13.5px;
     margin: 10px 4px;
+  }
+  .first-invite {
+    margin: 0 4px;
   }
   .row {
     display: flex;

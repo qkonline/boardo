@@ -83,6 +83,7 @@ Each board has two roles.
 - **R3.1a** An admin can choose how the board scrolls (Board settings, Look, Scrolling): **Each column** (the default), where every column scrolls on its own so its name and Add a card stay in view, or **Whole page**, where columns are as long as their cards and the page scrolls, with the board's header held at the top. It's saved with the settings' save bar and everyone in the board sees it.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
+- **R3.3a** A new board starts empty, with a short guide in place of columns: "Add a column for each stage or campaign, like Campaign 1 or To do", Add a column, and Invite people for its admin while they're alone in it. It goes once the board has a column. No starter columns (the user's choice, 1 Nov 2026).
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
 - **R3.4a** Removing a column shows a message with **Undo** for a few seconds, which brings the column back with the cards it had, in their order, and unarchives them if they were archived with it.
 - **R3.4b** Add a column sits after the last column. Beside columns it's a slim strip as wide as a tap target, with a plus level with the columns' names and the words running down it, so it doesn't take a column's width; it opens to the full form, scrolled into view. A board with no columns shows it full width with a line explaining columns.
@@ -224,6 +225,7 @@ Every card has these fields.
 - **R7.2** It's private: only its owner sees it, and it reveals nothing about one project to members of another.
 - **R7.3** Each card shows which project it's from (project name and colour), its status and its deadline.
 - **R7.4** Cards are grouped by deadline (Overdue, Today, This week, Later, No date), with a switch to group by project instead.
+- **R7.4a** On a computer the groups sit side by side as columns, like a board's (Overdue, Today, This week, Later, No date; or one per board By project), scrolling sideways when they don't fit. Done cards stay below. A phone keeps one list.
 - **R7.5** It isn't a copy. Opening a card opens the real card, and any change made from My cards is a change on the project board.
 - **R7.6** While some boards haven't loaded, My cards says so ("Loading your boards…", or offline, that they haven't loaded on this device yet) rather than "Nothing assigned to you". Each board's tile says Loading… or Not loaded on this device yet in place of its card count.
 - **R7.7** The same goes elsewhere: the bell says "Loading your updates…" (offline, "Connect to see your updates.") until they've come, Board settings says it's loading the board until it has, and a key that needs a connection says so beside it when offline ("Connect to add a passkey.", "Connect to delete it for good.").
@@ -379,7 +381,7 @@ These are reasonable defaults, used unless the owner says otherwise.
 2. Members can create, edit, rename and reorder columns. Only admins manage fields, members, settings and the board itself (section 2.2).
 3. Changing a card's status by hand doesn't change anyone's part done (R5.5).
 4. Starting a card in Elastic waits for Start my day, like other tasks (R8.19).
-5. My cards groups by deadline by default, with a switch to group by project (R7.4).
+5. My cards groups by deadline by default, with a switch to group by project (R7.4). Confirmed by the user on 1 Nov 2026.
 6. The attachment limit can be raised to at most 100 MB (R4.17).
 
 ## 13. Out of scope for now

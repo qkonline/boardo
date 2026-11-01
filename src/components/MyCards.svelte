@@ -89,24 +89,29 @@
     <div class="empty" role="status">
       {#if waiting}{waiting}{:else if app.boards.length}Nothing assigned to you right now.{:else}Once you're in a board, cards assigned to you show here.{/if}
     </div>
-  {:else if app.myCardsBy === 'deadline'}
-    {#each byDeadline as g (g.name)}
-      <section>
-        <h2 class:late={g.late}>{g.name} <small>{g.rows.length}</small></h2>
-        <div class="list">
-          {#each g.rows as r (r.board.id + r.card.id)}<CardTile card={r.card} b={r.state} showBoard />{/each}
-        </div>
-      </section>
-    {/each}
   {:else}
-    {#each byProject as g (g.board.id)}
-      <section>
-        <h2><span class="mark" style:background={hueColor(g.board.hue)}></span>{g.board.name} <small>{g.rows.length}</small></h2>
-        <div class="list">
-          {#each g.rows as r (r.card.id)}<CardTile card={r.card} b={r.state} />{/each}
-        </div>
-      </section>
-    {/each}
+    <!-- On a phone, one group under another; on a computer, side by side like a board's columns. -->
+    <div class="groups">
+      {#if app.myCardsBy === 'deadline'}
+        {#each byDeadline as g (g.name)}
+          <section class="group">
+            <h2 class:late={g.late}>{g.name} <small>{g.rows.length}</small></h2>
+            <div class="list">
+              {#each g.rows as r (r.board.id + r.card.id)}<CardTile card={r.card} b={r.state} showBoard />{/each}
+            </div>
+          </section>
+        {/each}
+      {:else}
+        {#each byProject as g (g.board.id)}
+          <section class="group">
+            <h2><span class="mark" style:background={hueColor(g.board.hue)}></span>{g.board.name} <small>{g.rows.length}</small></h2>
+            <div class="list">
+              {#each g.rows as r (r.card.id)}<CardTile card={r.card} b={r.state} />{/each}
+            </div>
+          </section>
+        {/each}
+      {/if}
+    </div>
   {/if}
 
   {#if done.length}
@@ -115,7 +120,7 @@
         >{showDone ? 'Hide' : 'Show'} done ({done.length})</button
       >
       {#if showDone}
-        <div class="list">
+        <div class="list done">
           {#each done as r (r.board.id + r.card.id)}<CardTile card={r.card} b={r.state} showBoard />{/each}
         </div>
       {/if}
@@ -204,13 +209,40 @@
     height: 12px;
     border-radius: 3px;
   }
+  .groups {
+    display: grid;
+    gap: 18px;
+  }
   .list {
     display: grid;
     gap: 8px;
   }
+  /* A computer: the page takes the width, and the groups sit side by side as columns that scroll
+     sideways when there are more than fit, like a board's. Done cards stay below, in a grid. */
   @media (min-width: 768px) {
-    .list {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .page {
+      max-width: none;
+    }
+    .groups {
+      grid-auto-flow: column;
+      grid-auto-columns: 290px;
+      align-items: start;
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 6px;
+    }
+    .group {
+      gap: 0;
+      background: var(--sunk);
+      border-radius: var(--r-card);
+      padding: 0 8px 8px;
+    }
+    .group h2 {
+      min-height: 44px;
+      margin: 2px 0 0 6px;
+    }
+    .list.done {
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     }
   }
   .waiting {
