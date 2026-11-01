@@ -54,6 +54,21 @@
   );
 
   let showDone = $state(false);
+
+  // Boards whose cards haven't reached this device yet: until they have, the list can't be whole.
+  const unloaded = $derived(app.boards.filter((x) => !app.data[x.id]?.loaded).length);
+  const unreachable = $derived(app.boards.some((x) => !app.data[x.id]?.loaded && app.data[x.id]?.status === 'offline'));
+  const waiting = $derived(
+    !unloaded
+      ? ''
+      : !app.online
+        ? `${unloaded === 1 ? "1 board hasn't" : `${unloaded} boards haven't`} loaded on this device yet. Connect to see ${unloaded === 1 ? 'its' : 'their'} cards.`
+        : unreachable
+          ? "Can't reach some of your boards right now. Trying again…"
+          : unloaded === app.boards.length
+            ? 'Loading your boards…'
+            : `Still loading ${unloaded === 1 ? '1 board' : `${unloaded} boards`}…`,
+  );
 </script>
 
 <main class="page">
@@ -67,9 +82,12 @@
   </header>
   <p class="note">Only you see this. It lists every card assigned to you, from all your boards.</p>
 
+  {#if waiting && open.length}
+    <p class="waiting" role="status">{waiting}</p>
+  {/if}
   {#if !open.length}
-    <div class="empty">
-      {#if app.boards.length}Nothing assigned to you right now.{:else}Once you're in a board, cards assigned to you show here.{/if}
+    <div class="empty" role="status">
+      {#if waiting}{waiting}{:else if app.boards.length}Nothing assigned to you right now.{:else}Once you're in a board, cards assigned to you show here.{/if}
     </div>
   {:else if app.myCardsBy === 'deadline'}
     {#each byDeadline as g (g.name)}
@@ -194,6 +212,11 @@
     .list {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+  }
+  .waiting {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
   }
   .empty {
     padding: 24px 16px;

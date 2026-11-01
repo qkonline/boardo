@@ -156,6 +156,7 @@ Every card has these fields.
 ### 4.5 Archiving
 
 - **R4.20** Cards can be archived and restored. Archived cards are hidden from the board, My cards and Elastic, but kept with their history.
+- **R4.20a** Archive card happens at once and shows a message with **Undo** for a few seconds, which brings the card back and opens it again. It asks first only when the card has changes not yet saved, since archiving closes it.
 - **R4.21** An archived card can be deleted for good, by an admin or by whoever made it. Its comments, attachments and time go with it; its history stays in the project log, with an entry saying it was deleted.
 - **R4.21a** Archived cards are found from an **Archived** link beside the board's filters, with their count. It opens a panel from the side, like Activity, with a search that finds them by the rules of R9.17. Each can be opened, restored, or deleted for good (R4.21). Board settings no longer lists them.
 
@@ -221,6 +222,7 @@ Every card has these fields.
 - **R7.3** Each card shows which project it's from (project name and colour), its status and its deadline.
 - **R7.4** Cards are grouped by deadline (Overdue, Today, This week, Later, No date), with a switch to group by project instead.
 - **R7.5** It isn't a copy. Opening a card opens the real card, and any change made from My cards is a change on the project board.
+- **R7.6** While some boards haven't loaded, My cards says so ("Loading your boards…", or offline, that they haven't loaded on this device yet) rather than "Nothing assigned to you". Each board's tile says Loading… or Not loaded on this device yet in place of its card count.
 
 ## 8. Elastic integration
 

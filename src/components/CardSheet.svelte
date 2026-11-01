@@ -642,11 +642,14 @@
             {#if !card.archived}
               <div class="archive">
                 {#if armedArchive}
-                  <span>Archive this card?</span>
+                  <span>Archive without saving your changes?</span>
                   <button class="btn danger sm" onclick={() => app.archiveCard(board, id, true)}>Archive</button>
                   <button class="btn ghost sm" onclick={() => (armedArchive = false)}>Keep</button>
                 {:else}
-                  <button class="link" onclick={() => (armedArchive = true)}><Icon name="archive" size={16} /> Archive card</button>
+                  <!-- Archive happens at once, with Undo; it asks only when changes would be lost. -->
+                  <button class="link" onclick={() => (dirty ? (armedArchive = true) : app.archiveCard(board, id, true))}
+                    ><Icon name="archive" size={16} /> Archive card</button
+                  >
                 {/if}
               </div>
             {/if}

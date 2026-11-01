@@ -988,8 +988,14 @@ export class App {
       const first = this.data[board].columns[0];
       if (first) patch.columnId = first.id;
     }
+    const wasOpen = this.open?.board === board && this.open.id === id;
     await this.updateCard(board, id, patch);
-    if (archived && this.open?.id === id) this.open = null;
+    if (archived && wasOpen) this.open = null;
+    // Archiving happens at once, so it can be taken back; Undo opens the card again if it was open.
+    if (archived)
+      this.say('Card archived', () =>
+        void this.archiveCard(board, id, false).then(() => wasOpen && this.openCard(board, id)),
+      );
   }
 
   /** Delete an archived card for good. Done by the board itself, so it needs a connection. */

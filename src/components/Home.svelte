@@ -157,7 +157,9 @@
               <span class="meta">
                 {#if n && st?.loaded}
                   {n.open} open{#if n.mine}<span class="mine">, {n.mine} yours</span>{/if}
-                {:else}&nbsp;{/if}
+                {:else if !app.online}Not loaded on this device yet
+                {:else if st?.status === 'offline'}Can't reach it right now
+                {:else}Loading…{/if}
               </span>
             </span>
           </a>
