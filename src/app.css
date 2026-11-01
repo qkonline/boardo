@@ -2,6 +2,22 @@
 @import '@fontsource/instrument-sans/500.css';
 @import '@fontsource/instrument-sans/600.css';
 
+/* Text sizes: these ten, nothing in between (1 Nov 2026). Size by role, roughly: 11 and 12 small
+   labels and counts, 13 and 14 secondary and body text, 15 and 16 main text and titles in lists,
+   18 and 20 section and card titles, 24 page titles, 28 the sign-in page. */
+:root {
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-15: 15px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-28: 28px;
+}
+
 /* Theme tokens, shared with Elastic. Light by default; dark follows the device unless the user
    picked a theme (index.html sets data-theme before first paint). */
 :root {
@@ -177,7 +193,7 @@ body {
 }
 
 body {
-  font: 400 15px/1.4 var(--font);
+  font: 400 var(--fs-15)/1.4 var(--font);
   font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
@@ -223,7 +239,7 @@ a,
   input:not(.large-text),
   textarea:not(.large-text),
   select {
-    font-size: 16px !important;
+    font-size: var(--fs-16) !important;
   }
 }
 
@@ -260,7 +276,7 @@ a {
   border: 1px solid var(--line);
   background: var(--raised);
   color: var(--text);
-  font: 600 14px/1 var(--font);
+  font: 600 var(--fs-14)/1 var(--font);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -303,7 +319,7 @@ a {
   border: 1px solid var(--border);
   background: var(--raised);
   color: var(--text);
-  font: 500 14px/1 var(--font);
+  font: 500 var(--fs-14)/1 var(--font);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -350,7 +366,7 @@ a {
   border: 1px solid var(--line);
   background: var(--raised);
   color: var(--muted);
-  font: 500 13px/1 var(--font);
+  font: 500 var(--fs-13)/1 var(--font);
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -364,7 +380,7 @@ a {
 }
 
 .label {
-  font: 500 13px/1.2 var(--font);
+  font: 500 var(--fs-13)/1.2 var(--font);
   color: var(--muted);
 }
 
@@ -376,7 +392,7 @@ a {
   border: 1px solid var(--field-edge);
   background: var(--raised);
   color: var(--text);
-  font: 400 15px/1.35 var(--font);
+  font: 400 var(--fs-15)/1.35 var(--font);
 }
 .field:focus {
   outline: 2px solid var(--accent);

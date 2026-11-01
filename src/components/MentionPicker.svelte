@@ -197,7 +197,7 @@
     border-radius: var(--r-ctl);
     background: none;
     color: var(--text);
-    font: 400 15px/1.2 var(--font);
+    font: 400 var(--fs-15)/1.2 var(--font);
     text-align: left;
     cursor: pointer;
   }
@@ -215,14 +215,14 @@
     font-weight: 600;
   }
   .role {
-    font-size: 12px;
+    font-size: var(--fs-12);
     color: var(--muted);
   }
   .hint {
     margin: 4px 0 0;
     padding: 6px 8px 2px;
     border-top: 1px solid var(--border);
-    font-size: 12px;
+    font-size: var(--fs-12);
     color: var(--muted);
   }
   @keyframes pop {

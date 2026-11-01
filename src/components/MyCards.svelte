@@ -155,13 +155,13 @@
   }
   h1 {
     margin: 0;
-    font-size: 26px;
+    font-size: var(--fs-24);
     font-weight: 600;
   }
   .note {
     margin: -10px 0 0;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .seg {
     display: inline-flex;
@@ -174,7 +174,7 @@
     border: none;
     background: transparent;
     color: var(--muted);
-    font: 500 13px var(--font);
+    font: 500 var(--fs-13) var(--font);
     min-height: 38px;
     padding: 0 12px;
     border-radius: var(--r-sm);
@@ -191,7 +191,7 @@
   }
   h2 {
     margin: 0;
-    font-size: 15px;
+    font-size: var(--fs-15);
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -248,7 +248,7 @@
   .waiting {
     margin: 0;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .empty {
     padding: 24px 16px;

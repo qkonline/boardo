@@ -139,10 +139,10 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    font: 600 13.5px var(--font);
+    font: 600 var(--fs-14) var(--font);
   }
   .sum {
-    font: 600 11px/1 var(--font);
+    font: 600 var(--fs-11)/1 var(--font);
     color: var(--muted);
     background: var(--sunk);
     border-radius: var(--r-sm);
@@ -155,7 +155,7 @@
   .btn.small {
     min-height: 34px;
     padding: 0 10px;
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
 
   /* The rail: one thread from the cards to finish first, through this card, to the ones after. */
@@ -184,7 +184,7 @@
   .group {
     margin: 0;
     padding-left: 30px;
-    font: 500 12px/1 var(--font);
+    font: 500 var(--fs-12)/1 var(--font);
     color: var(--muted);
     min-height: 22px;
     display: flex;
@@ -235,7 +235,7 @@
     }
   }
   .t {
-    font: 500 14px/1.3 var(--font);
+    font: 500 var(--fs-14)/1.3 var(--font);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -244,7 +244,7 @@
     color: var(--muted);
   }
   .col {
-    font-size: 12px;
+    font-size: var(--fs-12);
     color: var(--muted);
   }
   .x {
@@ -258,7 +258,7 @@
     align-items: center;
     gap: 14px;
     min-height: 30px;
-    font: 600 13px var(--font);
+    font: 600 var(--fs-13) var(--font);
     color: var(--accent-text);
   }
   .me {
@@ -275,7 +275,7 @@
   .empty {
     margin: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
 
   /* The picker in its balloon. */
@@ -287,7 +287,7 @@
   .find {
     min-height: 38px;
     padding: 6px 10px;
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .list {
     display: grid;
@@ -322,7 +322,7 @@
   .none {
     margin: 6px 8px;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   @media (pointer: coarse) {
     .btn.small {

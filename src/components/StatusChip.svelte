@@ -20,7 +20,7 @@
     gap: 6px;
     min-width: 0;
     box-sizing: border-box;
-    font: 500 12.5px/1 var(--font);
+    font: 500 var(--fs-13)/1 var(--font);
     padding: 5px 8px;
     border-radius: var(--r-sm);
     white-space: nowrap;

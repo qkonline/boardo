@@ -75,7 +75,7 @@
     border: none;
     border-radius: var(--r-sm);
     background: none;
-    font-size: 18px;
+    font-size: var(--fs-18);
     line-height: 1;
     cursor: pointer;
     opacity: 0.55;
@@ -93,7 +93,7 @@
   .name {
     margin: 0;
     padding: 6px 4px 4px;
-    font: 600 12px/1 var(--font);
+    font: 600 var(--fs-12)/1 var(--font);
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--muted);
@@ -107,7 +107,7 @@
     padding: 0;
     border: none;
     background: none;
-    font-size: 23px;
+    font-size: var(--fs-24);
     line-height: 1;
     border-radius: var(--r-sm);
     cursor: pointer;

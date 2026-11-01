@@ -56,13 +56,13 @@
   }
   h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: var(--fs-20);
     font-weight: 600;
   }
   .note {
     margin: 4px 0 0;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .err {
     margin: 0;

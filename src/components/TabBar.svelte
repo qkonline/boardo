@@ -85,7 +85,7 @@
     justify-items: center;
     align-content: center;
     gap: 3px;
-    font: 500 11.5px/1 var(--font);
+    font: 500 var(--fs-12)/1 var(--font);
     color: var(--muted);
     cursor: pointer;
   }
@@ -111,7 +111,7 @@
     display: inline-flex;
     gap: 6px;
     align-items: center;
-    font-size: 12.5px;
+    font-size: var(--fs-13);
     color: var(--muted);
     background: var(--raised);
     border: 1px solid var(--border);
@@ -136,7 +136,7 @@
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      font: 600 17px/1 var(--font);
+      font: 600 var(--fs-18)/1 var(--font);
       color: var(--text);
       text-decoration: none;
     }
@@ -167,7 +167,7 @@
       gap: 8px;
       padding: 0 12px;
       border-radius: var(--r-ctl);
-      font-size: 14px;
+      font-size: var(--fs-14);
     }
     .tab[aria-current='page'] {
       margin-top: 0;

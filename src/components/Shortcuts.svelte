@@ -80,12 +80,12 @@
   }
   h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: var(--fs-20);
     font-weight: 600;
   }
   h3 {
     margin: 0 0 6px;
-    font-size: 14px;
+    font-size: var(--fs-14);
     font-weight: 600;
     color: var(--muted);
   }
@@ -108,11 +108,11 @@
   }
   dd {
     margin: 0;
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .or {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   kbd {
     padding: 2px 7px;
@@ -120,7 +120,7 @@
     border-radius: var(--r-sm);
     background: var(--raised);
     color: var(--text);
-    font: 500 12.5px var(--font);
+    font: 500 var(--fs-13) var(--font);
     white-space: nowrap;
   }
 </style>

@@ -567,7 +567,7 @@
     flex: 1;
     min-width: 160px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   @media (min-width: 768px) {
     .save-row {
@@ -576,7 +576,7 @@
   }
   h1 {
     margin: 0;
-    font-size: 26px;
+    font-size: var(--fs-24);
     font-weight: 600;
   }
   .alert {
@@ -595,7 +595,7 @@
   }
   .muted {
     color: var(--muted);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
     line-height: 1.4;
   }
   .title {
@@ -610,7 +610,7 @@
   }
   h2 {
     margin: 0;
-    font-size: 17px;
+    font-size: var(--fs-18);
     font-weight: 600;
   }
   .card {
@@ -665,22 +665,22 @@
   .hint {
     margin: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .code {
-    font-size: 22px;
+    font-size: var(--fs-20);
     letter-spacing: 0.3em;
     font-weight: 600;
   }
   .err {
     margin: 0;
     color: var(--redT);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .note {
     margin: 0;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .seg {
     display: flex;
@@ -694,7 +694,7 @@
     border: none;
     background: transparent;
     color: var(--muted);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     min-height: 44px;
     border-radius: var(--r-sm);
     display: inline-flex;
@@ -730,7 +730,7 @@
   }
   .who small {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .end {
     border-top: 1px solid var(--border);
@@ -747,7 +747,7 @@
   }
   .small {
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .keys-line .link {
     padding: 0;

@@ -42,7 +42,7 @@
     gap: 12px;
     text-align: left;
     white-space: normal;
-    font: 400 14px/1.35 var(--font);
+    font: 400 var(--fs-14)/1.35 var(--font);
     color: var(--text);
   }
   .top {
@@ -56,12 +56,12 @@
     min-width: 0;
   }
   .id b {
-    font-size: 16px;
+    font-size: var(--fs-16);
     font-weight: 600;
     overflow-wrap: anywhere;
   }
   .role {
-    font-size: 13px;
+    font-size: var(--fs-13);
     color: var(--muted);
   }
   dl {
@@ -80,7 +80,7 @@
   }
   dt {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   dd {
     margin: 0;

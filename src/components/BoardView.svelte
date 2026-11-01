@@ -438,7 +438,7 @@
     flex: 0 1 auto;
     min-width: 0;
     margin: 0 0 0 4px;
-    font-size: 20px;
+    font-size: var(--fs-20);
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -451,7 +451,7 @@
     flex: none;
   }
   .sync {
-    font-size: 12px;
+    font-size: var(--fs-12);
     color: var(--muted);
   }
   .acts {
@@ -499,7 +499,7 @@
     color: var(--accent-text);
   }
   .val {
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     min-height: var(--btn);
     display: inline-flex;
     align-items: center;
@@ -559,7 +559,7 @@
     outline: none;
     background: transparent;
     color: var(--text);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
   }
   .find input::placeholder {
     color: var(--muted);
@@ -567,7 +567,7 @@
   .find .count {
     flex: none;
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
     white-space: nowrap;
   }
   .find-key.on {
@@ -602,7 +602,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font: 600 13px var(--font);
+    font: 600 var(--fs-13) var(--font);
   }
   .find-chip .x {
     display: inline-grid;
@@ -618,7 +618,7 @@
     border-radius: var(--r-ctl);
     background: var(--sunk);
     color: var(--accent-text);
-    font: 500 13px var(--font);
+    font: 500 var(--fs-13) var(--font);
     cursor: pointer;
   }
   .has-bg .arch-found {
@@ -630,7 +630,7 @@
     min-height: var(--btn);
     padding: 0 8px;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .arch {
     flex: none;
@@ -644,7 +644,7 @@
     border-radius: var(--r-ctl);
     background: none;
     color: var(--muted);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     white-space: nowrap;
     cursor: pointer;
   }
@@ -661,7 +661,7 @@
     border-radius: 9px;
     background: var(--sunk);
     color: var(--muted);
-    font: 600 11.5px/14px var(--font);
+    font: 600 var(--fs-12)/14px var(--font);
     text-align: center;
   }
   /* On a phone the filters drop below the name. */
@@ -728,7 +728,7 @@
   .new-col .err {
     margin: 0;
     color: var(--redT);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .new-col form {
     display: grid;
@@ -748,12 +748,12 @@
     border: 1px dashed var(--line);
     background: transparent;
     color: var(--muted);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     cursor: pointer;
   }
   .hint {
     color: var(--muted);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
     margin: 10px 4px;
   }
   .first-invite {
@@ -812,7 +812,7 @@
   .more-faces {
     margin-left: 6px;
     color: var(--muted);
-    font: 500 13px var(--font);
+    font: 500 var(--fs-13) var(--font);
   }
   @media (hover: hover) {
     .faces:hover {
@@ -835,7 +835,7 @@
   }
   .invite-top h2 {
     margin: 0;
-    font-size: 20px;
+    font-size: var(--fs-20);
     font-weight: 600;
     overflow-wrap: anywhere;
   }
@@ -846,7 +846,7 @@
     border: none;
     background: none;
     color: var(--muted);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     text-decoration: underline;
     text-underline-offset: 3px;
     cursor: pointer;

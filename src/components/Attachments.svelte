@@ -166,10 +166,10 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    font: 600 13.5px var(--font);
+    font: 600 var(--fs-14) var(--font);
   }
   h3 .n {
-    font: 600 11px/1 var(--font);
+    font: 600 var(--fs-11)/1 var(--font);
     color: var(--muted);
     background: var(--sunk);
     border-radius: var(--r-sm);
@@ -178,7 +178,7 @@
   .btn.small {
     min-height: 34px;
     padding: 0 10px;
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .grid {
     display: grid;
@@ -219,7 +219,7 @@
     position: absolute;
     left: 6px;
     top: 6px;
-    font-size: 11px;
+    font-size: var(--fs-11);
     font-weight: 600;
     background: var(--raised);
     border-radius: 4px;
@@ -235,7 +235,7 @@
     background: var(--raised);
   }
   .ext {
-    font: 600 11px var(--font);
+    font: 600 var(--fs-11) var(--font);
     width: 40px;
     height: 40px;
     border-radius: var(--r-sm);
@@ -251,16 +251,16 @@
     display: grid;
     gap: 2px;
     overflow-wrap: anywhere;
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .name small {
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--fs-12);
   }
   .none {
     margin: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .viewer {
     position: fixed;

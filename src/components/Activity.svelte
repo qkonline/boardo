@@ -210,7 +210,7 @@
     gap: 6px;
     align-items: center;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .mark {
     width: 10px;
@@ -220,7 +220,7 @@
   }
   h2 {
     margin: 2px 0 0;
-    font-size: 21px;
+    font-size: var(--fs-20);
     font-weight: 600;
   }
 
@@ -255,7 +255,7 @@
     color: var(--accent-text);
   }
   .val {
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     min-height: var(--btn);
     display: inline-flex;
     align-items: center;
@@ -297,7 +297,7 @@
   }
   .none {
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
     margin: 18px 0;
   }
 
@@ -309,7 +309,7 @@
     margin: 0;
     padding: 16px 0 8px;
     background: var(--bg);
-    font: 600 13px/1 var(--font);
+    font: 600 var(--fs-13)/1 var(--font);
     color: var(--muted);
   }
 
@@ -333,7 +333,7 @@
     border-radius: var(--r-ctl);
     display: grid;
     place-items: center;
-    font: 600 12px var(--font);
+    font: 600 var(--fs-12) var(--font);
     color: var(--bg);
     background: linear-gradient(135deg, var(--stripe));
   }
@@ -352,11 +352,11 @@
     flex-wrap: wrap;
   }
   header b {
-    font: 600 14.5px/28px var(--font);
+    font: 600 var(--fs-15)/28px var(--font);
   }
   time {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
     white-space: nowrap;
   }
 
@@ -377,7 +377,7 @@
     border-radius: var(--r-sm);
     background: none;
     color: var(--text);
-    font: 600 13.5px/1.35 var(--font);
+    font: 600 var(--fs-14)/1.35 var(--font);
     text-align: left;
     cursor: pointer;
   }
@@ -415,7 +415,7 @@
   li {
     position: relative;
     padding-left: 14px;
-    font-size: 14px;
+    font-size: var(--fs-14);
     line-height: 1.45;
     color: var(--muted);
     overflow-wrap: anywhere;
@@ -436,14 +436,14 @@
   .adds {
     margin: 0;
     padding-left: 14px;
-    font-size: 13.5px;
+    font-size: var(--fs-14);
     line-height: 1.6;
   }
   .card.mini {
     margin-left: 0;
     padding: 0;
     border-radius: 0;
-    font: 500 13.5px/1.6 var(--font);
+    font: 500 var(--fs-14)/1.6 var(--font);
     color: var(--text);
   }
   @media (hover: hover) {
@@ -464,7 +464,7 @@
     background: none;
     padding: 0 0 0 6px;
     color: var(--t-indigo);
-    font: 500 13.5px/1.6 var(--font);
+    font: 500 var(--fs-14)/1.6 var(--font);
     cursor: pointer;
   }
   .more {
@@ -475,7 +475,7 @@
   }
   .more span {
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   @media (pointer: coarse) {
     /* A card's name in the feed: a 44px tap area without spacing the feed apart. */

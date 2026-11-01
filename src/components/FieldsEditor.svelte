@@ -306,12 +306,12 @@
   small {
     color: var(--muted);
     font-weight: 400;
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .btn.small {
     min-height: 36px;
     padding: 0 12px;
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .edit {
     display: grid;
@@ -355,7 +355,7 @@
     gap: 6px;
     align-items: flex-start;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .hint :global(svg) {
     margin-top: 2px;
@@ -371,7 +371,7 @@
     margin-top: 6px;
   }
   .warn {
-    font-size: 13px;
+    font-size: var(--fs-13);
     color: var(--redT);
   }
   .leave {
@@ -385,7 +385,7 @@
   }
   .leave span {
     flex: 1 1 100%;
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .new {
     display: grid;

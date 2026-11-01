@@ -51,7 +51,7 @@
 <style>
   .none {
     color: var(--muted);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
     margin: 8px 0;
   }
   .day {
@@ -63,7 +63,7 @@
   }
   h3 {
     margin: 0 0 6px;
-    font: 600 12.5px/1 var(--font);
+    font: 600 var(--fs-13)/1 var(--font);
     color: var(--muted);
     letter-spacing: 0.01em;
   }
@@ -107,13 +107,13 @@
     border-radius: 6px;
     display: inline-grid;
     place-items: center;
-    font: 600 10px var(--font);
+    font: 600 var(--fs-11) var(--font);
     color: var(--bg);
     background: linear-gradient(135deg, var(--stripe));
   }
   .what {
     margin: 0;
-    font-size: 13.5px;
+    font-size: var(--fs-14);
     line-height: 1.45;
     color: var(--muted);
     overflow-wrap: anywhere;
@@ -123,7 +123,7 @@
     font-weight: 600;
   }
   time {
-    font: 500 11.5px/1.9 var(--font);
+    font: 500 var(--fs-12)/1.9 var(--font);
     color: var(--muted);
     white-space: nowrap;
     font-variant-numeric: tabular-nums;

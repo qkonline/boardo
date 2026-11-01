@@ -204,7 +204,7 @@
   }
   h1 {
     margin: 0;
-    font-size: 26px;
+    font-size: var(--fs-24);
     font-weight: 600;
   }
   .mark {
@@ -253,7 +253,7 @@
   }
   .ask {
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   /* Boards as tiles, like Trello's: the background across the top, the name below. */
   .tiles {
@@ -318,16 +318,16 @@
   }
   .name {
     font-weight: 600;
-    font-size: 15px;
+    font-size: var(--fs-15);
     line-height: 1.3;
     overflow-wrap: anywhere;
   }
   .meta {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .badge {
-    font-size: 11px;
+    font-size: var(--fs-11);
     font-weight: 600;
     padding: 3px 6px;
     border-radius: var(--r-sm);

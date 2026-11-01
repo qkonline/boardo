@@ -122,7 +122,8 @@
             {/if}
           {/each}
           {#if due}
-            <span class:late={due.late} class:soon={due.soon} title={dates}><Icon name="cal" size={16} />{due.label}</span>
+            <!-- The calendar mark says it's a date, so a date further off drops "Due" and the foot stays on one line. -->
+            <span class:late={due.late} class:soon={due.soon} title={dates}><Icon name="cal" size={16} />{due.late || due.soon ? due.label : due.label.replace(/^Due /, '')}</span>
           {:else if doneAt}
             <span title={dates || undefined}><Icon name="check" size={16} />{doneLabel(doneAt)}</span>
           {:else if start}
@@ -187,13 +188,13 @@
     padding: 10px 12px 12px;
   }
   .board {
-    font-size: 12px;
+    font-size: var(--fs-12);
     color: var(--muted);
     font-weight: 500;
   }
   .t {
     font-weight: 600;
-    font-size: 15.5px;
+    font-size: var(--fs-16);
     line-height: 1.3;
     overflow-wrap: anywhere;
   }
@@ -218,7 +219,7 @@
     gap: 3px;
   }
   .desc {
-    font-size: 13px;
+    font-size: var(--fs-13);
     line-height: 1.4;
     color: var(--muted);
     overflow-wrap: anywhere;
@@ -242,7 +243,7 @@
     flex-wrap: wrap;
     gap: 8px 12px;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
     min-width: 0;
   }
   .meta > span {
@@ -291,13 +292,13 @@
     max-width: 100%;
     min-width: 0;
     box-sizing: border-box;
-    /* The status chip's height (12.5px text, 5px above and below), a face in it or not. */
-    height: 22.5px;
+    /* The status chip's height (13px text, 5px above and below), a face in it or not. */
+    height: 23px;
     padding: 0 8px;
     border-radius: var(--r-sm);
     background: var(--tint-slate);
     color: var(--t-slate);
-    font: 500 12.5px/1 var(--font);
+    font: 500 var(--fs-13)/1 var(--font);
   }
   .fv:has(:global(.av)) {
     padding-left: 3px;
@@ -318,7 +319,7 @@
     align-items: center;
   }
   .more {
-    font-size: 11.5px;
+    font-size: var(--fs-12);
     color: var(--muted);
     margin-left: 2px;
   }

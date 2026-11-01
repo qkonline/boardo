@@ -71,7 +71,7 @@
   }
   h1 {
     margin: 0;
-    font-size: 24px;
+    font-size: var(--fs-24);
     font-weight: 600;
   }
   p {
@@ -86,7 +86,7 @@
     background: var(--raised);
     border: 1px solid var(--border);
     border-radius: var(--r-card);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   li {
     display: flex;
@@ -95,7 +95,7 @@
   }
   .small {
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .err {
     color: var(--redT);

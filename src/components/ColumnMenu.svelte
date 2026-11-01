@@ -95,11 +95,11 @@
   .err {
     margin: 6px 0 0;
     color: var(--redT);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   h2 {
     margin: 0;
-    font-size: 19px;
+    font-size: var(--fs-20);
     font-weight: 600;
     overflow-wrap: anywhere;
   }

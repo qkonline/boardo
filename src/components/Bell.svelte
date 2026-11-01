@@ -154,7 +154,7 @@
     border-radius: 9px;
     background: var(--badge);
     color: #fff;
-    font: 600 11px/18px var(--font);
+    font: 600 var(--fs-11)/18px var(--font);
     text-align: center;
     box-shadow: 0 0 0 2px var(--bg);
     pointer-events: none;
@@ -220,10 +220,10 @@
   }
   h2 {
     margin: 0;
-    font: 600 18px/1.2 var(--font);
+    font: 600 var(--fs-18)/1.2 var(--font);
   }
   .head h2 {
-    font-size: 20px;
+    font-size: var(--fs-20);
   }
   .link {
     margin-left: auto;
@@ -232,7 +232,7 @@
     border: none;
     background: none;
     color: var(--t-indigo);
-    font: 500 14px/1 var(--font);
+    font: 500 var(--fs-14)/1 var(--font);
     cursor: pointer;
   }
   .seg {
@@ -247,7 +247,7 @@
     border: 1px solid var(--border);
     background: var(--raised);
     color: var(--muted);
-    font: 500 14px/1 var(--font);
+    font: 500 var(--fs-14)/1 var(--font);
     cursor: pointer;
   }
   .seg button[aria-pressed='true'] {
@@ -258,7 +258,7 @@
   h3 {
     margin: 0;
     padding: 8px 16px 6px;
-    font: 600 12px/1 var(--font);
+    font: 600 var(--fs-12)/1 var(--font);
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--muted);
@@ -267,7 +267,7 @@
     margin: 0;
     padding: 18px 16px 24px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .item {
     width: 100%;
@@ -312,7 +312,7 @@
     display: grid;
     place-items: center;
     color: #fff;
-    font: 600 11px/1 var(--font);
+    font: 600 var(--fs-11)/1 var(--font);
     box-shadow: 0 0 0 2px var(--raised);
   }
   .body {
@@ -322,14 +322,14 @@
     gap: 3px;
   }
   .say {
-    font-size: 14px;
+    font-size: var(--fs-14);
     line-height: 1.35;
   }
   .say b {
     font-weight: 600;
   }
   .quote {
-    font-size: 13px;
+    font-size: var(--fs-13);
     line-height: 1.35;
     color: var(--muted);
     background: var(--sunk);
@@ -338,7 +338,7 @@
     overflow-wrap: anywhere;
   }
   .meta {
-    font-size: 12px;
+    font-size: var(--fs-12);
     color: var(--muted);
   }
   .unread .meta {
@@ -354,13 +354,13 @@
     background: var(--accent);
   }
   .head .say {
-    font-size: 15px;
+    font-size: var(--fs-15);
   }
   .head .quote {
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .head .meta {
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .head .item {
     padding: 12px 16px;

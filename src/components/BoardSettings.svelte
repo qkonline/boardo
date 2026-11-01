@@ -484,14 +484,14 @@
   .crumb {
     margin: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
   h1 {
     margin: 0;
-    font-size: 24px;
+    font-size: var(--fs-24);
     font-weight: 600;
   }
 
@@ -519,7 +519,7 @@
     border-radius: var(--r-ctl);
     background: none;
     color: var(--muted);
-    font: 500 15px var(--font);
+    font: 500 var(--fs-15) var(--font);
     text-align: left;
     cursor: pointer;
   }
@@ -540,7 +540,7 @@
   .tab .n {
     margin-left: auto;
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .pane {
     display: grid;
@@ -550,7 +550,7 @@
   }
   h2 {
     margin: 4px 0 0;
-    font-size: 20px;
+    font-size: var(--fs-20);
     font-weight: 600;
   }
   .part {
@@ -564,7 +564,7 @@
   .note {
     margin: 0;
     color: var(--muted);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
   }
   .note.bad {
     color: var(--redT);
@@ -645,13 +645,13 @@
   }
   .ct {
     padding: 0 4px;
-    font-size: 14.5px;
+    font-size: var(--fs-15);
     font-weight: 500;
   }
   .cs {
     padding: 0 4px;
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
     line-height: 1.35;
   }
 
@@ -673,7 +673,7 @@
   }
   .unit span {
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
 
   .card {
@@ -707,7 +707,7 @@
   }
   .who small {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .role {
     width: auto;
@@ -719,7 +719,7 @@
     border-radius: var(--r-sm);
     background: var(--sunk);
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .out-card {
     display: flex;
@@ -736,7 +736,7 @@
   }
   .what span {
     color: var(--muted);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
   }
 
   /* The save bar: at the foot of the window, lined up with the tab's content. */
@@ -763,7 +763,7 @@
     flex: 1;
     min-width: 160px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
 
   @media (min-width: 768px) {
@@ -792,7 +792,7 @@
       border: 1px solid var(--border);
       border-radius: 20px;
       background: var(--raised);
-      font-size: 14px;
+      font-size: var(--fs-14);
     }
     .tab :global(svg) {
       display: none;

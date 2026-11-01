@@ -105,7 +105,7 @@
     gap: 6px;
     align-items: center;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .mark {
     width: 10px;
@@ -115,7 +115,7 @@
   }
   h2 {
     margin: 2px 0 0;
-    font-size: 21px;
+    font-size: var(--fs-20);
     font-weight: 600;
   }
   .search {
@@ -171,10 +171,10 @@
   }
   .open b {
     font-weight: 600;
-    font-size: 14.5px;
+    font-size: var(--fs-15);
   }
   .meta {
-    font-size: 12.5px;
+    font-size: var(--fs-13);
     color: var(--muted);
   }
   .acts {
@@ -183,12 +183,12 @@
     gap: 6px;
   }
   .ask {
-    font-size: 13px;
+    font-size: var(--fs-13);
     color: var(--redT);
   }
   .none,
   .note {
     color: var(--muted);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
   }
 </style>

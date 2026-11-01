@@ -325,7 +325,7 @@
     outline: none;
     background: transparent;
     color: var(--text);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
   }
   .box input::placeholder {
     color: var(--muted);
@@ -336,7 +336,7 @@
     border-radius: var(--r-sm);
     background: var(--raised);
     color: var(--muted);
-    font: 500 11.5px var(--font);
+    font: 500 var(--fs-12) var(--font);
   }
   .icon-btn.on {
     background: var(--tint-indigo);
@@ -408,15 +408,15 @@
     margin: 0;
     padding: 14px 16px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .sum {
     padding: 12px 16px 4px;
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .note {
     padding-top: 6px;
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .group {
     padding: 4px 0 8px;
@@ -430,7 +430,7 @@
     gap: 8px;
     margin: 0;
     padding: 8px 8px 4px 16px;
-    font: 600 13px var(--font);
+    font: 600 var(--fs-13) var(--font);
     color: var(--muted);
   }
   .g-head .n {
@@ -449,7 +449,7 @@
     border: none;
     background: none;
     color: var(--t-indigo);
-    font: 500 13px var(--font);
+    font: 500 var(--fs-13) var(--font);
     cursor: pointer;
   }
   .link.more {
@@ -486,13 +486,13 @@
   }
   .row .t {
     font-weight: 600;
-    font-size: 14.5px;
+    font-size: var(--fs-15);
     line-height: 1.3;
     overflow-wrap: anywhere;
   }
   .part {
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
     line-height: 1.4;
     overflow-wrap: anywhere;
   }
@@ -505,7 +505,7 @@
     align-items: center;
     gap: 6px;
     color: var(--muted);
-    font-size: 12px;
+    font-size: var(--fs-12);
   }
   .tag {
     padding: 1px 6px;

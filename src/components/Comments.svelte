@@ -146,10 +146,10 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    font: 600 13.5px var(--font);
+    font: 600 var(--fs-14) var(--font);
   }
   h3 .n {
-    font: 600 11px/1 var(--font);
+    font: 600 var(--fs-11)/1 var(--font);
     color: var(--muted);
     background: var(--sunk);
     border-radius: var(--r-sm);
@@ -170,11 +170,11 @@
     gap: 8px;
     align-items: baseline;
     flex-wrap: wrap;
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .when {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .text {
     overflow-wrap: anywhere;
@@ -214,11 +214,11 @@
     padding: 4px 0;
     min-height: 32px;
     color: var(--muted);
-    font: 500 13px var(--font);
+    font: 500 var(--fs-13) var(--font);
     cursor: pointer;
   }
   .ask {
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .compose {
     display: grid;
@@ -254,7 +254,7 @@
   .post {
     min-height: 36px;
     padding: 0 14px;
-    font-size: 13.5px;
+    font-size: var(--fs-14);
   }
   .row {
     display: flex;

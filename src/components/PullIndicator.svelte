@@ -43,7 +43,7 @@
       opacity 200ms ease;
   }
   .icon {
-    font: 400 18px/1 var(--font);
+    font: 400 var(--fs-18)/1 var(--font);
     color: var(--muted);
     transition: color 150ms;
   }

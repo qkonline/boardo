@@ -206,7 +206,7 @@
   }
   h1 {
     margin: 0;
-    font-size: 28px;
+    font-size: var(--fs-28);
     font-weight: 600;
   }
   .lede {
@@ -235,7 +235,7 @@
     margin-top: 8px;
   }
   .code {
-    font-size: 26px;
+    font-size: var(--fs-24);
     letter-spacing: 0.3em;
     font-weight: 600;
   }
@@ -247,7 +247,7 @@
     min-height: 44px;
     padding: 0 10px;
     color: var(--muted);
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .row {
     display: flex;
@@ -268,7 +268,7 @@
     align-items: center;
     gap: 10px;
     color: var(--faint);
-    font-size: 13px;
+    font-size: var(--fs-13);
     margin: 4px 0;
   }
   .or::before,
@@ -281,7 +281,7 @@
   .note {
     margin: 0;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .err {
     margin: 0;

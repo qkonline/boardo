@@ -753,7 +753,7 @@
     margin-bottom: 4px;
   }
   .status-btn :global(.status) {
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   /* The chip and its arrow stay on one line; a long value shortens instead. */
   .val.status-btn {
@@ -779,7 +779,7 @@
     border-radius: var(--r-sm);
     background: transparent;
     color: var(--muted);
-    font: 400 13.5px var(--font);
+    font: 400 var(--fs-14) var(--font);
     cursor: pointer;
   }
   .elastic-btn.solo {
@@ -801,7 +801,7 @@
     padding: 8px 8px 6px;
     /* A set width: a balloon of text would otherwise shrink to its narrowest. */
     width: min(264px, 74vw);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
     line-height: 1.45;
   }
   .about p {
@@ -809,13 +809,13 @@
   }
   .about .muted {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .about-head {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 15px;
+    font-size: var(--fs-15);
   }
   .about-link {
     margin-top: 4px;
@@ -827,7 +827,7 @@
     align-items: center;
     gap: 3px;
     color: var(--ink);
-    font: 500 12px var(--font);
+    font: 500 var(--fs-12) var(--font);
   }
   .parts i {
     width: 14px;
@@ -857,7 +857,7 @@
     border-radius: var(--r-sm);
     background: transparent;
     color: var(--text);
-    font: 600 22px/1.25 var(--font);
+    font: 600 var(--fs-20)/1.25 var(--font);
     text-align: left;
     cursor: text;
     overflow-wrap: anywhere;
@@ -880,7 +880,7 @@
     gap: 6px;
     flex-wrap: wrap;
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .where :global(svg) {
     color: var(--faint);
@@ -901,7 +901,7 @@
     border-radius: var(--r-sm);
     background: transparent;
     color: var(--text);
-    font: 500 12.5px var(--font);
+    font: 500 var(--fs-13) var(--font);
     cursor: pointer;
   }
   @media (hover: hover) {
@@ -927,7 +927,7 @@
     border-radius: var(--r-sm);
     background: transparent;
     color: var(--text);
-    font: 500 13.5px var(--font);
+    font: 500 var(--fs-14) var(--font);
     text-align: left;
     cursor: pointer;
   }
@@ -958,7 +958,7 @@
     border: none;
     background: none;
     color: var(--muted);
-    font: 500 13.5px var(--font);
+    font: 500 var(--fs-14) var(--font);
     min-height: 40px;
     padding: 0 14px;
     margin: 6px 0 -1px;
@@ -978,7 +978,7 @@
     border-bottom-color: var(--accent);
   }
   .tabs .n {
-    font: 600 11px/1 var(--font);
+    font: 600 var(--fs-11)/1 var(--font);
     color: var(--muted);
     background: var(--sunk);
     border-radius: var(--r-sm);
@@ -1026,7 +1026,7 @@
     align-items: center;
     gap: 7px;
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   /* A date whose chip wraps keeps its label level with the date, not between the two lines. */
   .prop.dated {
@@ -1037,7 +1037,7 @@
   }
   .pv {
     min-width: 0;
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .val {
     display: flex;
@@ -1051,7 +1051,7 @@
     border-radius: var(--r-sm);
     background: transparent;
     color: var(--text);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     text-align: left;
     cursor: pointer;
   }
@@ -1081,7 +1081,7 @@
     flex: 1 1 0;
     min-height: 36px;
     padding: 4px 8px;
-    font-size: 14px;
+    font-size: var(--fs-14);
     cursor: pointer;
   }
   .date::-webkit-calendar-picker-indicator {
@@ -1094,10 +1094,10 @@
   .btn.sm {
     min-height: 32px;
     padding: 0 10px;
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .due {
-    font: 600 11.5px/1 var(--font);
+    font: 600 var(--fs-12)/1 var(--font);
     padding: 4px 6px;
     border-radius: var(--r-sm);
     background: var(--tint-indigo);
@@ -1123,7 +1123,7 @@
     gap: 7px;
     width: 100%;
     min-height: 40px;
-    font-size: 13.5px;
+    font-size: var(--fs-14);
     font-weight: 500;
   }
   .person .pn {
@@ -1243,7 +1243,7 @@
     border-radius: var(--r-sm);
     background: transparent;
     color: var(--muted);
-    font: 500 13px var(--font);
+    font: 500 var(--fs-13) var(--font);
     display: inline-grid;
     place-items: center;
     cursor: pointer;
@@ -1275,7 +1275,7 @@
     flex-wrap: wrap;
     padding-bottom: 8px;
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .info .by span {
     display: inline-flex;
@@ -1283,7 +1283,7 @@
     gap: 4px;
   }
   .live {
-    font: 600 11px var(--font);
+    font: 600 var(--fs-11) var(--font);
     color: var(--t-indigo);
     background: var(--tint-indigo);
     padding: 3px 6px;
@@ -1304,7 +1304,7 @@
   .undo-key {
     justify-self: stretch;
     min-height: 38px;
-    font-size: 13.5px;
+    font-size: var(--fs-14);
     color: var(--t-rose);
     background: color-mix(in oklab, var(--s-rose) 9%, var(--raised));
     border-color: color-mix(in oklab, var(--s-rose) 28%, transparent);
@@ -1319,11 +1319,11 @@
     gap: 6px;
     color: var(--grT);
     font-weight: 600;
-    font-size: 14px;
+    font-size: var(--fs-14);
   }
   .note {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .archive {
     display: flex;
@@ -1333,7 +1333,7 @@
     margin-top: 10px;
     padding-top: 10px;
     border-top: 1px solid var(--border);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .link {
     display: inline-flex;
@@ -1344,7 +1344,7 @@
     background: none;
     padding: 0;
     color: var(--muted);
-    font: 500 13px var(--font);
+    font: 500 var(--fs-13) var(--font);
     cursor: pointer;
   }
 
@@ -1364,7 +1364,7 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    font: 600 13.5px var(--font);
+    font: 600 var(--fs-14) var(--font);
   }
   .desc {
     display: block;
@@ -1376,7 +1376,7 @@
     border-radius: var(--r-ctl);
     background: transparent;
     color: var(--text);
-    font: 400 14px/1.55 var(--font);
+    font: 400 var(--fs-14)/1.55 var(--font);
     text-align: left;
     overflow-wrap: anywhere;
     cursor: text;
@@ -1410,7 +1410,7 @@
   }
   .desc-edit {
     min-height: 110px;
-    font-size: 14px;
+    font-size: var(--fs-14);
     line-height: 1.55;
     resize: none;
     border: none;
@@ -1430,7 +1430,7 @@
     background: var(--tint-yellow);
     color: var(--t-yellow);
     border-radius: var(--r-ctl);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
   }
   .archived .acts {
     display: flex;
@@ -1441,7 +1441,7 @@
   .warn {
     width: 100%;
     margin: 0;
-    font-size: 12.5px;
+    font-size: var(--fs-13);
     color: var(--redT);
   }
 
@@ -1463,7 +1463,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    font: 500 13.5px var(--font);
+    font: 500 var(--fs-14) var(--font);
   }
   .sb-dot {
     width: 8px;
@@ -1601,7 +1601,7 @@
       border: none;
       background: none;
       color: var(--t-indigo);
-      font: 500 14px var(--font);
+      font: 500 var(--fs-14) var(--font);
       cursor: pointer;
     }
     /* Scrolled: the band is the title alone, on one line. */
@@ -1615,7 +1615,7 @@
     }
     .band.compact .title {
       margin-top: 0;
-      font-size: 17px;
+      font-size: var(--fs-18);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;

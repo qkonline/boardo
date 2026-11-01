@@ -144,7 +144,7 @@
     border-radius: var(--r-ctl);
     background: var(--text);
     color: var(--bg);
-    font-size: 14px;
+    font-size: var(--fs-14);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
     /* A message, never in the way: taps go through to what's under it. */
     pointer-events: none;
@@ -167,7 +167,7 @@
     border-radius: var(--r-sm);
     background: color-mix(in oklab, var(--bg) 14%, transparent);
     color: var(--bg);
-    font: 600 14px var(--font);
+    font: 600 var(--fs-14) var(--font);
     cursor: pointer;
   }
   @media (min-width: 768px) {

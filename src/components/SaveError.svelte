@@ -38,11 +38,11 @@
     margin: 0;
   }
   .t {
-    font: 400 15px/1.3 var(--font);
+    font: 400 var(--fs-15)/1.3 var(--font);
     color: var(--redT);
   }
   .s {
-    font: 400 13px/1.45 var(--font);
+    font: 400 var(--fs-13)/1.45 var(--font);
     color: var(--muted);
     text-wrap: pretty;
   }

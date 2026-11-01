@@ -50,7 +50,7 @@
   }
   h1 {
     margin: 0;
-    font-size: 24px;
+    font-size: var(--fs-24);
     font-weight: 600;
   }
   .lede {

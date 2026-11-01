@@ -137,14 +137,14 @@
     flex: 1;
     min-width: 0;
     margin: 0;
-    font-size: 15px;
+    font-size: var(--fs-15);
     font-weight: 600;
     overflow-wrap: anywhere;
   }
   .n {
     color: var(--muted);
     font-weight: 500;
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .cards {
     flex: 1 1 auto;
@@ -167,7 +167,7 @@
   .none {
     margin: 4px 6px;
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .add {
     display: flex;
@@ -181,7 +181,7 @@
     border-radius: var(--r-ctl);
     background: transparent;
     color: var(--muted);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     cursor: pointer;
     flex: none;
   }

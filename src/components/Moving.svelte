@@ -70,12 +70,12 @@
   }
   h1 {
     margin: 0;
-    font: 600 32px/1.12 var(--font);
+    font: 600 var(--fs-28)/1.12 var(--font);
     letter-spacing: -0.025em;
   }
   .lede {
     margin: 0;
-    font: 400 16px/1.55 var(--font);
+    font: 400 var(--fs-16)/1.55 var(--font);
     color: var(--muted);
     text-wrap: pretty;
   }
@@ -85,11 +85,11 @@
   }
   .status {
     margin: 6px 0 0;
-    font: 400 15px/1.45 var(--font);
+    font: 400 var(--fs-15)/1.45 var(--font);
   }
   .big {
     min-height: 52px;
     margin: 6px 0 4px;
-    font-size: 16px;
+    font-size: var(--fs-16);
   }
 </style>

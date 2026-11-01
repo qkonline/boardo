@@ -133,7 +133,7 @@
   .note {
     margin: 0;
     color: var(--muted);
-    font-size: 13.5px;
+    font-size: var(--fs-14);
   }
   .row {
     display: flex;
@@ -152,7 +152,7 @@
     border: none;
     background: transparent;
     color: var(--muted);
-    font: 500 14px var(--font);
+    font: 500 var(--fs-14) var(--font);
     min-height: 36px;
     padding: 0 14px;
     border-radius: var(--r-sm);
@@ -194,16 +194,16 @@
   }
   .who small {
     color: var(--muted);
-    font-size: 12.5px;
+    font-size: var(--fs-13);
   }
   .ask {
     color: var(--muted);
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   .btn.small {
     min-height: 36px;
     padding: 0 12px;
-    font-size: 13px;
+    font-size: var(--fs-13);
   }
   @media (pointer: coarse) {
     .seg button,
