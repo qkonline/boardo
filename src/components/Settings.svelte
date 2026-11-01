@@ -516,6 +516,7 @@
     {:else}
       <button class="btn danger" onclick={() => (armed = 'delete')}><Icon name="trash" /> Delete account</button>
     {/if}
+    <p class="small keys-line"><button class="link" onclick={() => (app.sheet = 'shortcuts')}>Keyboard shortcuts</button> (or press ?)</p>
     <p class="small">Boardo is open source: <a href="https://github.com/qkonline/boardo" target="_blank" rel="noopener">github.com/qkonline/boardo</a></p>
   </section>
 
@@ -747,5 +748,20 @@
   .small {
     color: var(--muted);
     font-size: 13px;
+  }
+  .keys-line .link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent-text);
+    font: inherit;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  /* Shortcuts are for keyboards: a phone has none to press. */
+  @media (hover: none) and (pointer: coarse) {
+    .keys-line {
+      display: none;
+    }
   }
 </style>

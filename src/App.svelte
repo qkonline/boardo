@@ -10,6 +10,7 @@
   import Home from './components/Home.svelte';
   import MyCards from './components/MyCards.svelte';
   import NewBoard from './components/NewBoard.svelte';
+  import Shortcuts from './components/Shortcuts.svelte';
   import Settings from './components/Settings.svelte';
   import SignIn from './components/SignIn.svelte';
   import TabBar from './components/TabBar.svelte';
@@ -59,6 +60,14 @@
     else history.pushState(null, '', path);
     first = false;
   });
+  // "?" lists the keyboard shortcuts, when nothing else has the keys.
+  function shortcutsKey(e: KeyboardEvent) {
+    if (e.key !== '?' || e.metaKey || e.ctrlKey || e.altKey || e.isComposing || !app.user) return;
+    const t = e.target as HTMLElement;
+    if (t.closest('input, textarea, select, [contenteditable]') || app.open || app.sheet || document.querySelector('[role=dialog]')) return;
+    e.preventDefault();
+    app.sheet = 'shortcuts';
+  }
 </script>
 
 {#if MOVED_TO}
@@ -98,9 +107,12 @@
   {/if}
   {#if app.sheet === 'newBoard'}
     <NewBoard />
+  {:else if app.sheet === 'shortcuts'}
+    <Shortcuts />
   {/if}
 {/if}
 
+<svelte:window onkeydown={shortcutsKey} />
 <PullIndicator />
 <SaveError />
 

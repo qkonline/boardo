@@ -121,7 +121,7 @@ export class App {
   /** The card window's check before something outside it closes it (Back): false when it asked first. */
   cardGuard: (() => boolean) | null = null;
   /** Overlays: New board, invites to show after a link was opened. */
-  sheet = $state<'newBoard' | null>(null);
+  sheet = $state<'newBoard' | 'shortcuts' | null>(null);
   toast = $state<{ text: string; id: number; undo?: () => void } | null>(null);
   theme = $state<Theme>('auto');
   online = $state(typeof navigator === 'undefined' ? true : navigator.onLine);

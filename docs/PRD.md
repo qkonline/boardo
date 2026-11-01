@@ -368,6 +368,7 @@ Every card has these fields.
 - **R11.11** Before screens are built, two or three design directions are shown and one is chosen.
 - **R11.12** It works well on a phone and on a computer.
 - **R11.12a** Every control has a name a screen reader can say, on a phone too where a key shows only its icon. Rows of tabs (the card's, Board settings', the emoji groups) move with the arrow keys, Home and End, and only the chosen tab is in the Tab order.
+- **R11.12b** Pressing **?** (when no text box has the keys and nothing is open) lists the keyboard shortcuts, grouped: anywhere, Boards, a card, writing. Account links to the list on computers.
 - **R11.13** Nothing a person changes anywhere in Boardo is saved automatically. Changes wait for Save, Add, Update or Comment, as in Elastic (R4.27, R3.1).
 
 ## 12. Assumptions to confirm
