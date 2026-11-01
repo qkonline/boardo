@@ -239,6 +239,16 @@
       <span class="bellat"><Bell where="head" /></span>
     </header>
 
+    {#if !b.loaded}
+      <!-- Nothing to set until the board has reached this device. -->
+      <p class="wait">
+        {!app.online
+          ? "This board hasn't loaded on this device yet. Connect to change its settings."
+          : b.status === 'offline'
+            ? "Can't reach this board right now. Trying again…"
+            : 'Loading the board…'}
+      </p>
+    {:else}
     <div class="layout">
       <div class="tabs" aria-label="Board settings" role="tablist">
         {#each tabs as t (t.id)}
@@ -307,7 +317,7 @@
                 <button class="btn remove-bg" onclick={removeImage}><Icon name="trash" /> Remove image</button>
               </div>
             {/if}
-            <p class="note">Everyone in the board sees it. Images are made smaller before they're uploaded.</p>
+            <p class="note">{app.online ? "Everyone in the board sees it. Images are made smaller before they're uploaded." : 'Connect to upload an image.'}</p>
           </div>
           <div class="part">
             <span class="label">Scrolling</span>
@@ -428,6 +438,7 @@
         {/if}
       </div>
     </div>
+    {/if}
 
     {#if changes.length}
       <!-- One bar for everything not saved yet, from whichever tab. -->
@@ -443,6 +454,10 @@
 {/if}
 
 <style>
+  .wait {
+    margin: 0;
+    color: var(--muted);
+  }
   .page {
     max-width: 1040px;
     margin: 0 auto;

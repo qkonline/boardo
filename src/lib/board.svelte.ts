@@ -55,6 +55,13 @@ export class BoardState {
   members = $derived([...this.member.values()].sort((a, b) => a.name.localeCompare(b.name)));
   statusField = $derived(this.field.get('status'));
   logs = $derived([...this.log.values()].sort((a, b) => b.at - a.at));
+  /** When each card last became Completed, from the log (newest first, so the first one found). */
+  doneAt = $derived.by(() => {
+    const label = this.statusField?.options?.find((o) => o.role === 'completed')?.label;
+    const at = new Map<string, number>();
+    if (label) for (const l of this.logs) if (l.cardId && l.action === 'status' && l.detail.to === label && !at.has(l.cardId)) at.set(l.cardId, l.at);
+    return at;
+  });
 
   /** Cards in a column, in order, archived ones left out. */
   cardsIn(columnId: string): CardRec[] {

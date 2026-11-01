@@ -139,6 +139,8 @@ export class App {
   private saveRetry: ReturnType<typeof setTimeout> | null = null;
   /** The bell: this person's latest updates, how many came since it was last opened, and whether it's open. */
   notes = $state.raw<Note[]>([]);
+  /** Whether the updates have come from the server since this copy started (they aren't kept on the device). */
+  notesLoaded = $state(false);
   unseen = $state(0);
   bell = $state(false);
   private noteWait: ReturnType<typeof setTimeout> | null = null;
@@ -563,6 +565,7 @@ export class App {
     this.unsaved = [];
     this.saveError = null;
     this.notes = [];
+    this.notesLoaded = false;
     this.unseen = 0;
     this.bell = false;
     badge(0);
@@ -842,6 +845,7 @@ export class App {
     try {
       const res = await call<{ notes: Note[]; unseen: number }>('/notes');
       this.notes = res.notes;
+      this.notesLoaded = true;
       // Open: whatever just came is seen already.
       if (this.bell && res.unseen) void call('/notes/seen').catch(() => {});
       this.unseen = this.bell ? 0 : res.unseen;
@@ -1058,8 +1062,19 @@ export class App {
       if (moveTo) changes.push({ kind: 'card', key: c.id, data: { ...c, columnId: moveTo, order: (last = last + 1) } });
       else changes.push({ kind: 'card', key: c.id, data: { ...c, archived: true } });
     }
+    const col = b.column.get(id);
+    const before = b.cardsIn(id).map((c) => ({ id: c.id, columnId: c.columnId, order: c.order }));
     changes.push({ kind: 'column', key: id, data: null });
     await this.put(board, changes);
+    // Undo puts the column back, and its cards in it, as they are now otherwise.
+    if (col)
+      this.say(!before.length ? 'Column removed' : moveTo ? 'Column removed, its cards moved' : 'Column removed, its cards archived', () => {
+        const back = before.flatMap((x) => {
+          const c = this.data[board]?.card.get(x.id);
+          return c ? [{ kind: 'card' as Kind, key: c.id, data: { ...c, columnId: x.columnId, order: x.order, archived: false } }] : [];
+        });
+        void this.put(board, [{ kind: 'column', key: id, data: col }, ...back]);
+      });
   }
 
   // ---------- board settings (admins) ----------

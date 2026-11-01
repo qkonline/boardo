@@ -71,7 +71,7 @@
               </button>
               <div class="acts">
                 {#if armed === c.id}
-                  <span class="ask">Delete for good?</span>
+                  <span class="ask">{app.online ? 'Delete for good?' : 'Connect to delete it.'}</span>
                   <button class="btn small danger" disabled={busy || !app.online} onclick={() => del(c.id)}>Delete</button>
                   <button class="btn small ghost" onclick={() => (armed = null)}>Keep</button>
                 {:else}

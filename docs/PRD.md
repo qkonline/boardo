@@ -84,6 +84,7 @@ Each board has two roles.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
+- **R3.4a** Removing a column shows a message with **Undo** for a few seconds, which brings the column back with the cards it had, in their order, and unarchives them if they were archived with it.
 - **R3.4b** Add a column sits after the last column. Beside columns it's a slim strip as wide as a tap target, with a plus level with the columns' names and the words running down it, so it doesn't take a column's width; it opens to the full form, scrolled into view. A board with no columns shows it full width with a line explaining columns.
 - **R3.4a** No two columns in a board have the same name, letter case and spaces aside. Adding or renaming one to a name in use says so and waits; the server refuses it too. A removed column's name is free again.
 - **R3.5** Cards can be dragged within a column and between columns, by mouse and by touch.
@@ -138,7 +139,7 @@ Every card has these fields.
 - **R4.12** A person can edit or delete their own comments only.
 - **R4.13** Comments and descriptions take light formatting: bold, italic, strikethrough, bulleted and numbered lists, from keys over the text box or ⌘B, ⌘I, ⌘⇧X, ⌘⇧8 and ⌘⇧7. Enter carries a list on. They're kept as plain text with marks (`**bold**`, `*italic*`, `~~struck~~`, `- `, `1. `) and shown as formatting, built from elements, never HTML, so nothing harmful can be injected. Links are made clickable.
 - **R4.13a** Typing **@** in a comment or description lists the board's people just above the @, narrowed as their name is typed; picking one writes "@Their Name". A mention is shown picked out, and the person hears about it in the bell (R9.13) once the comment is posted or the description saved. Typing a first name alone works too when only one person in the board has it. Mentioning someone doesn't add them to the card. Only people in the board can be mentioned.
-- **R4.9b** A card's date reads as plainly as it can: "2 days overdue" (or "Overdue since 5 pm" on the day), "Due today" and "Due tomorrow" (with a time if it has one), "Due Tue" within the coming week, else "Due 4 Nov". A card with only a start date still to come reads "Starts Tue"; one that has started shows its date. Done cards show their dates without a label. The card window's chip beside its due date says the same without "Due" ("Tomorrow", "2 days overdue"), only when it's late or close.
+- **R4.9b** A card's date reads as plainly as it can: "2 days overdue" (or "Overdue since 5 pm" on the day), "Due today" and "Due tomorrow" (with a time if it has one), "Due Tue" within the coming week, else "Due 4 Nov". A card with only a start date still to come reads "Starts Tue"; one that has started shows its date. A finished card says when it was finished: "Done today", "Done yesterday", "Done 27 Oct". The card window's chip beside its due date says the same without "Due" ("Tomorrow", "2 days overdue"), only when it's late or close.
 - **R4.13b** A card with a description shows its first words under its title, muted, at most two lines, without the formatting marks, as a hint that there's more to read. On boards and in My cards.
 
 ### 4.4 Attachments
@@ -224,6 +225,7 @@ Every card has these fields.
 - **R7.4** Cards are grouped by deadline (Overdue, Today, This week, Later, No date), with a switch to group by project instead.
 - **R7.5** It isn't a copy. Opening a card opens the real card, and any change made from My cards is a change on the project board.
 - **R7.6** While some boards haven't loaded, My cards says so ("Loading your boards…", or offline, that they haven't loaded on this device yet) rather than "Nothing assigned to you". Each board's tile says Loading… or Not loaded on this device yet in place of its card count.
+- **R7.7** The same goes elsewhere: the bell says "Loading your updates…" (offline, "Connect to see your updates.") until they've come, Board settings says it's loading the board until it has, and a key that needs a connection says so beside it when offline ("Connect to add a passkey.", "Connect to delete it for good.").
 
 ## 8. Elastic integration
 
@@ -298,6 +300,7 @@ Every card has these fields.
 - **R9.10a** Opened before signing in, an invite link says who sent it and to which board ("Ann Lee invited you to Spring launch"), with the board's colour: only what the email said, never the address it went to. A link that has expired or was cancelled says so.
 - **R9.11** People who already have an account also see pending invites when they open Boardo.
 - **R9.12** Invites expire after 14 days. An admin can resend or cancel them.
+- **R9.12a** Cancelling an invite, and declining one, ask first ("Their link stops working.", "Decline this invite?") with Keep beside it: neither can be taken back, since sending an invite again is limited.
 
 ### 9.2 Updates (the bell)
 

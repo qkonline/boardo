@@ -350,6 +350,7 @@
       <input id="me-name" class="field" maxlength="60" autocomplete="name" bind:value={name} />
       <span class="label">Colour</span>
       <HuePicker bind:value={hue} />
+      {#if !app.online}<p class="note">Connect to change your photo or email.</p>{/if}
 
       <div class="email-box">
         <span class="label">Email</span>
@@ -445,6 +446,7 @@
       {/if}
       {#if passkeysAvailable()}
         <div><button class="key" disabled={addingKey || !app.online} onclick={addKey}><Icon name="lock" /> Add a passkey on this device</button></div>
+        {#if !app.online}<p class="note">Connect to add a passkey.</p>{/if}
       {/if}
     </section>
   {/if}

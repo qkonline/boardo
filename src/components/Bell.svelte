@@ -79,7 +79,15 @@
         <button aria-pressed={only === 'unread'} onclick={() => (only = 'unread')}>Unread{unread ? ` ${unread}` : ''}</button>
       </div>
       {#if !shown.length}
-        <p class="empty">{only === 'unread' ? "You're all caught up." : 'Nothing yet. Updates about your cards show here.'}</p>
+        <p class="empty">
+          {!app.notesLoaded
+            ? app.online
+              ? 'Loading your updates…'
+              : 'Connect to see your updates.'
+            : only === 'unread'
+              ? "You're all caught up."
+              : 'Nothing yet. Updates about your cards show here.'}
+        </p>
       {/if}
       {#if fresh.length}
         <h3>New</h3>

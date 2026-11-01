@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { dayBefore, deadline, fromLocalInput, range, starts, toLocalInput } from './dates';
+import { dayBefore, deadline, doneLabel, fromLocalInput, range, starts, toLocalInput } from './dates';
 
 const now = new Date(2026, 9, 22, 10, 0).getTime(); // Thursday 22 Oct 2026, 10 am
 
@@ -21,6 +21,14 @@ describe('deadline labels', () => {
     expect(deadline(fromLocalInput('2026-10-22T09:30')!, now)?.label).toBe('Overdue since 9:30 am');
   });
   it('is nothing without a date', () => expect(deadline(undefined, now)).toBeNull());
+});
+
+describe('done labels', () => {
+  it('says when a card was finished', () => {
+    expect(doneLabel(new Date(2026, 9, 22, 8).getTime(), now)).toBe('Done today');
+    expect(doneLabel(new Date(2026, 9, 21, 18).getTime(), now)).toBe('Done yesterday');
+    expect(doneLabel(new Date(2026, 9, 17, 9).getTime(), now)).toBe('Done 17 Oct');
+  });
 });
 
 describe('start labels', () => {

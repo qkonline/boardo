@@ -12,6 +12,8 @@
   import { tileDrag } from '../lib/tiledrag';
 
   let busy = $state<string | null>(null);
+  /** The invite whose Decline was tapped once: declining can't be taken back, so it asks. */
+  let declining = $state<string | null>(null);
 
   // Each person's own order (R2.5a): drag a tile (hold it first on a touch screen), or Alt and an
   // arrow key on one. While dragging, the tiles show the order it would make.
@@ -127,8 +129,14 @@
             <span class="label">{inv.by ? `${inv.by} invited you` : 'You were invited'} as {inv.role === 'admin' ? 'an admin' : 'a member'}</span>
           </div>
           <div class="acts">
-            <button class="btn" disabled={busy === inv.id} onclick={() => decline(inv.id)}>Decline</button>
-            <button class="key ink" disabled={busy === inv.id} onclick={() => join(inv.id)}>Join</button>
+            {#if declining === inv.id}
+              <span class="ask">Decline this invite?</span>
+              <button class="btn danger" disabled={busy === inv.id} onclick={() => decline(inv.id)}>Decline</button>
+              <button class="btn ghost" onclick={() => (declining = null)}>Keep</button>
+            {:else}
+              <button class="btn" disabled={busy === inv.id} onclick={() => (declining = inv.id)}>Decline</button>
+              <button class="key ink" disabled={busy === inv.id} onclick={() => join(inv.id)}>Join</button>
+            {/if}
           </div>
         </div>
       {/each}
@@ -238,7 +246,14 @@
   }
   .acts {
     display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
     gap: 8px;
+  }
+  .ask {
+    color: var(--muted);
+    font-size: 14px;
   }
   /* Boards as tiles, like Trello's: the background across the top, the name below. */
   .tiles {

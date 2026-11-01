@@ -28,6 +28,8 @@
   let role = $state<Role>('member');
   let inviting = $state(false);
   let busy = $state(false);
+  /** The invite whose Cancel invite was tapped once: its link stops working, so it asks. */
+  let cancelling = $state<string | null>(null);
 
   async function loadInvites() {
     if (!app.online) return;
@@ -100,16 +102,22 @@
       {#each invites as inv (inv.id)}
         <li>
           <span class="who"><b>{inv.email}</b><small>{inv.role === 'admin' ? 'Admin' : 'Member'}, sent {when(inv.created)}</small></span>
-          <button
-            class="btn small"
-            disabled={busy}
-            onclick={() => act(() => call('/invites/resend', { id: inv.id }).then(loadInvites), 'Invite sent again.')}>Resend</button
-          >
-          <button
-            class="btn small danger"
-            disabled={busy}
-            onclick={() => act(() => call('/invites/revoke', { id: inv.id }).then(loadInvites), 'Invite cancelled.')}>Cancel invite</button
-          >
+          {#if cancelling === inv.id}
+            <span class="ask">Their link stops working.</span>
+            <button
+              class="btn small danger"
+              disabled={busy}
+              onclick={() => ((cancelling = null), act(() => call('/invites/revoke', { id: inv.id }).then(loadInvites), 'Invite cancelled.'))}>Cancel invite</button
+            >
+            <button class="btn small ghost" onclick={() => (cancelling = null)}>Keep</button>
+          {:else}
+            <button
+              class="btn small"
+              disabled={busy}
+              onclick={() => act(() => call('/invites/resend', { id: inv.id }).then(loadInvites), 'Invite sent again.')}>Resend</button
+            >
+            <button class="btn small danger" disabled={busy} onclick={() => (cancelling = inv.id)}>Cancel invite</button>
+          {/if}
         </li>
       {/each}
     </ul>
@@ -187,6 +195,10 @@
   .who small {
     color: var(--muted);
     font-size: 12.5px;
+  }
+  .ask {
+    color: var(--muted);
+    font-size: 13px;
   }
   .btn.small {
     min-height: 36px;

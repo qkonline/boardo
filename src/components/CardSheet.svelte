@@ -355,7 +355,7 @@
                 {/if}
               {/if}
             </div>
-            {#if armedDelete}<p class="warn">Its comments and files go too, for everyone. Its history stays in Activity.</p>{/if}
+            {#if armedDelete}<p class="warn">{app.online ? 'Its comments and files go too, for everyone. Its history stays in Activity.' : 'Connect to delete it for good.'}</p>{/if}
           </div>
         {/if}
 

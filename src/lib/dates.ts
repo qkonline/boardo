@@ -121,6 +121,13 @@ export function starts(start: unknown, now = Date.now()): string | null {
   return `Starts ${days <= 6 ? DAYS[dateOf(key).getDay()] : shortDate(key, now)}${at}`;
 }
 
+/** When a card was finished, as a label: "Done today", "Done yesterday", "Done 27 Oct". */
+export function doneLabel(ms: number, now = Date.now()): string {
+  const key = keyOf(new Date(ms));
+  const days = daysBetween(key, todayKey(now));
+  return days <= 0 ? 'Done today' : days === 1 ? 'Done yesterday' : `Done ${shortDate(key, now)}`;
+}
+
 /** When something happened, for logs and comments: "3:42 pm", "Yesterday, 3:42 pm", "21 Oct, 3:42 pm". */
 export function when(ms: number, now = Date.now()): string {
   const d = new Date(ms);

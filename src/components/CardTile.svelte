@@ -2,7 +2,7 @@
   import type { CardRec, FieldOption, FieldRec, MemberRec } from '../../shared/model';
   import { statusOption } from '../../shared/rules';
   import type { BoardState } from '../lib/board.svelte';
-  import { deadline, range, starts } from '../lib/dates';
+  import { deadline, doneLabel, range, starts } from '../lib/dates';
   import { drag } from '../lib/drag.svelte';
   import { fieldText } from '../lib/fields';
   import { plain } from '../lib/format';
@@ -36,6 +36,8 @@
   const due = $derived(completed ? null : deadline(card.values.end));
   // With only a start date, one still to come reads "Starts Tue"; a past one, the plain date.
   const start = $derived(completed || card.values.end ? null : starts(card.values.start));
+  // A finished card says when: from the log, else its last done part.
+  const doneAt = $derived(completed ? (b.doneAt.get(card.id) ?? (Math.max(0, ...Object.values(card.done)) || null)) : null);
   const dates = $derived(range(card.values.start, card.values.end));
   const comments = $derived(b.commentsOn(card.id).length);
   const files = $derived(b.filesOn(card.id).length);
@@ -121,6 +123,8 @@
           {/each}
           {#if due}
             <span class:late={due.late} class:soon={due.soon} title={dates}><Icon name="cal" size={16} />{due.label}</span>
+          {:else if doneAt}
+            <span title={dates || undefined}><Icon name="check" size={16} />{doneLabel(doneAt)}</span>
           {:else if start}
             <span title={dates}><Icon name="cal" size={16} />{start}</span>
           {:else if dates}
