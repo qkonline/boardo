@@ -113,7 +113,7 @@ Every card has these fields.
 - **R4.2a** Setting a due date on a card with no start date fills the start with the day before (at the due time, or 9:00, when the start has a time). A start already set is left alone. Like any change, it waits for Save.
 - **R4.3** An admin can rename Status values and add new ones. The values that mean "in progress" and "completed" can be renamed but not removed, because the Elastic connection relies on them.
 - **R4.4** A card can be assigned to more than one person, and anyone in the board can take someone off it (each person has a remove key, a draft until Save). Each assignee sees it in their My cards and, when its dates apply, in their Elastic day, and each can run their own timer on it.
-- **R4.5** Time spent can't be edited by hand. It's the sum of all timer time logged against the card, including a timer that's running right now. Beside it, Elastic's mark opens a short explanation of what Elastic is and how its timers reach the card, with a link to open it.
+- **R4.5** Time spent can't be edited by hand. It's the sum of all timer time logged against the card, including a timer that's running right now. Beside it, Elastic's mark opens a short explanation of what Elastic is and how its timers reach the card, with a link to open it. The card shows the Time row once time has been logged on it, or to someone who has connected Elastic; anyone else never sees an empty one.
 
 ### 4.2 Custom fields
 
@@ -138,6 +138,7 @@ Every card has these fields.
 - **R4.12** A person can edit or delete their own comments only.
 - **R4.13** Comments and descriptions take light formatting: bold, italic, strikethrough, bulleted and numbered lists, from keys over the text box or ⌘B, ⌘I, ⌘⇧X, ⌘⇧8 and ⌘⇧7. Enter carries a list on. They're kept as plain text with marks (`**bold**`, `*italic*`, `~~struck~~`, `- `, `1. `) and shown as formatting, built from elements, never HTML, so nothing harmful can be injected. Links are made clickable.
 - **R4.13a** Typing **@** in a comment or description lists the board's people just above the @, narrowed as their name is typed; picking one writes "@Their Name". A mention is shown picked out, and the person hears about it in the bell (R9.13) once the comment is posted or the description saved. Typing a first name alone works too when only one person in the board has it. Mentioning someone doesn't add them to the card. Only people in the board can be mentioned.
+- **R4.9b** A card's date reads as plainly as it can: "2 days overdue" (or "Overdue since 5 pm" on the day), "Due today" and "Due tomorrow" (with a time if it has one), "Due Tue" within the coming week, else "Due 4 Nov". A card with only a start date still to come reads "Starts Tue"; one that has started shows its date. Done cards show their dates without a label. The card window's chip beside its due date says the same without "Due" ("Tomorrow", "2 days overdue"), only when it's late or close.
 - **R4.13b** A card with a description shows its first words under its title, muted, at most two lines, without the formatting marks, as a hint that there's more to read. On boards and in My cards.
 
 ### 4.4 Attachments

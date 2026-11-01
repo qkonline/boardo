@@ -2,7 +2,7 @@
   import type { CardRec, FieldOption, FieldRec, MemberRec } from '../../shared/model';
   import { statusOption } from '../../shared/rules';
   import type { BoardState } from '../lib/board.svelte';
-  import { deadline, range } from '../lib/dates';
+  import { deadline, range, starts } from '../lib/dates';
   import { drag } from '../lib/drag.svelte';
   import { fieldText } from '../lib/fields';
   import { plain } from '../lib/format';
@@ -33,7 +33,9 @@
 
   const status = $derived(statusOption(card, b.statusField));
   const completed = $derived(status?.role === 'completed');
-  const due = $derived(completed ? null : deadline(card.values.end ?? card.values.start));
+  const due = $derived(completed ? null : deadline(card.values.end));
+  // With only a start date, one still to come reads "Starts Tue"; a past one, the plain date.
+  const start = $derived(completed || card.values.end ? null : starts(card.values.start));
   const dates = $derived(range(card.values.start, card.values.end));
   const comments = $derived(b.commentsOn(card.id).length);
   const files = $derived(b.filesOn(card.id).length);
@@ -84,7 +86,7 @@
   class:completed
   data-card={card.id}
   onclick={open}
-  aria-label="{card.title || 'Untitled'}{status ? `, ${status.label}` : ''}{due ? `, ${due.label}` : ''}{card.assignees.length > 1
+  aria-label="{card.title || 'Untitled'}{status ? `, ${status.label}` : ''}{due ? `, ${due.label}` : start ? `, ${start}` : ''}{card.assignees.length > 1
     ? `, ${doneCount} of ${card.assignees.length} done`
     : ''}"
 >
@@ -119,6 +121,8 @@
           {/each}
           {#if due}
             <span class:late={due.late} class:soon={due.soon} title={dates}><Icon name="cal" size={16} />{due.label}</span>
+          {:else if start}
+            <span title={dates}><Icon name="cal" size={16} />{start}</span>
           {:else if dates}
             <span title={dates}><Icon name="cal" size={16} />{dates}</span>
           {/if}

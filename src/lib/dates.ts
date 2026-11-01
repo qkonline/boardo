@@ -58,7 +58,6 @@ export function fromLocalInput(s: string): string | null {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const LONG_DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /** 5 pm, 5:30 pm */
 export function clock(d: Date): string {
@@ -92,8 +91,9 @@ export function range(start: unknown, end: unknown, now = Date.now()): string {
 }
 
 /**
- * The deadline as a label (R8.10): Overdue, Due today (with the time), Due tomorrow, a weekday
- * within the next 6 days, otherwise a short date. Null without an end date (or a start date).
+ * The deadline as a label: "2 days overdue" (or "Overdue since 5 pm" the same day), "Due today"
+ * and "Due tomorrow" (with the time), "Due Tue" within the next 6 days, else "Due 4 Nov". Null
+ * without a date.
  */
 export function deadline(end: unknown, now = Date.now()): { label: string; late: boolean; soon: boolean } | null {
   if (typeof end !== 'string' || !end) return null;
@@ -101,11 +101,24 @@ export function deadline(end: unknown, now = Date.now()): { label: string; late:
   const key = dayOf(end);
   const days = daysBetween(today, key);
   const at = hasTime(end) ? `, ${clock(new Date(end))}` : '';
-  if (days < 0 || (hasTime(end) && new Date(end).getTime() < now)) return { label: 'Overdue', late: true, soon: false };
+  if (days < 0) return { label: `${-days} ${days === -1 ? 'day' : 'days'} overdue`, late: true, soon: false };
+  if (hasTime(end) && new Date(end).getTime() < now) return { label: `Overdue since ${clock(new Date(end))}`, late: true, soon: false };
   if (days === 0) return { label: `Due today${at}`, late: false, soon: true };
   if (days === 1) return { label: `Due tomorrow${at}`, late: false, soon: true };
-  if (days <= 6) return { label: `${LONG_DAYS[dateOf(key).getDay()]}${at}`, late: false, soon: false };
-  return { label: shortDate(key, now) + at, late: false, soon: false };
+  if (days <= 6) return { label: `Due ${DAYS[dateOf(key).getDay()]}${at}`, late: false, soon: false };
+  return { label: `Due ${shortDate(key, now)}${at}`, late: false, soon: false };
+}
+
+/** A start date still to come, as a label: "Starts today", "Starts tomorrow", "Starts Tue", "Starts 4 Nov". Null once it's passed. */
+export function starts(start: unknown, now = Date.now()): string | null {
+  if (typeof start !== 'string' || !start) return null;
+  const key = dayOf(start);
+  const days = daysBetween(todayKey(now), key);
+  if (days < 0) return null;
+  const at = hasTime(start) ? `, ${clock(new Date(start))}` : '';
+  if (days === 0) return `Starts today${at}`;
+  if (days === 1) return `Starts tomorrow${at}`;
+  return `Starts ${days <= 6 ? DAYS[dateOf(key).getDay()] : shortDate(key, now)}${at}`;
 }
 
 /** When something happened, for logs and comments: "3:42 pm", "Yesterday, 3:42 pm", "21 Oct, 3:42 pm". */

@@ -1,24 +1,36 @@
 import { describe, expect, it, vi } from 'vitest';
-import { dayBefore, deadline, fromLocalInput, range, toLocalInput } from './dates';
+import { dayBefore, deadline, fromLocalInput, range, starts, toLocalInput } from './dates';
 
 const now = new Date(2026, 9, 22, 10, 0).getTime(); // Thursday 22 Oct 2026, 10 am
 
-describe('deadline labels (R8.10)', () => {
+describe('deadline labels', () => {
   it.each([
-    ['2026-10-21', 'Overdue'],
+    ['2026-10-21', '1 day overdue'],
+    ['2026-10-19', '3 days overdue'],
     ['2026-10-22', 'Due today'],
     ['2026-10-23', 'Due tomorrow'],
-    ['2026-10-26', 'Monday'],
-    ['2026-11-04', '4 Nov'],
-    ['2027-01-04', '4 Jan 2027'],
+    ['2026-10-26', 'Due Mon'],
+    ['2026-11-04', 'Due 4 Nov'],
+    ['2027-01-04', 'Due 4 Jan 2027'],
   ])('%s reads %s', (end, label) => {
     expect(deadline(end, now)?.label).toBe(label);
   });
   it('includes the time when there is one', () => {
     expect(deadline(fromLocalInput('2026-10-22T17:00')!, now)?.label).toBe('Due today, 5 pm');
-    expect(deadline(fromLocalInput('2026-10-22T09:30')!, now)?.label).toBe('Overdue');
+    expect(deadline(fromLocalInput('2026-10-24T17:00')!, now)?.label).toBe('Due Sat, 5 pm');
+    expect(deadline(fromLocalInput('2026-10-22T09:30')!, now)?.label).toBe('Overdue since 9:30 am');
   });
   it('is nothing without a date', () => expect(deadline(undefined, now)).toBeNull());
+});
+
+describe('start labels', () => {
+  it.each([
+    ['2026-10-22', 'Starts today'],
+    ['2026-10-23', 'Starts tomorrow'],
+    ['2026-10-27', 'Starts Tue'],
+    ['2026-11-04', 'Starts 4 Nov'],
+  ])('%s reads %s', (start, label) => expect(starts(start, now)).toBe(label));
+  it('is nothing once it has passed', () => expect(starts('2026-10-21', now)).toBeNull());
 });
 
 describe('date and time fields', () => {

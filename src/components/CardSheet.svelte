@@ -496,6 +496,8 @@
 
             <!-- The total, whether a timer runs and Elastic's mark on one line; who put in how much
                  below it, once more than one person has. -->
+            <!-- Shown once time is logged on the card, or to someone who has connected Elastic. -->
+            {#if (time && time.total > 0) || app.usesElastic !== false}
             <div class="prop p-time" class:top={time && time.by.size > 1}>
               <span class="pl"><Icon name="clock" size={16} /> Time</span>
               <span class="pv info">
@@ -527,6 +529,7 @@
                 {/if}
               </span>
             </div>
+            {/if}
 
             <div class="prop p-status">
               <span class="pl"><Icon name="status" size={16} /> Status</span>

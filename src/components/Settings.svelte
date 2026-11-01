@@ -132,6 +132,7 @@
   async function loadApps() {
     try {
       apps = (await call<{ apps: NonNullable<typeof apps> }>('/apps')).apps;
+      app.usesElastic = apps.length > 0;
     } catch {
       apps = null;
     }

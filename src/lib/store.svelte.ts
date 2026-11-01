@@ -125,6 +125,8 @@ export class App {
   toast = $state<{ text: string; id: number; undo?: () => void } | null>(null);
   theme = $state<Theme>('auto');
   online = $state(typeof navigator === 'undefined' ? true : navigator.onLine);
+  /** Whether I've connected an app (Elastic) to my account; null until known. The card's Time row shows only then, or once time is logged on it. */
+  usesElastic = $state<boolean | null>(null);
   /** An invite link was opened (`?invite=`): accepted once signed in. */
   inviteToken: string | null = null;
   /** Just signed in with a code on a device that can hold a passkey, and none is set up yet. */
@@ -362,6 +364,15 @@ export class App {
   }
 
   /** The board list and invites, from the server. Boards gone from it are dropped here. */
+  /** Whether an app is connected (Account's Connected apps sets it too). */
+  async checkApps(): Promise<void> {
+    try {
+      this.usesElastic = (await call<{ apps: unknown[] }>('/apps')).apps.length > 0;
+    } catch {
+      /* offline: asked again on the next refresh */
+    }
+  }
+
   async refresh(): Promise<void> {
     if (!this.token) return;
     let res: { user: User; boards: BoardItem[]; invites: Invite[] };
@@ -374,6 +385,7 @@ export class App {
     // An order still waiting to be saved wins over the server's older one.
     const waiting = this.orderWaiting();
     if (waiting) res.boards = inOrder(res.boards, waiting);
+    if (this.usesElastic === null) void this.checkApps();
     this.user = res.user;
     await db.putMeta('session', { token: this.token, user: res.user });
     await this.setBoards(res.boards);
@@ -557,6 +569,7 @@ export class App {
     this.user = null;
     this.boards = [];
     this.invites = [];
+    this.usesElastic = null;
     this.data = {};
     this.open = null;
     this.activity = null;
