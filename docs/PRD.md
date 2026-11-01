@@ -130,6 +130,7 @@ Every card has these fields.
   - person (a board member).
 - **R4.8** Once a field is added, it appears on every card in that project. Members see it and change its value. Members can't add, rename, retype or remove fields.
 - **R4.9** An admin can reorder fields, rename them, change dropdown values and remove fields. Removing a field asks first, since its values on every card go with it.
+- **R4.9c** A field being edited keeps its changes until Save field. Closing it, or opening another field, with changes not saved asks first: Save field, Discard, or Keep editing.
 - **R4.9a** An admin can choose, for each custom field, to **show it on cards** (off at first). Its value then shows on every card in the board, in the row with the status: a dropdown value as its coloured chip, like the status; anything else as a grey chip with the field's name ("Budget: 300"), a person with their face, a checkbox by its name when ticked. They wrap onto more lines when the column is narrow. Empty fields show nothing.
 
 ### 4.3 Comments
@@ -279,7 +280,7 @@ Every card has these fields.
 
 - **R9.1** Sign-in is by email. The person enters their address and gets a 6-digit code by email, which they type in. No passwords.
 - **R9.1b** Someone who already has a code (asked for on another device, say) can choose "I already have a code" after typing their email, and type it without a new one being sent.
-- **R9.1a** Once signed in, a person can add a passkey on each device (Face ID, Touch ID or the device's screen lock), and then sign in with it instead of a code. Boardo offers this after a sign-in with a code. Passkeys are listed in Account, where they can be removed.
+- **R9.1a** Once signed in, a person can add a passkey on each device (Face ID, Touch ID or the device's screen lock), and then sign in with it instead of a code. Boardo offers this after a sign-in with a code, but not on a new account's first sign-in, so a newcomer sees their boards first. Passkeys are listed in Account, where they can be removed.
 - **R9.2** A person stays signed in on a device until they sign out.
 - **R9.2a** When a different person signs in on a device, nothing of the last person's boards stays on it.
 - **R9.2b** Signing out clears the device, so when changes made on it haven't reached the boards yet (made offline, say, or files still uploading), Sign out says how many and asks first: Sign out anyway, Download a backup (the changes as a file), or Stay signed in. Online, it first gives a change just made a moment to go out.
@@ -366,6 +367,7 @@ Every card has these fields.
 - **R11.10a** Text that carries meaning (times, counts, sizes, notes) uses the muted grey or darker, never the faint one, which is kept for icons and dividers; the accent as text (links, an active filter) is at least 4.5:1, and a text box's outline at least 3:1, in both themes; every key is at least 44 px to tap on a touch screen; a key or name inside a line of text gets a larger tap area without moving the line. Pickers opened by keyboard take the focus and give it back when they close; a date can be cleared by keyboard.
 - **R11.11** Before screens are built, two or three design directions are shown and one is chosen.
 - **R11.12** It works well on a phone and on a computer.
+- **R11.12a** Every control has a name a screen reader can say, on a phone too where a key shows only its icon. Rows of tabs (the card's, Board settings', the emoji groups) move with the arrow keys, Home and End, and only the chosen tab is in the Tab order.
 - **R11.13** Nothing a person changes anywhere in Boardo is saved automatically. Changes wait for Save, Add, Update or Comment, as in Elastic (R4.27, R3.1).
 
 ## 12. Assumptions to confirm

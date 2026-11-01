@@ -6,7 +6,7 @@
   import { fieldText } from '../lib/fields';
   import { hueColor, statusColors } from '../lib/hue';
   import { app } from '../lib/store.svelte';
-  import { desktop } from '../lib/ui.svelte';
+  import { desktop, tabKeys } from '../lib/ui.svelte';
   import Attachments from './Attachments.svelte';
   import Avatar from './Avatar.svelte';
   import Balloon from './Balloon.svelte';
@@ -325,7 +325,7 @@
       </p>
     </header>
 
-    <div class="tabs" role="tablist" aria-label="Card">
+    <div class="tabs" role="tablist" aria-label="Card" {@attach tabKeys}>
       <button role="tab" id="tab-details" aria-selected={tab === 'details'} aria-controls="pane-details" onclick={() => (tab = 'details')}
         ><Icon name="field" size={16} /> Details</button
       >

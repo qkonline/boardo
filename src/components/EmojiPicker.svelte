@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tabKeys } from '../lib/ui.svelte';
   import { EMOJI_GROUPS, noteEmoji, recentEmoji } from '../lib/emoji';
 
   /**
@@ -31,7 +32,7 @@
 </script>
 
 <div class="emoji" role="group" aria-label="Emoji">
-  <div class="tabs" role="tablist" aria-label="Emoji groups">
+  <div class="tabs" role="tablist" aria-label="Emoji groups" {@attach tabKeys}>
     {#each groups as gr (gr.id)}
       <button
         type="button"

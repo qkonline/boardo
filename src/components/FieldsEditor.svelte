@@ -78,6 +78,20 @@
     armed = false;
   }
 
+  /** The open field has changes not saved with Save field. */
+  const changed = $derived(!!open && !!draft && JSON.stringify($state.snapshot(draft)) !== JSON.stringify(b.field.get(open)));
+  /** Closing it, or opening another, with changes: what to do once the person says to let them go. */
+  let leaving = $state<(() => void) | null>(null);
+  function guard(next: () => void) {
+    if (changed) leaving = next;
+    else next();
+  }
+  function letGo() {
+    const next = leaving;
+    leaving = null;
+    next?.();
+  }
+
   async function save() {
     if (!draft || !draft.name.trim()) return;
     const f = { ...draft, name: draft.name.trim() };
@@ -136,12 +150,21 @@
           ></button
         >
         <span class="name">{fieldName(f)}<small>{TYPE_NAMES[f.type]}{f.builtin ? ', built in' : ''}{f.onCard ? ', shown on cards' : ''}</small></span>
-        <button class="btn small" aria-expanded={open === f.id} onclick={() => (open === f.id ? (open = null) : edit(f))}
+        <button class="btn small" aria-expanded={open === f.id} onclick={() => guard(() => (open === f.id ? ((open = null), (draft = null)) : edit(f)))}
           >{open === f.id ? 'Close' : 'Edit'}</button
         >
       </div>
       {#if open === f.id && draft}
         <div class="edit">
+          {#if leaving}
+            <!-- Closing (or opening another field) with changes asks first, as the card window does. -->
+            <div class="leave" role="alert">
+              <span>This field has changes not saved.</span>
+              <button class="key ink" disabled={!draft.name.trim()} onclick={() => save().then(letGo)}>Save field</button>
+              <button class="btn" onclick={letGo}>Discard</button>
+              <button class="btn ghost" onclick={() => (leaving = null)}>Keep editing</button>
+            </div>
+          {/if}
           <label class="label" for="fn-{f.id}">Name</label>
           <input id="fn-{f.id}" class="field" maxlength="100" bind:value={draft.name} />
           {#if f.builtin === 'start' || f.builtin === 'end'}
@@ -350,6 +373,19 @@
   .warn {
     font-size: 13px;
     color: var(--redT);
+  }
+  .leave {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: var(--r-card);
+    background: var(--sunk);
+  }
+  .leave span {
+    flex: 1 1 100%;
+    font-size: 14px;
   }
   .new {
     display: grid;

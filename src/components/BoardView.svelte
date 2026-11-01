@@ -241,7 +241,7 @@
           <button class="icon-btn find-key" class:on={!!f.q} aria-label="Search this board" onclick={openFind}><Icon name="search" /></button>
         {/if}
         {#if !narrow}{@render people()}{/if}
-        <button class="btn" onclick={() => ((app.archive = null), (app.activity = id))}><Icon name="log" /><span class="wide">Activity</span></button>
+        <button class="btn" aria-label="Activity" onclick={() => ((app.archive = null), (app.activity = id))}><Icon name="log" /><span class="wide">Activity</span></button>
         <button class="icon-btn" aria-label="Board settings" onclick={() => app.go({ name: 'boardSettings', id })}
           ><Icon name="gear" /></button
         >

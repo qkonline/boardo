@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tabKeys } from '../lib/ui.svelte';
   import Bell from './Bell.svelte';
   import type { BoardRec, Hue, Role } from '../../shared/model';
   import { call } from '../lib/api';
@@ -250,7 +251,7 @@
       </p>
     {:else}
     <div class="layout">
-      <div class="tabs" aria-label="Board settings" role="tablist">
+      <div class="tabs" aria-label="Board settings" role="tablist" {@attach tabKeys}>
         {#each tabs as t (t.id)}
           {@const n = count(t.id)}
           <button

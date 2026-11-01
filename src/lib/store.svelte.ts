@@ -450,7 +450,8 @@ export class App {
   async verifyCode(email: string, code: string): Promise<void> {
     const res = await call<{ token: string; user: User; fresh: boolean }>('/auth/code/verify', { email, code });
     await this.signedIn(res);
-    void this.maybeOfferPasskey();
+    // A new account isn't asked at once: the offer waits for the next sign-in with a code.
+    if (!res.fresh) void this.maybeOfferPasskey();
   }
 
   /** Sign in with a passkey (`autofill`: picked from the email field's suggestions). */
