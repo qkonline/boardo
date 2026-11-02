@@ -33,7 +33,7 @@ APP_URL = "https://boardo.kaiserkhan.com/"
 RP_ID = "kaiserkhan.com"
 MAIL_FROM = "Boardo <boardo@kaiserkhan.com>"
 # Alerts on phones and computers (Web Push). The private key is a secret: VAPID_PRIVATE_KEY.
-VAPID_PUBLIC_KEY = "BCZwduUiNMJZ_BYrLGtasWl7xFWR8_wkpwNtifm4KakkDilqYXPd-QdgnF1R8F4-bUBHUHdXArWJH5-Uiq9xyzc"
+VAPID_PUBLIC_KEY = "BMRJAcepOMhIWMYSASdpC7pDB_FxrHlEiU8L8qg7Fu5e7Qw0vPvY0Fos2r4MRsO8oMkSelf1TMEBazS2PfWkjk8"
 VAPID_SUBJECT = "https://boardo.kaiserkhan.com/"
 # Turnstile on asking for a sign-in code: off until this and the secret TURNSTILE_SECRET are both
 # set (and VITE_TURNSTILE_SITE_KEY, the same key, in .env.production for the app).
