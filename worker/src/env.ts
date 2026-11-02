@@ -44,10 +44,6 @@ export interface Env {
   ELASTIC?: { cardsChanged(accounts: string[]): Promise<void> };
   /** The built app's files (wrangler.toml [assets]). Absent in tests. */
   ASSETS?: Fetcher;
-  /** Set only while moving Cloudflare accounts: opens /__migrate/* (migrate.ts). */
-  MIGRATE_KEY?: string;
-  /** "1" while moving accounts: the app still loads, but nothing syncs or saves until it's off. */
-  FROZEN?: string;
 }
 
 /** Running locally (`wrangler dev` with worker/.dev.vars), never live. */
