@@ -47,6 +47,7 @@ import {
 import { type Env, isDev, list } from './env';
 import { links, putPhoto, remove as removeFile, removePhoto, serve as serveFile, servePhoto, upload } from './files';
 import { devOutbox } from './mail';
+import { migrateRoute } from './migrate';
 import { elasticCards, elasticOps } from './elastic';
 import { listNotes, readNotes, seenNotes, subscribe, subscribed, unsubscribe } from './inbox';
 import { ElasticLink } from './link';
@@ -153,6 +154,15 @@ export default {
       });
 
     if (req.method === 'OPTIONS') return reply(allowed ? 204 : 403);
+    // Moving Cloudflare accounts (migrate.ts): called with curl, so before the origin check.
+    const moved = await migrateRoute(
+      req,
+      pathname,
+      env.MIGRATE_KEY,
+      async () => (await env.DB.prepare('SELECT id FROM boards').all<{ id: string }>()).results.map((r) => r.id),
+      (id) => boardStub(env, id),
+    );
+    if (moved) return moved;
     // A place in the app (a board, a card, My cards, Account: src/lib/route.ts) is the app's page,
     // which reads the address itself. Only these paths, so nothing else is ever masked.
     if (!prefix && req.method === 'GET' && env.ASSETS && APP_PAGE.test(pathname))
@@ -168,6 +178,12 @@ export default {
         return new Response('Something went wrong. Try again.', { status: 500 });
       }
     if (!allowed) return reply(403);
+    // While moving accounts nothing may change here: devices keep their changes and send them later.
+    if (env.FROZEN === '1' && (pathname === '/sync' || req.method !== 'GET'))
+      return new Response(JSON.stringify({ error: 'Boardo is moving. Your changes are safe on this device.' }), {
+        status: 503,
+        headers: { ...cors, 'content-type': 'application/json', 'retry-after': '300' },
+      });
 
     const ip = req.headers.get('cf-connecting-ip') ?? 'local';
     /** One more write by this person; false once they've made too many this minute. */

@@ -45,6 +45,7 @@ import { cardChanges, type LogEntry, optionWithRole, sameNamed, settle, statusAs
 import { type Change, changes } from './checks';
 import type { Env } from './env';
 import { alert, saveNotes } from './inbox';
+import { type Dump, dumpStorage, loadStorage } from './migrate';
 import { cardNotes, commentNotes, memberNote, type NoteCtx, type Outgoing } from './notes';
 import { notifyElastic } from './notify';
 
@@ -142,6 +143,19 @@ export class Board extends DurableObject<Env> {
     `);
     // Keep-alives are answered without waking the object.
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair('ping', 'pong'));
+  }
+
+  // ---------- moving accounts (migrate.ts) ----------
+
+  /** Everything this board stores, for the move to another Cloudflare account. */
+  async migrateDump(): Promise<Dump> {
+    return dumpStorage(this.ctx.storage);
+  }
+
+  /** Writes a dump from the old account into this (empty) board. */
+  async migrateLoad(dump: Dump): Promise<number> {
+    this.usage = null;
+    return loadStorage(this.ctx.storage, dump);
   }
 
   // ---------- connections ----------
