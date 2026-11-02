@@ -3,6 +3,7 @@
 # `TURNSTILE_SECRET` to turn Turnstile on, with TURNSTILE_SITE_KEY below). Database changes go in
 # migrations/ and are applied with `npx wrangler d1 migrations apply boardo --remote`.
 name = "boardo-api"
+account_id = "6e9ae8440fa497c90ad8dc45d4d9d3a1"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
 workers_dev = true
@@ -64,7 +65,7 @@ simple = { limit = 60, period = 60 }
 [[d1_databases]]
 binding = "DB"
 database_name = "boardo"
-database_id = "80adce19-ab9f-4910-970f-e7d11ec23795"
+database_id = "257fc26b-bc7e-4d04-b1be-846e669460eb"
 migrations_dir = "migrations"
 
 [[r2_buckets]]
