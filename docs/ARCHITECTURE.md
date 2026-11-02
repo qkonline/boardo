@@ -10,7 +10,7 @@ This document describes how Boardo is built and how it connects to Elastic. What
  boardo.kaiserkhan.com (PWA, served by the Worker)  elastic.kaiserkhan.com (Elastic)
           │  HTTPS + WebSocket                                │ HTTPS (OAuth token, scope "elastic")
           ▼                                                   ▼
- boardo-api.qaisarkhans.workers.dev  ── Worker "boardo-api" ──────────────────────
+ boardo-api.kaiserkhan.workers.dev  ── Worker "boardo-api" ──────────────────────
    ├─ D1 "boardo": users, sessions, email codes, boards, members, invites, OAuth codes, app tokens
    ├─ Durable Object Board (one per board, SQLite): columns, cards, fields, comments, files,
    │    time sessions, logs; per-board rev; hibernating WebSockets for live sync
@@ -371,7 +371,7 @@ All of these are in Elastic's repository.
 
 **Phase 0: setup**
 - Repository `qkonline/boardo` (public, MIT).
-- The app and the API are served by the Worker at boardo.kaiserkhan.com (and `boardo-api.qaisarkhans.workers.dev`, root paths); until 23 Oct 2026 the app was on Hostinger at kaiserkhan.com/boardo.
+- The app and the API are served by the Worker at boardo.kaiserkhan.com (and `boardo-api.kaiserkhan.workers.dev`, root paths); until 23 Oct 2026 the app was on Hostinger at kaiserkhan.com/boardo.
 - Resend sends from `boardo@kaiserkhan.com`. Its SPF and DKIM records go in kaiserkhan.com's DNS (Hostinger's until 23 Oct 2026, Cloudflare's since), on Resend's own names (`send.kaiserkhan.com`, `resend._domainkey`), so they don't touch the domain's existing mail.
 - Create D1 `boardo`, R2 `boardo-files` and the Worker `boardo-api`. Set the secrets.
 - Scaffold the app with Svelte, Vite, Vitest, Prettier and svelte-check. `npm run deploy` runs the tests and checks, builds and deploys the Worker with the app.
