@@ -179,6 +179,13 @@
       border-color: var(--line);
     }
   }
+  /* A finished card: see-through, with thin stripes, so it reads as done from across the board.
+     Only the background fades; the words and faces stay solid. */
+  .card.completed {
+    background:
+      repeating-linear-gradient(-45deg, color-mix(in oklab, var(--edge) 45%, transparent) 0 2px, transparent 2px 10px),
+      color-mix(in oklab, var(--raised) 60%, transparent);
+  }
   .card.lifted {
     opacity: 0.35;
   }
