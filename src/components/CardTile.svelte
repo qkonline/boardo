@@ -183,8 +183,9 @@
      Only the background fades; the words and faces stay solid. */
   .card.completed {
     background:
-      repeating-linear-gradient(-45deg, color-mix(in oklab, var(--edge) 45%, transparent) 0 2px, transparent 2px 10px),
-      color-mix(in oklab, var(--raised) 60%, transparent);
+      repeating-linear-gradient(-45deg, color-mix(in oklab, var(--edge) 45%, transparent) 0 1px, transparent 1px 5px),
+      color-mix(in oklab, var(--raised) 80%, transparent);
+    border-color: var(--done-edge);
   }
   .card.lifted {
     opacity: 0.35;

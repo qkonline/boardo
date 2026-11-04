@@ -131,7 +131,7 @@ Every card has these fields.
   - person (a board member).
 - **R4.8** Once a field is added, it appears on every card in that project. Members see it and change its value. Members can't add, rename, retype or remove fields.
 - **R4.9** An admin can reorder fields, rename them, change dropdown values and remove fields. Removing a field asks first, since its values on every card go with it.
-- **R4.9d** A Completed card stands back in its column: its background is see-through with thin diagonal stripes, in both themes. Its words and faces stay solid, so they can still be read.
+- **R4.9d** A Completed card stands back in its column: its background is slightly see-through with fine diagonal stripes and a pale green outline, in both themes. Its words and faces stay solid, so they can still be read.
 - **R4.9c** A field being edited keeps its changes until Save field. Closing it, or opening another field, with changes not saved asks first: Save field, Discard, or Keep editing.
 - **R4.9a** An admin can choose, for each custom field, to **show it on cards** (off at first). Its value then shows on every card in the board, in the row with the status: a dropdown value as its coloured chip, like the status; anything else as a grey chip with the field's name ("Budget: 300"), a person with their face, a checkbox by its name when ticked. They wrap onto more lines when the column is narrow. Empty fields show nothing.
 

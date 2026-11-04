@@ -45,6 +45,8 @@
   --s-lime: #65a30d;
   --t-lime: #3f6212;
   --tint-lime: #f0f8e4;
+  /* The outline of a Completed card. */
+  --done-edge: #d9ffa3;
   --s-rose: #e11d48;
   --t-rose: #be123c;
   --tint-rose: #fff0f3;
@@ -111,6 +113,7 @@
     --s-lime: #84cc16;
     --t-lime: #bef264;
     --tint-lime: #1f2a12;
+    --done-edge: #3f5c17;
     --s-rose: #fb7185;
     --t-rose: #fda4af;
     --tint-rose: #3a1720;
@@ -156,6 +159,7 @@
   --s-lime: #84cc16;
   --t-lime: #bef264;
   --tint-lime: #1f2a12;
+  --done-edge: #3f5c17;
   --s-rose: #fb7185;
   --t-rose: #fda4af;
   --tint-rose: #3a1720;
