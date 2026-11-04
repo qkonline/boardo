@@ -306,7 +306,8 @@ All of these are in Elastic's repository.
   - built on Elastic's `Collapsible` component (R8.8);
   - placed in the plan after the Checklist and before the timeline (and above the empty-day message);
   - shown only when the person is connected and in at least one board;
-  - each row has the title, the project in its colour, a status chip, the deadline and a Start button (Resume or Running when the card's timer is going);
+  - cards are grouped in a folding section per board (`byBoard()`), and the title bar folds the whole section;
+  - each row has the title, a status chip, the deadline, and Mark done and Start buttons (Resume or Running when the card's timer is going). Mark done sends a `done` op with no timer (R8.25);
   - tapping a row opens a read-only card sheet (`ProjectCard.svelte`) with **Open in Boardo**.
 - **`Item.card?: { id: string; board: string; session?: string | null }`** links a day item to a card, and Elastic's backup import validates it.
   - Starting a card creates a task item with `min: 0`, the card's title and the project's colour. Elastic's existing `startItem` then places it at the current point.

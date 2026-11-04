@@ -247,11 +247,10 @@ Every card has these fields.
 
 - **R8.6** Elastic's day shows a folding **Projects** section, like its Checklist and habits section, listing the person's project cards for that day.
 - **R8.7** The section only appears if the person is in at least one board. Otherwise there's no such section.
-- **R8.8** Like Elastic's other sections, it has a title bar (icon, name, how many are done) and folds once it has more than 3 entries: it always opens folded, showing the first 3 with the third fading out above a Show all link.
+- **R8.8** Like Elastic's other sections, it has a title bar (icon, name, how many are done). The bar folds the whole section, and inside it cards are grouped in a folding section per board, with the board's colour, name, how many are overdue and how many are done (since 4 November 2026; before, one list that folded past 3 entries). A board starts folded unless it's the only one, and what's folded stays folded on that device.
 - **R8.9** Cards aren't dragged into the plan. They live in this section.
 - **R8.10** Each row shows:
   - the card's title;
-  - the project it belongs to, in the project's colour;
   - its status;
   - its deadline: Overdue, Due today, Due tomorrow, a weekday such as Wednesday for the coming week, or a date further out. A date and time deadline includes the time, for example "Due today, 5 pm".
 - **R8.11** Tapping a row shows the card's details, with a link to open it in Boardo.
@@ -274,7 +273,7 @@ Every card has these fields.
 - **R8.22** Starting sets the card to **In Progress** in Boardo (R5.6).
 - **R8.23** Pause stops the clock, and resuming continues it. Postpone stops it for now, keeping the time worked.
 - **R8.24** Starting another task while a card runs stops the card's timer and keeps the time worked. It does **not** mark the card done. The same goes for End my day.
-- **R8.25** **Done** stops the timer and marks the person's part done (R5.7).
+- **R8.25** **Done** stops the timer and marks the person's part done (R5.7). **Mark done** on a card in Projects does the same with no timer: nothing is added to the plan, and Undo takes it back for a few seconds (since 4 November 2026).
 - **R8.26** All time worked is added to the card's Time spent, under the person's name, and noted in the card's log.
 - **R8.27** Working offline is fine. Starts, stops and done marks are kept on the device and sent when it's back online, recorded at the time they really happened, and never counted twice.
 
