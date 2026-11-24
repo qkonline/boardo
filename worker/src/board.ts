@@ -45,7 +45,7 @@ import { cardChanges, type LogEntry, optionWithRole, sameNamed, settle, statusAs
 import { type Change, changes } from './checks';
 import type { Env } from './env';
 import { alert, saveNotes } from './inbox';
-import { cardNotes, commentNotes, memberNote, type NoteCtx, type Outgoing } from './notes';
+import { cardNotes, commentNotes, joinedNotes, memberNote, moreNote, type NoteCtx, type Outgoing } from './notes';
 import { notifyElastic } from './notify';
 
 /** A record as it goes out to devices. `data` null: deleted. */
@@ -342,11 +342,39 @@ export class Board extends DurableObject<Env> {
   /** Updates from the changes being made, sent once they're stored (sendNotes()). */
   private notes: Outgoing[] = [];
 
-  /** Updates one person's change makes, up to how many they may make in a minute. */
+  /**
+   * Updates one person's change makes, up to how many they may make in a minute. Past that they're
+   * counted, and each person gets one line for them all a minute later (alarm()).
+   */
   private note(actor: string | null, list: Outgoing[]): void {
     if (!list.length) return;
-    if (actor && !this.within(this.rates, `notes:${actor}`, NOTES_PER_ACTOR, list.length)) return;
+    if (actor && !this.within(this.rates, `notes:${actor}`, NOTES_PER_ACTOR, list.length)) {
+      const held = this.held();
+      const mine = (held[actor] ??= {});
+      for (const o of list) mine[o.userId] = (mine[o.userId] ?? 0) + 1;
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('held', ?)", JSON.stringify(held));
+      this.ctx.waitUntil(this.ctx.storage.setAlarm(Date.now() + MINUTE));
+      return;
+    }
     this.notes.push(...list);
+  }
+
+  /** Updates held back this minute: how many, by who made them and who they're for. */
+  private held(): Record<string, Record<string, number>> {
+    const row = this.sql.exec<{ v: string }>("SELECT v FROM kv WHERE k = 'held'").toArray()[0];
+    return row ? JSON.parse(row.v) : {};
+  }
+
+  async alarm(): Promise<void> {
+    if (!this.boardId()) return;
+    const held = this.held();
+    this.sql.exec("DELETE FROM kv WHERE k = 'held'");
+    const now = Date.now();
+    for (const [actor, people] of Object.entries(held)) {
+      const ctx = this.noteCtx(actor, now);
+      for (const [userId, n] of Object.entries(people)) if (ctx.members.has(userId)) this.notes.push(moreNote(userId, n, ctx));
+    }
+    this.sendNotes();
   }
 
   private noteCtx(actor: string | null, now: number): NoteCtx {
@@ -356,6 +384,11 @@ export class Board extends DurableObject<Env> {
       members: new Map(this.all('member').map((m) => [m.userId, m])),
       status: this.get('field', 'status') ?? undefined,
       cards: () => this.all('card'),
+      commenters: (id) =>
+        this.sql
+          .exec<{ u: string }>("SELECT DISTINCT json_extract(data, '$.userId') AS u FROM records WHERE kind = 'comment' AND data IS NOT NULL AND json_extract(data, '$.cardId') = ? AND json_extract(data, '$.deleted') IS NULL", id)
+          .toArray()
+          .map((r) => r.u),
       actor,
       now,
     };
@@ -737,9 +770,10 @@ export class Board extends DurableObject<Env> {
             continue;
           }
         }
+        // Alone on a card, Mark done is one thing: its History says it in one line (R5.5c).
         out.push({ cardId: after.id, userId, entry });
       }
-      return out;
+      return alone(after) ? out.map((l) => (solo(l.entry) ? { ...l, entry: { ...l.entry, detail: { ...l.entry.detail, solo: true } } } : l)) : out;
     }
     if (kind === 'comment') {
       const before = prev as CommentRec | null;
@@ -862,6 +896,7 @@ export class Board extends DurableObject<Env> {
       if (!before) {
         out.push(this.log(null, by, { action: 'member_added', detail: { user: m.userId, role: m.role } }, now));
         this.note(null, memberNote('added', m.userId, m.role, this.noteCtx(by, now)));
+        if (by === m.userId) this.note(null, joinedNotes(m, this.noteCtx(by, now)));
       } else if (before.role !== m.role) {
         out.push(this.log(null, by, { action: 'role_changed', detail: { user: m.userId, role: m.role } }, now));
         this.note(null, memberNote('role', m.userId, m.role, this.noteCtx(by, now)));
@@ -1023,10 +1058,10 @@ export class Board extends DurableObject<Env> {
       out.push(this.write('card', card.id, settled));
       this.note(userId, cardNotes(card, settled, this.noteCtx(userId, op.at)));
       for (const e of cardChanges(card, { ...settled, values: { ...settled.values, status: card.values.status ?? null } }, new Map(), new Map()))
-        out.push(this.log(card.id, userId, { ...e, detail: { ...e.detail, via } }, op.at));
+        out.push(this.log(card.id, userId, { ...e, detail: { ...e.detail, via, ...(alone(settled) && solo(e) ? { solo: true } : {}) } }, op.at));
       if (auto)
         out.push(
-          this.log(card.id, null, { action: 'status', detail: { field: 'status', name: status?.name ?? 'Status', from: statusName(card.values.status), to: statusName(settled.values.status), auto: true } }, op.at),
+          this.log(card.id, null, { action: 'status', detail: { field: 'status', name: status?.name ?? 'Status', from: statusName(card.values.status), to: statusName(settled.values.status), auto: true, ...(alone(settled) ? { solo: true } : {}) } }, op.at),
         );
     };
     if (op.type === 'start') {
@@ -1152,6 +1187,10 @@ export class Board extends DurableObject<Env> {
     return f;
   }
 }
+
+/** One person is on the card, so its part and its completion are one thing. */
+const alone = (c: CardRec) => c.assignees.length === 1;
+const solo = (e: LogEntry) => e.action === 'part_done' || e.action === 'part_undone' || (e.action === 'status' && e.detail.auto === true);
 
 /** The lower of two roles. */
 const lesser = (a: Role, b: Role): Role => (a === 'admin' && b === 'admin' ? 'admin' : 'member');

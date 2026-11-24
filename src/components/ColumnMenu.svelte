@@ -10,6 +10,13 @@
   const col = $derived(b.column.get(colId));
   const idx = $derived(b.columns.findIndex((c) => c.id === colId));
   const count = $derived(b.cardsIn(colId).length);
+  const doneId = $derived(b.statusField?.options?.find((o) => o.role === 'completed')?.id);
+  const done = $derived(b.cardsIn(colId).filter((c) => doneId && c.values.status === doneId).length);
+  async function archiveDone() {
+    const [bd, col] = [board, colId];
+    onclose();
+    await app.archiveDone(bd, col);
+  }
   // svelte-ignore state_referenced_locally
   let name = $state(col?.name ?? '');
   let removing = $state(false);
@@ -57,6 +64,9 @@
             >Move right <Icon name="right" /></button
           >
         </div>
+        {#if done}
+          <button class="btn" onclick={archiveDone}><Icon name="archive" /> Archive {done === 1 ? '1 completed card' : `${done} completed cards`}</button>
+        {/if}
         <button class="btn danger" onclick={() => (count ? (removing = true) : remove(null))}
           ><Icon name="trash" /> Remove column</button
         >

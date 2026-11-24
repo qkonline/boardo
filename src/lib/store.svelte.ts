@@ -67,6 +67,7 @@ const keptCopies = (n: number) =>
 
 const THEME_KEY = 'boardo:theme';
 const SCREEN_KEY = 'boardo:screen';
+const HIDE_DONE_KEY = 'boardo:hide-done';
 const OTHER_INVITE_KEY = 'boardo:other-invite';
 const PASSKEY_ASK_KEY = 'boardo:passkey-ask';
 /** An order of the boards not yet saved on the server (made offline): sent on the next refresh. */
@@ -116,6 +117,16 @@ export class App {
   /** Search across all boards (R9.16): open, and what's typed, kept while the app is open. */
   search = $state({ open: false, q: '' });
   /** Each board's filters and search (R3.6, R3.6a), kept while the app is open, left or not. */
+  /** Boards whose completed cards this person hides, kept on this device (R3.6c). */
+  hidesDone(id: string): boolean {
+    return (readLocal(HIDE_DONE_KEY) ?? '').split(',').includes(id);
+  }
+  hideDone(id: string, on: boolean): void {
+    const ids = new Set((readLocal(HIDE_DONE_KEY) ?? '').split(',').filter(Boolean));
+    if (on) ids.add(id);
+    else ids.delete(id);
+    writeLocal(HIDE_DONE_KEY, ids.size ? [...ids].join(',') : null);
+  }
   boardFilters = $state<Record<string, { person: string; status: string; q: string }>>({});
   /** What the Archived panel searches for when it opens (a board's search sends its words). */
   archiveQuery = '';
@@ -398,7 +409,8 @@ export class App {
     await db.putMeta('session', { token: this.token, user: res.user });
     await this.setBoards(res.boards);
     this.invites = res.invites;
-    if (this.inviteToken) {
+    // Once they've given their name, so the board's people hear who joined.
+    if (this.inviteToken && this.user?.name) {
       const t = this.inviteToken;
       this.inviteToken = null;
       await this.acceptInvite({ token: t });
@@ -518,6 +530,7 @@ export class App {
     const res = await call<{ user: User }>('/me', patch);
     this.user = res.user;
     await db.putMeta('session', { token: this.token, user: res.user });
+    if (this.inviteToken) await this.refresh();
   }
 
   /** Changing one's email: a code goes to the new address first. */
@@ -591,6 +604,7 @@ export class App {
     this.sheet = null;
     this.screen = { name: 'home' };
     this.setOtherInvite(null);
+    writeLocal(HIDE_DONE_KEY, null);
     writeLocal(SCREEN_KEY, null);
     writeLocal(ORDER_KEY, null);
   }
@@ -1154,6 +1168,22 @@ export class App {
   }
 
   /** Remove a column: its cards move to another column, or are archived. */
+  /** Archive a column's completed cards, with Undo. */
+  async archiveDone(board: string, columnId: string): Promise<void> {
+    const b = this.data[board];
+    const done = optionWithRole(b.statusField, 'completed')?.id;
+    const cards = b.cardsIn(columnId).filter((c) => done && c.values.status === done);
+    if (!cards.length) return;
+    await this.put(board, cards.map((c) => ({ kind: 'card' as Kind, key: c.id, data: { ...c, archived: true } })));
+    this.say(cards.length === 1 ? '1 card archived' : `${cards.length} cards archived`, () => {
+      const back = cards.flatMap((x) => {
+        const c = this.data[board]?.card.get(x.id);
+        return c ? [{ kind: 'card' as Kind, key: c.id, data: { ...c, archived: false } }] : [];
+      });
+      void this.put(board, back);
+    });
+  }
+
   async removeColumn(board: string, id: string, moveTo: string | null): Promise<void> {
     const b = this.data[board];
     const changes: { kind: Kind; key: string; data: unknown }[] = [];

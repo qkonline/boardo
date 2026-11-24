@@ -54,12 +54,14 @@ export class BoardState {
   fields = $derived([...this.field.values()].sort((a, b) => a.order - b.order || a.id.localeCompare(b.id)));
   members = $derived([...this.member.values()].sort((a, b) => a.name.localeCompare(b.name)));
   statusField = $derived(this.field.get('status'));
-  logs = $derived([...this.log.values()].sort((a, b) => b.at - a.at));
+  private allLogs = $derived([...this.log.values()].sort((a, b) => b.at - a.at));
+  /** What History and Activity show: alone on a card, marking it done says its completion too. */
+  logs = $derived(this.allLogs.filter((l) => !(l.detail.solo && l.action === 'status')));
   /** When each card last became Completed, from the log (newest first, so the first one found). */
   doneAt = $derived.by(() => {
     const label = this.statusField?.options?.find((o) => o.role === 'completed')?.label;
     const at = new Map<string, number>();
-    if (label) for (const l of this.logs) if (l.cardId && l.action === 'status' && l.detail.to === label && !at.has(l.cardId)) at.set(l.cardId, l.at);
+    if (label) for (const l of this.allLogs) if (l.cardId && l.action === 'status' && l.detail.to === label && !at.has(l.cardId)) at.set(l.cardId, l.at);
     return at;
   });
 
@@ -89,6 +91,13 @@ export class BoardState {
 
   sessionsOn(cardId: string): SessionRec[] {
     return [...this.session.values()].filter((s) => s.cardId === cardId);
+  }
+
+  /** The cards this one waits on that aren't done yet (none once it's done itself). */
+  waitsOn(card: CardRec): CardRec[] {
+    const done = this.statusField?.options?.find((o) => o.role === 'completed')?.id;
+    if (!card.deps?.length || (done && card.values.status === done)) return [];
+    return card.deps.map((d) => this.card.get(d)).filter((c): c is CardRec => !!c && c.values.status !== done);
   }
 
   logsOn(cardId: string): LogRec[] {

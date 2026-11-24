@@ -83,7 +83,7 @@ Each board has two roles.
 - **R3.1a** An admin can choose how the board scrolls (Board settings, Look, Scrolling): **Each column** (the default), where every column scrolls on its own so its name and Add a card stay in view, or **Whole page**, where columns are as long as their cards and the page scrolls, with the board's header held at the top. It's saved with the settings' save bar and everyone in the board sees it.
 - **R3.2** A board has columns, like Trello's lists. Columns can be named anything, for example "Campaign 1", "Campaign 2", "Campaign 3".
 - **R3.3** Columns are **independent of Status**. A column groups cards however the project likes. Each card in it has its own status.
-- **R3.3a** A new board starts empty, with a short guide in place of columns: "Add a column for each stage or campaign, like Campaign 1 or To do", Add a column, and Invite people for its admin while they're alone in it. It goes once the board has a column. No starter columns (the user's choice, 1 Nov 2026).
+- **R3.3a** A new board starts empty, with a short guide in place of columns: "Add a column for each stage or campaign, like Campaign 1 or Design", Add a column, and Invite people for its admin while they're alone in it. It goes once the board has a column. No starter columns (the user's choice, 1 Nov 2026).
 - **R3.4** Members can add, rename, reorder and remove columns. Removing a column that still has cards asks where the cards should go, or archives them.
 - **R3.4a** Removing a column shows a message with **Undo** for a few seconds, which brings the column back with the cards it had, in their order, and unarchives them if they were archived with it.
 - **R3.4b** Add a column sits after the last column. Beside columns it's a slim strip as wide as a tap target, with a plus level with the columns' names and the words running down it, so it doesn't take a column's width; it opens to the full form, scrolled into view. A board with no columns shows it full width with a line explaining columns.
@@ -92,6 +92,7 @@ Each board has two roles.
 - **R3.6** A board can be filtered by person and by status.
 - **R3.6a** A board can be searched from a box at the right of its header, before the board's people and Activity ("Search this board"; on a phone a magnifier there that opens the box across the filters' row, with a chip showing the words while a search is on; "/" goes to it). The columns narrow to the cards with every word (R9.17), together with the filters, the words marked on each card, and when the title doesn't have them all, the line under it shows where they are ("Sara Ali: …the venue is booked…"). The box counts the cards shown. Archived cards that match never show in the columns: a line says how many and opens them in Archived with the same words. Clear clears the search and the filters; Escape clears the search. A board keeps its search and filters while the app is open, also after leaving it. A card dragged while searching or filtering lands between the cards it was dropped between.
 - **R3.6b** A board's header shows who's in it: a few faces (three on a computer, two on a phone, then how many more), which open Board settings' People. An admin also has **Invite** (a + on a phone), which opens the invite form over the board, with the invites waiting and a link to everyone in the board. On a computer they sit between the board's search and Activity; on a phone, at the end of the filters' row, which makes room for them by leaving out the filter mark and showing Archived as its box and count (still read out as Archived).
+- **R3.6c** The status filter has **Not completed**, kept per board on the device until it's changed or cleared. A column's options can archive its completed cards at once, with Undo.
 - **R3.7** An admin can set what every new card in the board starts with (Board settings, Cards): someone it's assigned to, and a status. Both start as Nobody and None. Once saved, every card added after starts with them; cards already there stay as they are. A person who has left, or a status since deleted, is skipped.
 
 ## 4. Cards
@@ -196,6 +197,8 @@ Every card has these fields.
 - **R5.5a** Marking your part done shows a message with **Undo** for a few seconds. Once it's done, the card offers **Mark not done** instead. Either takes the part back (R5.4).
 - **R5.5b** An admin can mark someone else's part not done (from that person's name in the card's People), but never mark it done for them.
 - **R5.5c** On a card with one person, Boardo doesn't speak of their "part": marking it done completes the card (the status says so), so the card window shows only Mark not done, and hints and updates say "done" rather than "their part is done".
+- **R5.5e** Alone on a card, marking it done is one line in History and Activity ("marked this card done"), its completion included.
+- **R5.5f** A card that waits on cards not done yet says "Waits on 2" in its foot row, and which ones above Mark done. Marking it done doesn't ask.
 
 ### 5.2 Automation from Elastic
 
@@ -315,6 +318,7 @@ Every card has these fields.
 ### 9.2 Updates (the bell)
 
 - **R9.13** A bell (top right on a phone, in the top bar on a computer) collects the updates meant for the person, as in Facebook. It shows a red count of those that came since it was last opened; opening it clears the count on every device. Each update shows who did it, what happened and on which card, the comment or line quoted where there is one, the board and how long ago. New ones are tinted until opened, and Mark all as read reads them all. All and Unread switch between everything and what's unread. Tapping an update opens its card. Updates are kept for 60 days.
+- **R9.13b** Since 24 November 2026 the bell also says: on a shared card, that someone finished their part ("Yours is the last." to whoever is left); that a card they're on was archived; to admins, who joined; and, to anyone who has commented on a card, a later comment there. Updates past 30 a minute from one person's changes are counted and come as one line a minute later.
 - **R9.14** A person gets an update when:
   - someone mentions them (R4.13a);
   - someone puts them on a card, or takes them off one;

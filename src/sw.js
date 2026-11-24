@@ -154,6 +154,14 @@ function line(n) {
       return `${who} made you ${role} of ${n.boardName}`;
     case 'removed':
       return `${who} took you out of ${n.boardName}`;
+    case 'part_done':
+      return `${who} finished their part of ${card}${n.to === 'last' ? '. Yours is the last.' : ''}`;
+    case 'archived':
+      return `${who} archived ${card}`;
+    case 'joined':
+      return `${who} joined ${n.boardName}`;
+    case 'more':
+      return `${who} made ${n.to} more ${n.to === '1' ? 'change' : 'changes'} for you in ${n.boardName}`;
   }
   return 'Something changed';
 }

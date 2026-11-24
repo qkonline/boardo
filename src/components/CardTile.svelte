@@ -41,6 +41,7 @@
   const dates = $derived(range(card.values.start, card.values.end));
   const comments = $derived(b.commentsOn(card.id).length);
   const files = $derived(b.filesOn(card.id).length);
+  const waits = $derived(b.waitsOn(card));
   const doneCount = $derived(card.assignees.filter((u) => card.done[u] != null).length);
   /**
    * The custom fields the board's admins chose to show on cards (R4.9a), with a value here: a
@@ -90,7 +91,7 @@
   onclick={open}
   aria-label="{card.title || 'Untitled'}{status ? `, ${status.label}` : ''}{due ? `, ${due.label}` : start ? `, ${start}` : ''}{card.assignees.length > 1
     ? `, ${doneCount} of ${card.assignees.length} done`
-    : ''}"
+    : ''}{waits.length ? `, waits on ${waits.length}` : ''}"
 >
   <span class="body">
     {#if showBoard && b.board}
@@ -106,7 +107,7 @@
           >{#each highlight(preview, words) as p, i (i)}{#if p.hit}<mark>{p.text}</mark>{:else}{p.text}{/if}{/each}</span
         >{/if}
     </span>
-    {#if status || extra.length || dates || comments || files || card.assignees.length}
+    {#if status || extra.length || dates || comments || files || waits.length || card.assignees.length}
       <span class="foot">
         <span class="meta">
           {#if status}<span class="st"><StatusChip option={status} /></span>{/if}
@@ -131,6 +132,7 @@
           {:else if dates}
             <span title={dates}><Icon name="cal" size={16} />{dates}</span>
           {/if}
+          {#if waits.length}<span title="Waits on {waits.map((c) => c.title || 'Untitled').join(', ')}"><Icon name="deps" size={16} />Waits on {waits.length}</span>{/if}
           {#if comments}<span><Icon name="chat" size={16} />{comments}</span>{/if}
           {#if files}<span><Icon name="clip" size={16} />{files}</span>{/if}
         </span>

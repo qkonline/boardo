@@ -36,6 +36,17 @@ export function sentence(n: Note, now = Date.now()): Piece[] {
       return [who, t(` made you ${role(n.to)} of `), board];
     case 'removed':
       return [who, t(' took you out of '), board];
+    case 'part_done':
+      return n.to === 'last' ? [who, t(' finished their part of '), card, t('. Yours is the last.')] : [who, t(' finished their part of '), card];
+    case 'archived':
+      return [who, t(' archived '), card];
+    case 'joined':
+      return [who, t(' joined '), board];
+    case 'more':
+      return [who, t(` made ${n.to} more ${n.to === '1' ? 'change' : 'changes'} for you in `), board];
+    default:
+      // From a newer Boardo than this copy.
+      return [t('Something changed in '), board];
   }
 }
 
@@ -55,6 +66,10 @@ export const LOOK: Record<NoteKind, { colour: string; mark: string }> = {
   added: { colour: 'var(--s-rose)', mark: '★' },
   role: { colour: 'var(--s-rose)', mark: '★' },
   removed: { colour: 'var(--s-slate)', mark: '×' },
+  part_done: { colour: 'var(--go)', mark: '✓' },
+  archived: { colour: 'var(--s-slate)', mark: '−' },
+  joined: { colour: 'var(--s-rose)', mark: '★' },
+  more: { colour: 'var(--s-slate)', mark: '+' },
 };
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];

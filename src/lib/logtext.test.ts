@@ -18,6 +18,6 @@ describe('how a log line names things', () => {
   });
   it('says someone added themselves to a card in plain words', () => {
     expect(logText(log('assigned', { user: 'ann' }), b, true)).toBe('added themselves to this card');
-    expect(logText(log('assigned', { user: 'bob' }), b, true)).toBe('assigned this card to someone who left');
+    expect(logText(log('assigned', { user: 'bob' }), b, true)).toBe('added someone who left to this card');
   });
 });

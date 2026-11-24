@@ -42,6 +42,21 @@ const ctx = (actor: string | null, cards: CardRec[] = []): NoteCtx => ({
 const who = (out: { userId: string; note: { kind: string } }[]) => out.map((o) => `${o.userId}:${o.note.kind}`).sort();
 
 describe('updates for a card', () => {
+  it('tells the others on a shared card that a part is finished, and whose is the last', () => {
+    const before = card({ assignees: ['ann', 'bob', 'cy'] });
+    const one = cardNotes(before, { ...before, done: { ann: 1 } }, ctx('ann'));
+    expect(who(one)).toEqual(['bob:part_done', 'cy:part_done']);
+    expect(one.every((o) => !o.note.to)).toBe(true);
+    const two = cardNotes({ ...before, done: { ann: 1 } }, { ...before, done: { ann: 1, bob: 2 } }, ctx('bob'));
+    expect(two.map((o) => [o.userId, o.note.kind, o.note.to])).toEqual([['cy', 'part_done', 'last']]);
+  });
+  it('tells the people on a card that it was archived', () => {
+    expect(who(cardNotes(card(), card({ archived: true }), ctx('ann')))).toEqual(['bob:archived']);
+  });
+  it('tells whoever commented before that there is a reply', () => {
+    const c = { id: 'm', cardId: 'k1', userId: 'ann', text: 'Yes', at: 1 } as CommentRec;
+    expect(who(commentNotes(null, c, card(), { ...ctx('ann'), commenters: () => ['cy', 'ann'] }))).toEqual(['bob:comment', 'cy:comment']);
+  });
   it('tells people put on or taken off it, but not the one who did it', () => {
     expect(who(cardNotes(card(), card({ assignees: ['ann', 'cy'] }), ctx('ann')))).toEqual(['bob:unassigned', 'cy:assigned']);
   });

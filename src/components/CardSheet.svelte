@@ -760,6 +760,9 @@
                   {#if card.assignees.length > 1}<span class="ok"><Icon name="check" /> Your part is done</span>{/if}
                   <button class="key undo-key" onclick={() => app.markPart(board, id, false)}><Icon name="undo" plain /> Mark not done</button>
                 {:else}
+                  {#if b.waitsOn(card).length}
+                    <span class="note">Waits on {b.waitsOn(card).map((c) => c.title || 'Untitled').join(', ')}</span>
+                  {/if}
                   <button class="key go done-key" onclick={() => app.markPart(board, id, true)}><Icon name="check" plain /> Mark done</button>
                   {#if card.assignees.length > 1 && !allPartsDone(card)}
                     <span class="note">Completes when everyone's part is done.</span>

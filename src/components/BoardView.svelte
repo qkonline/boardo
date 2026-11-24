@@ -21,8 +21,11 @@
 
   // Filters (R3.6) and search (R3.6a), kept per board in the store while the app is open.
   const NONE = { person: 'all', status: 'all', q: '' };
-  const f = $derived(app.boardFilters[id] ?? NONE);
-  const setFilter = (k: 'person' | 'status' | 'q', v: string) => (app.boardFilters[id] = { ...f, [k]: v });
+  const f = $derived(app.boardFilters[id] ?? (app.hidesDone(id) ? { ...NONE, status: 'open' } : NONE));
+  const setFilter = (k: 'person' | 'status' | 'q', v: string) => {
+    app.boardFilters[id] = { ...f, [k]: v };
+    if (k === 'status') app.hideDone(id, v === 'open');
+  };
   const words = $derived(queryWords(f.q));
   const filtered = $derived(f.person !== 'all' || f.status !== 'all' || words.length > 0);
   /** The cards with every word, and where each matched (src/lib/search.ts). */
@@ -87,15 +90,19 @@
   const statusLabel = $derived(
     f.status === 'all'
       ? 'All statuses'
+      : f.status === 'open'
+        ? 'Not completed'
       : f.status === 'none'
         ? 'No status'
         : (b?.statusField?.options?.find((o) => o.id === f.status)?.label ?? 'All statuses'),
   );
 
+  const completedId = $derived(b?.statusField?.options?.find((o) => o.role === 'completed')?.id);
   function keep(c: CardRec): boolean {
     if (found && !found.has(c.id)) return false;
     if (f.person === 'none' && c.assignees.length) return false;
     if (f.person !== 'all' && f.person !== 'none' && !c.assignees.includes(f.person)) return false;
+    if (f.status === 'open') return c.values.status == null || c.values.status !== completedId;
     if (f.status !== 'all' && (c.values.status ?? 'none') !== f.status) return false;
     return true;
   }
@@ -229,13 +236,14 @@
           <span class="val">{statusLabel}</span>
           <select value={f.status} onchange={(e) => setFilter('status', e.currentTarget.value)}>
             <option value="all">All statuses</option>
+            <option value="open">Not completed</option>
             {#each b.statusField?.options ?? [] as o (o.id)}<option value={o.id}>{o.label}</option>{/each}
             <option value="none">No status</option>
           </select>
           <Icon name="down" size={14} />
         </label>
         {#if filtered}
-          <button class="btn ghost clear" onclick={() => (app.boardFilters[id] = { ...NONE })}>Clear</button>
+          <button class="btn ghost clear" onclick={() => ((app.boardFilters[id] = { ...NONE }), app.hideDone(id, false))}>Clear</button>
         {/if}
         <!-- The archived cards, in a panel like Activity. -->
         <button class="arch" onclick={() => ((app.activity = null), (app.archive = id))}
@@ -313,7 +321,7 @@
             <button class="add-col" onclick={() => (addingCol = true)}><Icon name="plus" /> <span>Add a column</span></button>
             {#if !b.columns.length}
               <!-- A new board's first steps; gone once it has a column. -->
-              <p class="hint">Add a column for each stage or campaign, like Campaign 1 or To do. Each card has its own status, whatever its column.</p>
+              <p class="hint">Add a column for each stage or campaign, like Campaign 1 or Design. Each card has its own status, whatever its column.</p>
               {#if admin && b.member.size <= 1}
                 <button class="btn first-invite" onclick={() => (inviting = true)}><Icon name="people" /> Invite people</button>
               {/if}

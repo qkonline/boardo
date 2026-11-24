@@ -245,7 +245,11 @@ export type NoteKind =
   | 'unblocked'
   | 'added'
   | 'role'
-  | 'removed';
+  | 'removed'
+  | 'part_done'
+  | 'archived'
+  | 'joined'
+  | 'more';
 
 /** One update for one person, as the bell shows it. Names are kept as they were at the time. */
 export interface Note {
@@ -264,7 +268,7 @@ export interface Note {
   title?: string;
   /** A comment, or the line of a description that mentions them. */
   quote?: string;
-  /** What it became: a status's name, a due date (as stored), or a role. */
+  /** What it became: a status's name, a due date (as stored), a role, 'last' when only their part is left, or how many more. */
   to?: string | null;
   /** The card that was done, for `unblocked`. */
   dep?: string;

@@ -26,6 +26,8 @@ export interface NoteCtx {
   status?: FieldRec;
   /** Every card on the board (asked for only when a card is completed). */
   cards: () => CardRec[];
+  /** Who has commented on a card (asked for only when there's a new comment). */
+  commenters?: (cardId: string) => Iterable<string>;
   /** Who made the change; null when nobody did (it happened by itself). */
   actor: string | null;
   now: number;
@@ -91,6 +93,12 @@ export function cardNotes(before: CardRec | null, after: CardRec, ctx: NoteCtx):
       for (const u of told) add(u, after, 'status', { to: label });
     }
   }
+  // A shared card: the others hear that a part is finished, and whoever is left that theirs is the last.
+  const finished = after.assignees.filter((u) => after.done[u] != null && was.has(u) && before.done[u] == null);
+  const left = after.assignees.filter((u) => after.done[u] == null);
+  if (finished.length && left.length)
+    for (const u of told) if (after.done[u] == null) add(u, after, 'part_done', left.length === 1 && left[0] === u ? { to: 'last' } : {});
+  if (after.archived && !before.archived) for (const u of now) add(u, after, 'archived');
   const end = typeof after.values.end === 'string' ? after.values.end : null;
   if (end !== (typeof before.values.end === 'string' ? before.values.end : null)) for (const u of told) add(u, after, 'due', { to: end });
   return out;
@@ -103,8 +111,20 @@ export function commentNotes(before: CommentRec | null, after: CommentRec | null
   const had = before ? mentioned(before.text, people) : new Set<string>();
   const now = mentioned(after.text, people);
   for (const u of now) if (!had.has(u)) add(u, card, 'mention', { quote: mentionLine(after.text, u, people, QUOTE) });
-  if (!before) for (const u of audience(card)) if (!now.has(u)) add(u, card, 'comment', { quote: clip(after.text.replace(/\s+/g, ' ').trim(), QUOTE) });
+  if (!before) for (const u of new Set([...audience(card), ...(ctx.commenters?.(card.id) ?? [])])) if (!now.has(u)) add(u, card, 'comment', { quote: clip(after.text.replace(/\s+/g, ' ').trim(), QUOTE) });
   return out;
+}
+
+/** Someone joined: the board's admins hear. */
+export function joinedNotes(m: MemberRec, ctx: NoteCtx): Outgoing[] {
+  const { out, add } = collector(ctx);
+  for (const a of ctx.members.values()) if (a.role === 'admin' && a.userId !== m.userId) add(a.userId, null, 'joined', { by: { userId: m.userId, name: m.name, hue: m.hue, photo: m.photo ?? null } });
+  return out;
+}
+
+/** What someone's changes made past the limit, in one line. */
+export function moreNote(userId: string, n: number, ctx: NoteCtx): Outgoing {
+  return { userId, note: { ...base(ctx, 'more', null), to: String(n) } };
 }
 
 /** Someone added to the board, given another role, or taken out (not by themselves). */

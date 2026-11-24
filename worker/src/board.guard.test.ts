@@ -146,6 +146,14 @@ describe('too much too fast', () => {
     await server.idle();
     const n = (server.d1.db.prepare("SELECT COUNT(*) AS n FROM notes WHERE user_id = 'bob'").get() as { n: number }).n;
     expect(n).toBe(30);
+    // The rest come as one line, a minute later.
+    await (await server.board('b1')).alarm();
+    await server.idle();
+    const more = server.d1.db.prepare("SELECT data FROM notes WHERE user_id = 'bob' AND kind = 'more'").all() as { data: string }[];
+    expect(more.map((m) => JSON.parse(m.data).to)).toEqual(['10']);
+    await (await server.board('b1')).alarm();
+    await server.idle();
+    expect((server.d1.db.prepare("SELECT COUNT(*) AS n FROM notes WHERE user_id = 'bob'").get() as { n: number }).n).toBe(31);
   });
 });
 

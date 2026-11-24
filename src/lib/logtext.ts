@@ -51,14 +51,16 @@ export function logText(l: LogRec, b: BoardState, onCard: boolean): string {
       return `set ${f}${onCard ? '' : ` on ${it}`} to ${val(d.to)}${d.from != null && d.from !== '' ? ` (was ${val(d.from)})` : ''}`;
     }
     case 'assigned':
-      return d.user === l.userId ? `added themselves to ${it}` : `assigned ${it} to ${name(d.user)}`;
+      return d.user === l.userId ? `added themselves to ${it}` : `added ${name(d.user)} to ${it}`;
     case 'unassigned':
       return d.user === l.userId ? `took themselves off ${it}` : `took ${name(d.user)} off ${it}`;
     case 'part_done':
+      if (d.solo) return `marked ${it} done${d.via === 'elastic' ? ' in Elastic' : ''}`;
       return d.user === l.userId
         ? `finished their part of ${it}${d.via === 'elastic' ? ' in Elastic' : ''}`
         : `marked ${name(d.user)}'s part done`;
     case 'part_undone':
+      if (d.solo) return d.user === l.userId ? `marked ${it} not done` : `marked ${it} not done for ${name(d.user)}`;
       return d.user === l.userId ? `marked their part of ${it} not done` : `marked ${name(d.user)}'s part not done`;
     case 'linked':
     case 'unlinked': {
