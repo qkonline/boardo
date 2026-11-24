@@ -279,15 +279,20 @@ async function mayInvite(env: Env, userId: string, boardId: string) {
 async function mailInvite(env: Env, to: string, token: string, boardName: string, by: User, role: Role) {
   const who = by.name ?? by.email;
   const link = inviteLink(env, token);
+  const can =
+    role === 'admin'
+      ? 'As an admin you can set up the board and invite people, as well as work on its cards.'
+      : 'As a member you can add and move cards, comment, and mark your part done.';
   const as = role === 'admin' ? 'an admin' : 'a member';
   await sendMail(env, {
     to,
     // Nothing the sender typed goes in the subject: the names are in the body, escaped.
     subject: "You're invited to a board on Boardo",
-    text: `${who} invited you to join ${boardName} on Boardo as ${as}.\n\nJoin the board: ${link}\n\nSign in with this email address (${to}). The invite works for 14 days.`,
+    text: `${who} invited you to join ${boardName} on Boardo as ${as}.\n\nBoardo is where the team keeps its cards. ${can}\n\nJoin the board: ${link}\n\nUse this email address (${to}): we'll send it a code, and there's no password. The invite works for 14 days.`,
     html: `<p style="font:16px/1.5 system-ui,sans-serif">${esc(who)} invited you to join <b>${esc(boardName)}</b> on Boardo as ${as}.</p>
+<p style="font:15px/1.5 system-ui,sans-serif">Boardo is where the team keeps its cards. ${can}</p>
 <p><a href="${link}" style="display:inline-block;font:600 15px system-ui,sans-serif;background:#16181d;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">Join the board</a></p>
-<p style="font:14px/1.5 system-ui,sans-serif;color:#5b6170">Sign in with this email address (${esc(to)}). The invite works for 14 days.</p>`,
+<p style="font:14px/1.5 system-ui,sans-serif;color:#5b6170">Use this email address (${esc(to)}): we'll send it a code, and there's no password. The invite works for 14 days.</p>`,
   });
 }
 

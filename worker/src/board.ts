@@ -106,6 +106,11 @@ const PUTS_PER_SOCKET = 120;
 const PUTS_PER_USER = 240;
 /** Updates (the bell) one person's changes can make in a minute, and times they can alert phones. */
 const NOTES_PER_ACTOR = 30;
+/** Catch-ups one person may ask for in a minute over all their devices (polling included), and ones from the start. */
+const HELLOS_PER_USER = 240;
+const WHOLE_PER_USER = 20;
+/** Attachments and backgrounds a board may keep, together. */
+const MAX_FILE_BYTES = 1024 * 1024 * 1024;
 const ALERTS_PER_ACTOR = 10;
 const MINUTE = 60_000;
 /** Edits to the same field of a card by the same person this close together log as one. */
@@ -143,6 +148,7 @@ export class Board extends DurableObject<Env> {
         PRIMARY KEY (kind, key));
       CREATE INDEX IF NOT EXISTS records_rev ON records (rev);
       CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS done_at (card TEXT PRIMARY KEY, at INTEGER NOT NULL);
       CREATE TABLE IF NOT EXISTS ops (id TEXT PRIMARY KEY, at INTEGER NOT NULL);
     `);
     // Keep-alives are answered without waking the object.
@@ -215,6 +221,10 @@ export class Board extends DurableObject<Env> {
       if (await this.inDirectory(att.userId)) return [UNLISTED];
       if (from) from.close(4003, 'Removed from board');
       return [{ t: 'removed' }];
+    }
+    if (m.t === 'hello') {
+      if (!this.within(this.rates, `hello:${who.userId}`, HELLOS_PER_USER)) return null;
+      if (!m.since && !this.within(this.rates, `whole:${who.userId}`, WHOLE_PER_USER)) return null;
     }
     if (m.t === 'hello') return this.since(Number.isInteger(m.since) ? (m.since as number) : 0);
     if (m.t !== 'put') return [];
@@ -328,12 +338,24 @@ export class Board extends DurableObject<Env> {
 
   /**
    * Something Elastic shows may have changed (a card, a status, the board's name or colour, who's
-   * in it): tell Elastic, for everyone in the board and anyone just taken out of it.
+   * in it): tell Elastic, for the people it concerns.
    */
   private tellElastic(recs: Rec[]): void {
     if (!this.env.ELASTIC || !recs.some((r) => SHOWN_IN_ELASTIC.has(r.kind))) return;
-    const users = new Set(this.all('member').map((m) => m.userId));
-    for (const r of recs) if (r.kind === 'member') users.add(r.key);
+    // A card concerns the people on it, and anyone just taken off it (its log says who); anything
+    // else (a status, the board, who's in it) concerns everyone.
+    const users = new Set<string>();
+    for (const r of recs) {
+      if (r.kind === 'card') for (const u of (r.data as CardRec | null)?.assignees ?? []) users.add(u);
+      else if (r.kind === 'log') {
+        const l = r.data as LogRec | null;
+        if (l?.action === 'unassigned') users.add(String(l.detail.user));
+      } else if (SHOWN_IN_ELASTIC.has(r.kind)) {
+        for (const m of this.all('member')) users.add(m.userId);
+        if (r.kind === 'member') users.add(r.key);
+      }
+    }
+    if (!users.size) return;
     this.ctx.waitUntil(notifyElastic(this.env, [...users]));
   }
 
@@ -518,6 +540,12 @@ export class Board extends DurableObject<Env> {
    * after the last one updates that entry instead, so typing doesn't fill the log.
    */
   private log(cardId: string | null, userId: string | null, e: LogEntry, now: number): Rec {
+    if (e.action === 'status' && cardId) {
+      // When a card was last completed, kept so Elastic's reading never goes through the log.
+      const label = optionWithRole(this.get('field', 'status') ?? undefined, 'completed')?.label;
+      if (label && e.detail.to === label) this.sql.exec('INSERT OR REPLACE INTO done_at (card, at) VALUES (?, ?)', cardId, now);
+      else this.sql.exec('DELETE FROM done_at WHERE card = ?', cardId);
+    }
     if (COALESCED.includes(e.action) && cardId) {
       const last = this.sql
         .exec<{ key: string; data: string }>("SELECT key, data FROM records WHERE kind = 'log' ORDER BY rev DESC LIMIT 1")
@@ -972,7 +1000,7 @@ export class Board extends DurableObject<Env> {
     const cards = this.all('card').filter(
       (c) => !c.archived && c.assignees.includes(userId) && (typeof c.values.start === 'string' || typeof c.values.end === 'string'),
     );
-    const doneAt = done ? this.completedAt(new Set(cards.filter((c) => c.values.status === done.id).map((c) => c.id)), done.label) : new Map();
+    const doneAt = done ? this.completedAt(done.label) : new Map();
     const out: ElasticCard[] = [];
     for (const c of cards) {
       const start = typeof c.values.start === 'string' ? c.values.start : null;
@@ -996,20 +1024,18 @@ export class Board extends DurableObject<Env> {
     return out;
   }
 
-  /** When each of these cards last became Completed, from the log, read once, newest first. */
-  private completedAt(ids: Set<string>, label: string): Map<string, number> {
-    const out = new Map<string, number>();
-    if (!ids.size) return out;
-    for (const r of this.sql.exec<{ data: string }>(
-      "SELECT data FROM records WHERE kind = 'log' AND data IS NOT NULL ORDER BY rev DESC",
-    )) {
-      const l = JSON.parse(r.data) as LogRec;
-      if (l.cardId && ids.has(l.cardId) && !out.has(l.cardId) && l.action === 'status' && l.detail.to === label) {
-        out.set(l.cardId, l.at);
-        if (out.size === ids.size) break;
+  /** When each card last became Completed. Boards from before this was kept read their log once. */
+  private completedAt(label: string): Map<string, number> {
+    if (!this.sql.exec("SELECT 1 FROM kv WHERE k = 'done_at'").toArray().length) {
+      for (const r of this.sql
+        .exec<{ data: string }>("SELECT data FROM records WHERE kind = 'log' AND data IS NOT NULL AND json_extract(data, '$.action') = 'status' ORDER BY rev")
+        .toArray()) {
+        const l = JSON.parse(r.data) as LogRec;
+        if (l.cardId && l.detail.to === label) this.sql.exec('INSERT INTO done_at (card, at) VALUES (?, ?) ON CONFLICT (card) DO UPDATE SET at = MAX(at, excluded.at)', l.cardId, l.at);
       }
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('done_at', '1')");
     }
-    return out;
+    return new Map(this.sql.exec<{ card: string; at: number }>('SELECT card, at FROM done_at').toArray().map((r) => [r.card, r.at]));
   }
 
   /**
@@ -1120,10 +1146,15 @@ export class Board extends DurableObject<Env> {
   }
 
   /** A file was stored: its record and a log entry. Null if the card went meanwhile, `full` if the board is. */
+  private fileBytes(): number {
+    return Number(this.sql.exec<{ n: number | null }>("SELECT SUM(json_extract(data, '$.size')) AS n FROM records WHERE kind = 'file' AND data IS NOT NULL").toArray()[0]?.n ?? 0);
+  }
+
   async addFile(userId: string, f: FileRec): Promise<{ file: FileRec | null; full?: boolean }> {
     const out: Rec[] = [];
     let ok = false;
     if (!this.room(JSON.stringify(f).length + 300, true)) return { file: null, full: true };
+    if (this.fileBytes() + f.size > MAX_FILE_BYTES) return { file: null, full: true };
     this.tx(() => {
       const card = this.get('card', f.cardId);
       if (!card || card.archived) return;

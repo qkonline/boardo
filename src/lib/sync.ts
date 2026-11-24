@@ -47,6 +47,8 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 const BACKOFF = [1, 2, 5, 10, 30].map((s) => s * 1000);
 const PING_MS = 20_000;
 const CONNECT_MS = 8000;
+/** On requests instead: try a WebSocket again this often. */
+const PROBE_MS = 3 * 60_000;
 const WS_TRIES = 2;
 const BATCH = 100;
 const BATCH_BYTES = 400_000;
@@ -87,7 +89,11 @@ export class Sync {
   private chain: Promise<void> = Promise.resolve();
   private visible = true;
   private channel: BroadcastChannel | null = null;
-  private online = () => this.reconnectAll();
+  private online = () => {
+    this.reconnectAll();
+    // A different network, perhaps: WebSockets may work on it.
+    if (this.http) this.probeLater(1000);
+  };
   /** WebSockets keep failing on this network: boards sync over plain requests instead. */
   private http = false;
   private wsFails = 0;
@@ -162,6 +168,8 @@ export class Sync {
   }
 
   stop(): void {
+    if (this.probe) clearTimeout(this.probe);
+    this.probe = null;
     this.token = null;
     this.leader = false;
     this.claims++;
@@ -279,6 +287,7 @@ export class Sync {
       // is online: switch over.
       if (!http && !opened && (++this.wsFails >= WS_TRIES || hung) && navigator.onLine !== false) {
         this.http = true;
+        this.probeLater();
         c.tries = 0;
       }
       if (c.ws !== ws) return;
@@ -306,6 +315,45 @@ export class Sync {
     this.hooks.removed(board, kept);
     this.tell({ t: 'removed', board, kept });
   }
+
+  /**
+   * On requests instead of WebSockets: now and then see whether a WebSocket opens after all (the
+   * trouble was passing, or the network changed), and go back to them if so. The boards carry on
+   * over requests meanwhile.
+   */
+  private probeLater(wait = PROBE_MS): void {
+    if (this.probe) clearTimeout(this.probe);
+    this.probe = setTimeout(() => {
+      this.probe = null;
+      if (!this.http || !this.token) return;
+      if (!this.leader || !this.visible || navigator.onLine === false) return this.probeLater();
+      const board = [...this.conns.keys()][0];
+      if (!board) return this.probeLater();
+      let ws: WebSocket;
+      try {
+        ws = new WebSocket(`${this.url.replace(/^http/, 'ws')}/sync?board=${encodeURIComponent(board)}`, ['boardo', this.token]);
+      } catch {
+        return this.probeLater();
+      }
+      const give = setTimeout(() => ws.close(), CONNECT_MS);
+      ws.onopen = () => {
+        clearTimeout(give);
+        ws.onclose = null;
+        ws.close();
+        this.http = false;
+        this.wsFails = 0;
+        for (const c of this.conns.values()) {
+          this.close(c);
+          this.connect(c);
+        }
+      };
+      ws.onclose = () => {
+        clearTimeout(give);
+        this.probeLater();
+      };
+    }, wait);
+  }
+  private probe: ReturnType<typeof setTimeout> | null = null;
 
   /** Try again after a pause that grows with each failure. */
   private later(c: Conn): void {

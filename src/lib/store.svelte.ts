@@ -896,6 +896,20 @@ export class App {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
+  /** Everything on a board as a file (admins): its records as they are, and a list of its files. */
+  async downloadBoard(board: string): Promise<void> {
+    const name = this.boards.find((b) => b.id === board)?.name ?? 'board';
+    const out: Record<string, unknown[]> = {};
+    for (const r of await db.getRecords(board)) (out[r.kind] ??= []).push(r.data);
+    const body = { boardo: 1, board: name, exported: new Date().toISOString(), ...out };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(body, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'board'}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   // ---------- the bell ----------
 
   async loadNotes(): Promise<void> {

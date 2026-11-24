@@ -157,6 +157,30 @@ describe('too much too fast', () => {
   });
 });
 
+describe('what Elastic reads', () => {
+  it('knows when a card was completed without the log, old boards included', async () => {
+    const b = await server.board('b1');
+    await put('bob', 'member', [{ kind: 'card', key: 'k1', data: card('k1', { assignees: ['bob'], values: { end: '2026-12-01' } }) }]);
+    await put('bob', 'member', [{ kind: 'card', key: 'k1', data: card('k1', { assignees: ['bob'], values: { end: '2026-12-01' }, done: { bob: Date.now() } }) }]);
+    const [a] = await b.myCards('bob', 'https://x/');
+    expect(a.completed && a.completedAt).toBeTruthy();
+    // As a board from before: nothing kept yet, so its log is read, once.
+    ctx().storage.sql.exec('DELETE FROM done_at');
+    ctx().storage.sql.exec("DELETE FROM kv WHERE k = 'done_at'");
+    expect((await b.myCards('bob', 'https://x/'))[0].completedAt).toBe(a.completedAt);
+    ctx().storage.sql.exec("DELETE FROM records WHERE kind = 'log'");
+    expect((await b.myCards('bob', 'https://x/'))[0].completedAt).toBe(a.completedAt);
+  });
+
+  it('keeps no more than a gigabyte of files', async () => {
+    const b = await server.board('b1');
+    await put('bob', 'member', [{ kind: 'card', key: 'k1', data: card('k1') }]);
+    const f = (id: string, size: number) => ({ id, cardId: 'k1', name: 'a.pdf', mime: 'application/pdf', size, by: 'bob', at: 1, thumb: false });
+    expect((await b.addFile('bob', f('f1', 1024 ** 3 - 10))).file).not.toBeNull();
+    expect(await b.addFile('bob', f('f2', 20))).toEqual({ file: null, full: true });
+  });
+});
+
 describe('a session that was ended', () => {
   const open = async (hash: string) => {
     const { ws, got } = socket('bob');

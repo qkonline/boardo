@@ -129,7 +129,8 @@
     {:else if invited}
       <p class="lede">You've been invited to a board. Sign in with the email address the invite was sent to.</p>
     {:else}
-      <p class="lede">Shared project boards. Sign in with your email, and we'll send you a code.</p>
+      <p class="lede">Boards for small teams. Each card shows who's on it and what's left, everyone marks their own part done, and a log keeps every change.</p>
+      <p class="lede">Sign in with your email and we'll send you a code. New here? The same code makes your account.</p>
     {/if}
 
     {#if step === 'email'}

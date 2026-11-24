@@ -423,8 +423,15 @@
           {#if admin}
             <div class="card out-card">
               <div class="what">
+                <b>Download {b.board?.name}</b>
+                <span>A file of its cards, comments, fields, people and log, as this device has them, with the names of its attachments (not the attachments themselves).</span>
+              </div>
+              <button class="btn" onclick={() => app.downloadBoard(id)}><Icon name="down" /> Download</button>
+            </div>
+            <div class="card out-card">
+              <div class="what">
                 <b>Delete {b.board?.name}</b>
-                <span>For everyone, with its cards, comments, files and log. This can't be undone.</span>
+                <span>For everyone, with its cards, comments, files and log. This can't be undone. Download it first to keep a copy.</span>
               </div>
               {#if armed === 'delete'}
                 <div class="row">
