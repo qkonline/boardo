@@ -6,7 +6,8 @@
 // Every write that changes a record also notes it in the outbox, in the same transaction, so a
 // change can't be lost between being saved and being sent.
 
-import type { Kind } from '../../shared/model';
+import type { CardRec, CommentRec, Kind } from '../../shared/model';
+import { draftWords, writing, type KeptDraft } from './draft';
 
 const DB_NAME = 'boardo';
 const VERSION = 1;
@@ -141,8 +142,18 @@ export async function getOutbox(board?: string): Promise<string[]> {
   return board ? ids.filter((id) => id.startsWith(board + '/')) : ids;
 }
 
-/** A board this person is no longer in: everything about it goes from this device. */
-export async function dropBoard(board: string): Promise<void> {
+/**
+ * A board this person is no longer in: everything about it goes from this device (R9.7), except
+ * copies of their own words that hadn't reached it (R9.5d): comments and texts they wrote, drafts,
+ * and copies the board had refused. Returns how many were kept.
+ */
+export async function dropBoard(board: string): Promise<number> {
+  const kept = await ownWords(board);
+  if (kept.length) {
+    // Kept first: if this can't be stored, the board isn't deleted.
+    const old = await getLost();
+    await putMeta(LOST, [...old, ...kept].slice(-LOST_KEPT));
+  }
   const tx = (await open()).transaction(['records', 'synced', 'outbox', 'meta', 'uploads'], 'readwrite');
   const range = IDBKeyRange.bound(board + '/', board + '/￿');
   tx.objectStore('records').delete(range);
@@ -150,11 +161,82 @@ export async function dropBoard(board: string): Promise<void> {
   tx.objectStore('outbox').delete(range);
   tx.objectStore('meta').delete(`rev:${board}`);
   tx.objectStore('meta').delete(`refused:${board}`);
+  tx.objectStore('meta').delete(IDBKeyRange.bound(`draft:${board}/`, `draft:${board}/￿`));
   const up = tx.objectStore('uploads');
   up.getAll().onsuccess = (e) => {
     for (const u of (e.target as IDBRequest<{ id: string; board: string }[]>).result) if (u.board === board) up.delete(u.id);
   };
-  return txDone(tx);
+  await txDone(tx);
+  return kept.length;
+}
+
+/** Copies kept from boards that are gone from this device. */
+export type Lost = Refused & { boardName: string };
+const LOST = 'lost';
+const LOST_KEPT = 200;
+
+export async function getLost(): Promise<Lost[]> {
+  return (await getMeta<Lost[]>(LOST)) ?? [];
+}
+
+export async function clearLost(): Promise<void> {
+  await deleteMeta(LOST);
+}
+
+/** This person's own words on a board that only this device has. */
+async function ownWords(board: string): Promise<Lost[]> {
+  const me = (await getMeta<{ user?: { id: string } }>('session'))?.user?.id;
+  const boardName = (await getMeta<{ id: string; name: string }[]>('boards'))?.find((b) => b.id === board)?.name ?? 'A board';
+  const at = Date.now();
+  const out: Lost[] = [];
+  const keep = (id: string, data: object, when = at) => out.push({ id, data, at: when, boardName });
+  for (const id of await getOutbox(board)) {
+    const kind = splitRid(id)[1];
+    const data = await getRecord(id);
+    if (!data) continue;
+    const was = (await getSynced(id))?.data;
+    if (kind === 'card') {
+      const c = data as CardRec;
+      const b = was as CardRec | null | undefined;
+      const desc = [c.desc !== (b?.desc ?? '') ? c.desc : '', ...Object.entries(c.values).filter(([k, v]) => writing(v) && v !== b?.values[k]).map(([, v]) => v)]
+        .filter(Boolean)
+        .join('\n\n');
+      if (!b || c.title !== b.title || desc) keep(id, { title: !b || c.title !== b.title ? c.title : '', desc });
+    } else if (kind === 'comment') {
+      const c = data as CommentRec;
+      if (c.userId === me && !c.deleted && c.text) keep(id, { text: c.text });
+    }
+  }
+  for (const r of await getRefused(board)) {
+    const kind = splitRid(r.id)[1];
+    if (!r.data) continue;
+    if (kind === 'card') keep(r.id, { title: (r.data as CardRec).title, desc: (r.data as CardRec).desc }, r.at);
+    if (kind === 'comment') keep(r.id, { text: (r.data as CommentRec).text }, r.at);
+  }
+  for (const { card, kept } of await getDrafts(board)) for (const w of draftWords(kept)) keep(rid(board, w.kind, card), w.data, kept.at);
+  for (const u of await getUploads()) if (u.board === board) keep(rid(board, 'file', u.id), { name: u.name });
+  return out;
+}
+
+// ---------- unsaved drafts (never sent, only kept) ----------
+
+export async function putDraft(board: string, card: string, d: KeptDraft | null): Promise<void> {
+  if (d) await putMeta(`draft:${board}/${card}`, d);
+  else await deleteMeta(`draft:${board}/${card}`);
+}
+
+export async function getDraft(board: string, card: string): Promise<KeptDraft | undefined> {
+  return getMeta(`draft:${board}/${card}`);
+}
+
+export async function getDrafts(board?: string): Promise<{ board: string; card: string; kept: KeptDraft }[]> {
+  const st = await store('meta', 'readonly');
+  const range = IDBKeyRange.bound(`draft:${board ? board + '/' : ''}`, `draft:${board ? board + '/' : ''}￿`);
+  const [keys, vals] = await Promise.all([done(st.getAllKeys(range)), done(st.getAll(range))]);
+  return keys.map((k, i) => {
+    const [b, c] = String(k).slice('draft:'.length).split('/');
+    return { board: b, card: c, kept: vals[i] as KeptDraft };
+  });
 }
 
 export async function getMeta<T>(key: string): Promise<T | undefined> {

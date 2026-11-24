@@ -121,6 +121,9 @@ interface PutResult {
   extra: Rec[];
 }
 
+/** The directory has this person and the board doesn't (yet): the Worker passes them on (relist()). */
+const UNLISTED = { t: 'unlisted' };
+
 export class Board extends DurableObject<Env> {
   private sql: SqlStorage;
   /** Rows and bytes kept, read once from kv `usage` and written back with each transaction (tx()). */
@@ -151,17 +154,22 @@ export class Board extends DurableObject<Env> {
     const userId = req.headers.get('x-user');
     const role = req.headers.get('x-role');
     if (!userId || (role !== 'admin' && role !== 'member')) return new Response(null, { status: 403 });
-    const [client, server] = Object.values(new WebSocketPair());
     const me = this.get('member', userId);
+    if (!me && (await this.inDirectory(userId))) {
+      // The directory has them and this board wasn't told: the Worker passes it on and asks again.
+      return new Response(null, { status: 409 });
+    }
     if (!me) {
+      const [client, server] = Object.values(new WebSocketPair());
       // Not in this board's own list: told so, as the Worker tells a non-member.
       server.accept();
       server.send(JSON.stringify({ t: 'removed' }));
       server.close(4003, 'Not in this board');
-    } else {
-      this.ctx.acceptWebSocket(server, [userId]);
-      server.serializeAttachment({ userId, role: lesser(role, me.role) } satisfies Attachment);
+      return new Response(null, { status: 101, webSocket: client, headers: { 'sec-websocket-protocol': 'boardo' } });
     }
+    const [client, server] = Object.values(new WebSocketPair());
+    this.ctx.acceptWebSocket(server, [userId]);
+    server.serializeAttachment({ userId, role: lesser(role, me.role) } satisfies Attachment);
     return new Response(null, { status: 101, webSocket: client, headers: { 'sec-websocket-protocol': 'boardo' } });
   }
 
@@ -180,6 +188,8 @@ export class Board extends DurableObject<Env> {
     }
     const out = await this.answer(m, ws.deserializeAttachment() as Attachment, ws);
     if (!out) return ws.close(1013, 'Slow down');
+    // Reconnecting goes through the Worker, which puts this board's list right.
+    if (out[0] === UNLISTED) return ws.close(1013, 'Try again');
     for (const o of out) ws.send(JSON.stringify(o));
   }
 
@@ -196,6 +206,7 @@ export class Board extends DurableObject<Env> {
   private async answer(m: Record<string, unknown>, att: Attachment, from: WebSocket | null): Promise<object[] | null> {
     const who = await this.who(att, m.t === 'put');
     if (!who) {
+      if (await this.inDirectory(att.userId)) return [UNLISTED];
       if (from) from.close(4003, 'Removed from board');
       return [{ t: 'removed' }];
     }
@@ -234,6 +245,21 @@ export class Board extends DurableObject<Env> {
       }
     }
     return { userId: att.userId, role };
+  }
+
+  /**
+   * Whether the directory has someone this board doesn't. If it can't be asked, yes: a device is
+   * told it was removed only when that's certain, since it then deletes the board.
+   */
+  private async inDirectory(userId: string): Promise<boolean> {
+    const id = this.boardId();
+    if (!id) return false;
+    try {
+      return !!(await this.env.DB.prepare('SELECT 1 AS x FROM members WHERE board_id = ? AND user_id = ?').bind(id, userId).first());
+    } catch (e) {
+      console.error('Checking membership', e);
+      return true;
+    }
   }
 
   /** Count one more in this minute for `key`; false once that's over `max`. */
@@ -506,6 +532,8 @@ export class Board extends DurableObject<Env> {
         }
         const prev = cur?.data ?? null;
         let data = this.allowed(c, prev, who, now);
+        // A card deleted for good stays deleted: a change made elsewhere meanwhile is refused.
+        if (c.kind === 'card' && cur && !prev) data = undefined;
         // A new comment needs its card (it may have been deleted for good meanwhile).
         if (c.kind === 'comment' && !prev && data) {
           const cardId = (data as CommentRec).cardId;

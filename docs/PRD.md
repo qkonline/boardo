@@ -162,6 +162,8 @@ Every card has these fields.
 
 - **R4.20** Cards can be archived and restored. Archived cards are hidden from the board, My cards and Elastic, but kept with their history.
 - **R4.20a** Archive card happens at once and shows a message with **Undo** for a few seconds, which brings the card back and opens it again. It asks first only when the card has changes not yet saved, since archiving closes it.
+- **R4.20b** Changes not yet saved, and a comment being written or edited, are kept on the device as they're typed, so a reload or the app being shut doesn't lose them. Opened again, the card shows them as "Unsaved changes from earlier". Nothing reaches the board until Save. Closing the card with a comment not sent asks first: Send comment, Discard, or Keep editing. If the card is deleted meanwhile, the window shows what hadn't been saved, and a copy goes to Undone changes.
+- **R4.20c** Undo after Mark done puts the card back as it was, status included, unless the status has changed since. A second tap straight after Mark done or Mark not done does nothing.
 - **R4.21** An archived card can be deleted for good, by an admin or by whoever made it. Its comments, attachments and time go with it; its history stays in the project log, with an entry saying it was deleted.
 - **R4.21a** Archived cards are found from an **Archived** link beside the board's filters, with their count. It opens a panel from the side, like Activity, with a search that finds them by the rules of R9.17. Each can be opened, restored, or deleted for good (R4.21). Board settings no longer lists them.
 
@@ -291,6 +293,9 @@ Every card has these fields.
 - **R9.4** Changes sync when the device is back online, and show up live on everyone else's devices while they're online.
 - **R9.5** When two people change the same card while offline, the most recent change to each field wins. Changes to different fields both survive. Comments, attachments, time and log entries are always kept, never overwritten.
 - **R9.5a** A change the board doesn't allow (made offline, say, by someone who has since stopped being an admin) is undone, and the person is told. A copy stays on the device, listed in Account under Undone changes, where its text can be copied.
+- **R9.5c** A card being edited while someone else saves it: lists (people, dependencies) combine, and fields left alone take the saved version. When both changed the same text (title, description, a text field), the card says who changed it and shows their version before anything is saved: Keep mine or Keep theirs, with both to copy.
+- **R9.5d** When someone's board is gone from their device (R9.7), copies of their own words that hadn't reached it (comments, card texts, drafts, the names of files waiting) are kept in Account under Undone changes, and they're told how many. Nothing else of the board stays. A device is told it was removed only when the directory confirms it.
+- **R9.5e** A card deleted for good stays deleted: an edit made elsewhere meanwhile is refused, as in R9.5a.
 - **R9.5b** A card added while offline to a column that someone else removed meanwhile goes to the end of the first column, never missing.
 - **R9.6** Attachments added while offline are uploaded once back online.
 - **R9.7** When someone is removed from a board, it disappears from their devices, including any copy kept for offline use.

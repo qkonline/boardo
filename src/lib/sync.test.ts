@@ -13,6 +13,7 @@ interface Device {
   removed: string[];
   signedOut: boolean;
   refused: number;
+  kept: number;
 }
 
 let server: FakeServer;
@@ -24,12 +25,12 @@ async function device(user: string, boards: string[]): Promise<Device> {
   const db = await import('./db');
   const { Sync } = await import('./sync');
   server.tokens.set(`t-${user}`, user);
-  const d: Device = { user, db, sync: null!, removed: [], signedOut: false, refused: 0 };
+  const d: Device = { user, db, sync: null!, removed: [], signedOut: false, refused: 0, kept: 0 };
   d.sync = new Sync('http://api.test', {
     changed: () => {},
     status: () => {},
     signedOut: () => (d.signedOut = true),
-    removed: (b) => d.removed.push(b),
+    removed: (b, kept) => (d.removed.push(b), (d.kept = kept)),
     refused: (_, n) => (d.refused += n),
     noted: () => {},
   });
@@ -224,6 +225,48 @@ describe('sync between people', () => {
     await settle();
     for (const d of [ann, bob]) expect((await local<CardRec>(d, 'b1', 'card', 'k1'))!.columnId).toBe('c0');
     expect(bob.refused).toBe(0);
+  });
+
+  it('keeps what someone wrote offline when they are removed, and nothing else of the board', async () => {
+    const ann = await device('ann', ['b1']);
+    const bob = await device('bob', ['b1']);
+    await put(ann, 'b1', 'card', 'k1', card('k1', 'ann', { desc: "Ann's words" }));
+    await bob.db.putMeta('session', { user: { id: 'bob' } });
+    await bob.db.putMeta('boards', [{ id: 'b1', name: 'Launch' }]);
+    bob.sync.stop();
+    await bob.db.putLocal([
+      { board: 'b1', kind: 'comment', key: 'm1', data: { id: 'm1', cardId: 'k1', userId: 'bob', text: 'Written offline', at: 1 } },
+      { board: 'b1', kind: 'card', key: 'k1', data: { ...(await local<CardRec>(bob, 'b1', 'card', 'k1'))!, order: 9 } },
+      { board: 'b1', kind: 'card', key: 'k2', data: card('k2', 'bob', { desc: 'My plan' }) },
+    ]);
+    await server.remove('b1', 'bob');
+    bob.sync.start('t-bob', ['b1']);
+    await settle();
+    expect(bob.removed).toEqual(['b1']);
+    expect(bob.kept).toBe(2);
+    expect(await bob.db.getRecords('b1')).toEqual([]);
+    const lost = await bob.db.getLost();
+    expect(lost.map((l) => [l.boardName, l.data])).toEqual([
+      ['Launch', { title: 'k2', desc: 'My plan' }],
+      ['Launch', { text: 'Written offline' }],
+    ]);
+  });
+
+  it('refuses an offline edit of a card deleted for good, and keeps a copy', async () => {
+    const ann = await device('ann', ['b1']);
+    const bob = await device('bob', ['b1']);
+    await put(ann, 'b1', 'card', 'k1', card('k1', 'ann'));
+    const was = (await local<CardRec>(bob, 'b1', 'card', 'k1'))!;
+    bob.sync.stop();
+    await bob.db.putLocal([{ board: 'b1', kind: 'card', key: 'k1', data: { ...was, desc: 'Edited offline' } }]);
+    await put(ann, 'b1', 'card', 'k1', { ...was, archived: true });
+    await (await server.board('b1')).deleteCard('ann', 'admin', 'k1');
+    bob.sync.start('t-bob', ['b1']);
+    await settle();
+    expect(await server.records('b1', 'card')).toEqual([]);
+    expect(await local(bob, 'b1', 'card', 'k1')).toBeNull();
+    expect(bob.refused).toBe(1);
+    expect(await bob.db.getRefused('b1')).toMatchObject([{ data: { desc: 'Edited offline' } }]);
   });
 
   it("lets only a comment's author change it", async () => {

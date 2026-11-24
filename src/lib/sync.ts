@@ -29,7 +29,7 @@ export interface SyncHooks {
   /** The token was refused (signed out elsewhere, or the account was deleted). */
   signedOut(): void;
   /** This person was removed from the board, or it was deleted. Its data is already gone here. */
-  removed(board: string): void;
+  removed(board: string, kept?: number): void;
   /** The board refused `n` changes made here: they were undone, and a copy kept (db.getRefused). */
   refused(board: string, n: number): void;
   /** There's a new update in the bell for this person: fetch them. */
@@ -55,7 +55,7 @@ const CLAIM_AGAIN_MS = 1000;
 
 type Msg =
   | { t: 'changed'; board: string; ids: string[] }
-  | { t: 'removed'; board: string }
+  | { t: 'removed'; board: string; kept: number }
   | { t: 'kick'; board: string }
   | { t: 'note' }
   | { t: 'status'; board: string; s: SyncStatus };
@@ -196,7 +196,7 @@ export class Sync {
 
   private heard(m: Msg): void {
     if (m.t === 'changed') this.hooks.changed(m.board, m.ids);
-    else if (m.t === 'removed') this.hooks.removed(m.board);
+    else if (m.t === 'removed') this.hooks.removed(m.board, m.kept);
     else if (m.t === 'status') this.hooks.status(m.board, m.s);
     else if (m.t === 'kick' && this.leader) this.kick(m.board);
     else if (m.t === 'note') this.hooks.noted();
@@ -302,9 +302,9 @@ export class Sync {
     this.close(c);
     this.conns.delete(board);
     this.wanted.delete(board);
-    await db.dropBoard(board);
-    this.hooks.removed(board);
-    this.tell({ t: 'removed', board });
+    const kept = await db.dropBoard(board);
+    this.hooks.removed(board, kept);
+    this.tell({ t: 'removed', board, kept });
   }
 
   /** Try again after a pause that grows with each failure. */

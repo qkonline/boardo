@@ -1,3 +1,11 @@
+<script module lang="ts">
+  /** A comment being written, and one of theirs being edited. */
+  export interface Writing {
+    text: string;
+    edit: { id: string; text: string } | null;
+  }
+</script>
+
 <script lang="ts">
   import type { BoardState } from '../lib/board.svelte';
   import { when } from '../lib/dates';
@@ -12,22 +20,20 @@
   import Rich from './Rich.svelte';
 
   /** A card's comments (R4.10 to R4.13): text with emoji and light formatting, editable by their author only. */
-  let { b, cardId }: { b: BoardState; cardId: string } = $props();
+  let { b, cardId, work }: { b: BoardState; cardId: string; work: Writing } = $props();
   const list = $derived(b.commentsOn(cardId));
 
-  let text = $state('');
   let picker = $state(false);
   let box: HTMLTextAreaElement | null = $state(null);
-  let editing = $state<string | null>(null);
-  let editText = $state('');
   let editBox: HTMLTextAreaElement | null = $state(null);
+  // What's being written lives in the card window, which keeps it on the device and asks before closing.
   let armed = $state<string | null>(null);
 
   async function post(e?: Event) {
     e?.preventDefault();
-    const t = text.trim();
+    const t = work.text.trim();
     if (!t) return;
-    text = '';
+    work.text = '';
     picker = false;
     await app.addComment(b.id, cardId, t);
   }
@@ -35,12 +41,12 @@
   function insert(emoji: string) {
     const el = box;
     if (!el) {
-      text += emoji;
+      work.text += emoji;
       return;
     }
-    const s = el.selectionStart ?? text.length;
-    const end = el.selectionEnd ?? text.length;
-    text = text.slice(0, s) + emoji + text.slice(end);
+    const s = el.selectionStart ?? work.text.length;
+    const end = el.selectionEnd ?? work.text.length;
+    work.text = work.text.slice(0, s) + emoji + work.text.slice(end);
     queueMicrotask(() => {
       el.focus();
       el.setSelectionRange(s + emoji.length, s + emoji.length);
@@ -48,8 +54,8 @@
   }
 
   async function saveEdit(id: string) {
-    const t = editText.trim();
-    editing = null;
+    const t = work.edit?.text.trim();
+    work.edit = null;
     if (t) await app.editComment(b.id, id, t);
   }
 </script>
@@ -66,14 +72,14 @@
           <PersonLink person={who} {b}><b>{who?.name ?? 'Someone who left'}</b></PersonLink>
           <span class="when">{when(c.at)}{c.editedAt ? ', edited' : ''}</span>
         </div>
-        {#if editing === c.id}
+        {#if work.edit?.id === c.id}
           <div class="editor">
             <FormatBar el={editBox} />
             <textarea
               class="field"
               rows="3"
               aria-label="Edit the comment"
-              bind:value={editText}
+              bind:value={work.edit.text}
               bind:this={editBox}
               onkeydown={(e) => editBox && formatKey(editBox, e)}
               maxlength="5000"
@@ -81,8 +87,8 @@
             <MentionPicker el={editBox} people={b.members} />
           </div>
           <div class="row">
-            <button class="key ink" disabled={!editText.trim()} onclick={() => saveEdit(c.id)}>Save</button>
-            <button class="btn ghost" onclick={() => (editing = null)}>Cancel</button>
+            <button class="key ink" disabled={!work.edit.text.trim()} onclick={() => saveEdit(c.id)}>Save</button>
+            <button class="btn ghost" onclick={() => (work.edit = null)}>Cancel</button>
           </div>
         {:else}
           <div class="text"><Rich text={c.text} {b} /></div>
@@ -93,7 +99,7 @@
                 <button class="btn danger" onclick={() => ((armed = null), app.deleteComment(b.id, c.id))}>Delete</button>
                 <button class="btn ghost" onclick={() => (armed = null)}>Keep</button>
               {:else}
-                <button class="link" onclick={() => ((editing = c.id), (editText = c.text))}>Edit</button>
+                <button class="link" onclick={() => (work.edit = { id: c.id, text: c.text })}>Edit</button>
                 <button class="link" onclick={() => (armed = c.id)}>Delete</button>
               {/if}
             </div>
@@ -111,7 +117,7 @@
       placeholder="Write a comment. Type @ to mention someone."
       aria-label="Write a comment"
       maxlength="5000"
-      bind:value={text}
+      bind:value={work.text}
       bind:this={box}
       onkeydown={(e) => {
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void post();
@@ -131,7 +137,7 @@
           <EmojiPicker onpick={insert} />
         {/snippet}
       </Balloon>
-      <button class="key ink post" type="submit" disabled={!text.trim()}><Icon name="send" plain /> Comment</button>
+      <button class="key ink post" type="submit" disabled={!work.text.trim()}><Icon name="send" plain /> Comment</button>
     </div>
   </form>
 </section>

@@ -3,6 +3,8 @@
   import { fieldName, type CardRec, type FieldRec } from '../../shared/model';
   import { allPartsDone } from '../../shared/rules';
   import { dayBefore, deadline, duration, fromLocalInput, longDate, toLocalInput, when } from '../lib/dates';
+  import * as db from '../lib/db';
+  import { change, changeValue, type Changes, clashes, type Draft, draftPatch, draftWords, emptyDraft, isEmpty, type KeptDraft, settleClash, type Value, withDraft } from '../lib/draft';
   import { fieldText } from '../lib/fields';
   import { hueColor, statusColors } from '../lib/hue';
   import { app } from '../lib/store.svelte';
@@ -11,7 +13,7 @@
   import Avatar from './Avatar.svelte';
   import Balloon from './Balloon.svelte';
   import CardHistory from './CardHistory.svelte';
-  import Comments from './Comments.svelte';
+  import Comments, { type Writing } from './Comments.svelte';
   import FieldInput from './FieldInput.svelte';
   import FormatBar, { formatKey } from './FormatBar.svelte';
   import Icon from './Icon.svelte';
@@ -33,9 +35,6 @@
    * a comment, a file, Archive) happen when they're tapped.
    */
   let { board, id }: { board: string; id: string } = $props();
-  type Value = string | number | boolean | null;
-  type Draft = { title?: string; desc?: string; columnId?: string; assignees?: string[]; deps?: string[]; values?: Record<string, Value> };
-
   const b = $derived(app.data[board]);
   const card = $derived(b?.card.get(id));
   const me = $derived(app.user?.id ?? '');
@@ -43,59 +42,165 @@
 
   // ---------- the draft ----------
 
-  let draft = $state<Draft>({});
+  let draft = $state.raw<Draft>(emptyDraft());
   /** The card as it would be with the draft saved. */
-  const view = $derived.by((): CardRec | null => {
-    if (!card) return null;
-    const values = { ...card.values };
-    for (const [k, v] of Object.entries(draft.values ?? {})) {
-      if (v == null || v === '') delete values[k];
-      else values[k] = v;
-    }
-    return { ...card, ...draft, values } as CardRec;
-  });
-  const same = (a: unknown, c: unknown) => JSON.stringify(a ?? null) === JSON.stringify(c ?? null);
+  const view = $derived(card ? withDraft(card, draft) : null);
   /** Only what the draft really changes. */
-  const patch = $derived.by((): Partial<CardRec> => {
-    if (!card || !view) return {};
-    const p: Partial<CardRec> = {};
-    if (draft.title != null && draft.title.trim() && draft.title.trim() !== card.title) p.title = draft.title.replace(/\s+/g, ' ').trim();
-    if (draft.desc != null && draft.desc !== card.desc) p.desc = draft.desc;
-    if (draft.columnId && draft.columnId !== card.columnId) p.columnId = draft.columnId;
-    if (draft.assignees && !same([...draft.assignees].sort(), [...card.assignees].sort())) p.assignees = draft.assignees;
-    if (draft.deps && !same(draft.deps, card.deps ?? [])) p.deps = draft.deps;
-    if (draft.values && !same(view.values, card.values)) p.values = view.values;
-    return p;
-  });
+  const patch = $derived(card ? draftPatch(card, draft) : {});
   const dirty = $derived(Object.keys(patch).length > 0);
-  const setDraft = <K extends keyof Draft>(k: K, v: Draft[K]) => (draft = { ...draft, [k]: v });
-  const setValue = (field: string, v: Value) => (draft = { ...draft, values: { ...(draft.values ?? {}), [field]: v } });
+  const setDraft = <K extends 'title' | 'desc' | 'columnId' | 'assignees' | 'deps'>(k: K, v: Changes[K]) => card && (draft = change(draft, card, k, v));
+  const setValue = (field: string, v: Value) => card && (draft = changeValue(draft, card, field, v, ['text', 'longtext'].includes(b?.field.get(field)?.type ?? '')));
+
+  // Texts someone else changed while they were being changed here: settled before saving.
+  const clashing = $derived(card && b ? clashes(card, draft, b.field) : []);
+  /** Who changed it, from the card's log. */
+  const changedBy = (key: string) => {
+    const l = b?.logsOn(id).find((l) => l.userId !== me && (key === 'title' ? l.action === 'renamed' : key === 'desc' ? l.action === 'described' : l.action === 'changed' && l.detail.field === key));
+    return (l?.userId && b?.member.get(l.userId)?.name) || 'Someone';
+  };
+  const fieldCalled = (key: string) => (key === 'title' ? 'the title' : key === 'desc' ? 'the description' : (b?.field.get(key)?.name ?? 'a field'));
+  function settle(key: string, keep: 'mine' | 'theirs') {
+    if (card) draft = settleClash(draft, card, key, keep);
+    if (keep === 'theirs') editing = null;
+  }
+  async function copy(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      app.say('Copied.');
+    } catch {
+      app.say("Couldn't copy here.");
+    }
+  }
+
+  // ---------- a comment being written ----------
+
+  const work = $state<Writing>({ text: '', edit: null });
+  const editDirty = $derived(!!work.edit && work.edit.text.trim() !== (b?.comment.get(work.edit.id)?.text ?? '').trim());
+  const writing = $derived(!!work.text.trim() || editDirty);
+  async function sendWriting() {
+    const edit = editDirty ? work.edit : null;
+    const t = work.text.trim();
+    work.text = '';
+    work.edit = null;
+    if (edit?.text.trim()) await app.editComment(board, edit.id, edit.text.trim());
+    if (t) await app.addComment(board, id, t);
+  }
+
+  // ---------- kept on the device ----------
+
+  // The draft and the comment are kept here as they're typed, so a reload or the app being shut
+  // doesn't lose them; nothing reaches the board until Save (R4.20b).
+  let restored = $state(false);
+  let earlier = $state(false);
+  const kept = $derived<KeptDraft | null>(
+    !isEmpty(draft) || writing
+      ? { title: card?.title ?? '', draft, comment: work.text, edit: editDirty && work.edit ? { ...work.edit } : null, at: Date.now() }
+      : null,
+  );
+  // The card this window is for, held on to: on the way out `board` and `id` are gone already.
+  // svelte-ignore state_referenced_locally (the window is made afresh for each card)
+  const own = { board, id };
+  let waiting: { d: KeptDraft | null } | null = null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let last: KeptDraft | null = null;
+  function flush() {
+    clearTimeout(timer);
+    if (!waiting) return;
+    const { d } = waiting;
+    waiting = null;
+    void db.putDraft(own.board, own.id, d).catch(() => {});
+  }
+  /** Saved, or let go, on the way out. */
+  function dropKept() {
+    waiting = { d: null };
+    flush();
+  }
+  void db
+    .getDraft(own.board, own.id)
+    .catch(() => undefined)
+    .then((k) => {
+      if (k && isEmpty(draft) && !writing) {
+        draft = k.draft;
+        work.text = k.comment;
+        work.edit = k.edit;
+        earlier = true;
+      }
+      restored = true;
+    });
+  $effect(() => {
+    const d = kept;
+    if (!restored) return;
+    // With the card gone, what was last kept stands (see below).
+    if (!card) return;
+    if (!d && !last && !earlier) return;
+    last = d;
+    waiting = { d };
+    clearTimeout(timer);
+    timer = setTimeout(flush, 250);
+  });
+  $effect(() => {
+    const hide = () => document.visibilityState === 'hidden' && flush();
+    document.addEventListener('visibilitychange', hide);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', hide);
+      window.removeEventListener('pagehide', flush);
+      flush();
+    };
+  });
+  // The card was deleted while it was open: what was being written moves to Account.
+  let lost = $state.raw<KeptDraft | null>(null);
+  $effect(() => {
+    if (card || !last || lost || !b) return;
+    clearTimeout(timer);
+    waiting = null;
+    lost = last;
+    void app.keepDraftWords(own.board, own.id, last);
+    last = null;
+  });
+  const lostText = $derived(lost ? draftWords(lost).map((w) => Object.values(w.data).filter(Boolean).join('\n\n')).join('\n\n') : '');
 
   let saving = $state(false);
   let asking = $state(false);
   async function save() {
-    if (!dirty || !card) return;
+    if (!card || (!dirty && !(asking && writing))) return;
+    if (clashing.length) {
+      document.querySelector('.clash')?.scrollIntoView({ block: 'nearest' });
+      document.querySelector<HTMLElement>('.clash button')?.focus();
+      return;
+    }
     saving = true;
     const p = { ...patch };
     // Moved to another column: it goes to the end of it.
     if (p.columnId) p.order = (b.cardsIn(p.columnId).at(-1)?.order ?? 0) + 1;
-    await app.updateCard(board, id, p);
-    draft = {};
+    if (dirty) await app.updateCard(board, id, p);
+    if (asking && writing) await sendWriting();
+    draft = emptyDraft();
+    earlier = false;
     saving = false;
     editing = null;
-    if (asking) leave();
+    if (asking) {
+      dropKept();
+      leave();
+    }
     asking = false;
   }
   function discard() {
-    draft = {};
+    draft = emptyDraft();
+    earlier = false;
     editing = null;
-    if (asking) leave();
+    if (asking) {
+      work.text = '';
+      work.edit = null;
+      dropKept();
+      leave();
+    }
     asking = false;
   }
   // Back closes the card as Close does: with changes not yet saved, it asks first.
   $effect(() => {
     app.cardGuard = () => {
-      if (!dirty) return true;
+      if (!dirty && !writing) return true;
       next = null;
       asking = true;
       return false;
@@ -108,12 +213,12 @@
   /** Closing (or opening another card) with changes not yet saved asks first. */
   function close() {
     next = null;
-    if (dirty) asking = true;
+    if (dirty || writing) asking = true;
     else leave();
   }
   function openCard(other: string) {
     next = other;
-    if (dirty) asking = true;
+    if (dirty || writing) asking = true;
     else leave();
   }
 
@@ -646,11 +751,11 @@
               <div class="archive">
                 {#if armedArchive}
                   <span>Archive without saving your changes?</span>
-                  <button class="btn danger sm" onclick={() => app.archiveCard(board, id, true)}>Archive</button>
+                  <button class="btn danger sm" onclick={() => (dropKept(), (draft = emptyDraft()), (work.text = ''), (work.edit = null), app.archiveCard(board, id, true))}>Archive</button>
                   <button class="btn ghost sm" onclick={() => (armedArchive = false)}>Keep</button>
                 {:else}
                   <!-- Archive happens at once, with Undo; it asks only when changes would be lost. -->
-                  <button class="link" onclick={() => (dirty ? (armedArchive = true) : app.archiveCard(board, id, true))}
+                  <button class="link" onclick={() => (dirty || writing ? (armedArchive = true) : app.archiveCard(board, id, true))}
                     ><Icon name="archive" size={16} /> Archive card</button
                   >
                 {/if}
@@ -712,20 +817,46 @@
               <Dependencies {b} cardId={id} deps={view.deps ?? []} onchange={(d) => setDraft('deps', d)} onopen={openCard} />
             </section>
 
-            <section class="sect s-comments"><Comments {b} cardId={id} /></section>
+            <section class="sect s-comments"><Comments {b} cardId={id} {work} /></section>
           </div>
         </div>
       </div>
     {/if}
 
+    {#if clashing.length}
+      <div class="clashes" role="alert">
+        {#each clashing as c (c.key)}
+          <div class="clash">
+            <p><b>{changedBy(c.key)} changed {fieldCalled(c.key)} while you were editing.</b> Their version:</p>
+            <p class="theirs">{c.theirs || 'Empty'}</p>
+            <div class="row">
+              <button class="btn" onclick={() => settle(c.key, 'mine')}>Keep mine</button>
+              <button class="btn" onclick={() => settle(c.key, 'theirs')}>Keep theirs</button>
+              {#if c.theirs}<button class="btn ghost" onclick={() => copy(c.theirs)}>Copy theirs</button>{/if}
+              {#if c.mine}<button class="btn ghost" onclick={() => copy(c.mine)}>Copy mine</button>{/if}
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
     {#if dirty || asking}
       <div class="savebar" role="region" aria-label="Unsaved changes">
         <span class="sb-note"
-          ><span class="sb-dot" aria-hidden="true"></span>{asking ? (next ? 'Save your changes before opening that card?' : 'Save your changes before closing?') : 'Unsaved changes'}</span
+          ><span class="sb-dot" aria-hidden="true"></span>{!asking
+            ? earlier
+              ? 'Unsaved changes from earlier'
+              : 'Unsaved changes'
+            : !dirty
+              ? `Send your comment before ${next ? 'opening that card' : 'closing'}?`
+              : writing
+                ? `Save your changes and send your comment before ${next ? 'opening that card' : 'closing'}?`
+                : `Save your changes before ${next ? 'opening that card' : 'closing'}?`}</span
         >
         {#if asking}<button class="btn ghost" onclick={() => (asking = false)}>Keep editing</button>{/if}
         <button class="btn ghost" onclick={discard}>Discard</button>
-        <button class="key ink" disabled={saving} onclick={save}>Save changes</button>
+        <button class="key ink" disabled={saving} onclick={save}
+          >{!asking || !writing ? 'Save changes' : dirty ? 'Save and send' : 'Send comment'}</button
+        >
       </div>
     {/if}
   {:else}
@@ -733,6 +864,13 @@
       <span>This card isn't here any more.</span>
       <button class="icon-btn" aria-label="Close" onclick={() => (app.open = null)}><Icon name="close" /></button>
     </div>
+    {#if lostText}
+      <div class="lost">
+        <p>What you hadn't saved is kept in Account, under Undone changes.</p>
+        <p class="theirs">{lostText}</p>
+        <button class="btn" onclick={() => copy(lostText)}>Copy</button>
+      </div>
+    {/if}
   {/if}
 </Sheet>
 
@@ -1483,6 +1621,45 @@
     justify-content: space-between;
     padding: 12px 12px 12px 20px;
     color: var(--muted);
+  }
+  .clashes {
+    flex: none;
+    max-height: 45%;
+    overflow-y: auto;
+    padding: 12px 16px 12px 20px;
+    display: grid;
+    gap: 14px;
+    background: var(--raised);
+    border-top: 1px solid var(--border);
+  }
+  .clash,
+  .lost {
+    display: grid;
+    gap: 8px;
+    font-size: var(--fs-14);
+  }
+  .lost {
+    justify-items: start;
+    padding: 0 20px 20px;
+  }
+  .clash p,
+  .lost p {
+    margin: 0;
+  }
+  .clash .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .theirs {
+    width: 100%;
+    max-height: 8lh;
+    overflow-y: auto;
+    padding: 8px 10px;
+    background: var(--sunk);
+    border-radius: var(--r-ctl);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
   @media (max-width: 400px) {
     .prop {

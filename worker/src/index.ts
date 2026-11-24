@@ -25,7 +25,7 @@ import {
   removeMember,
   resendInvite,
   revokeInvite,
-  roleIn,
+  relist, roleIn,
   setRole,
 } from './boards';
 import {
@@ -233,7 +233,14 @@ export default {
           const m = body.m;
           if (!m || typeof m !== 'object' || Array.isArray(m)) return reply(400);
           if (!role) return reply(200, { msgs: [{ t: 'removed' }] });
-          const msgs = await boardStub(env, body.board as string).httpSync(userId, role, m as Record<string, unknown>);
+          const ask = () => boardStub(env, body.board as string).httpSync(userId, role, m as Record<string, unknown>);
+          const unlisted = (r: object[] | null) => (r?.[0] as { t?: string } | undefined)?.t === 'unlisted';
+          let msgs = await ask();
+          if (unlisted(msgs)) {
+            await relist(env, body.board as string, userId);
+            msgs = await ask();
+            if (unlisted(msgs)) msgs = null;
+          }
           // Too many changes too fast: the device tries again after a pause.
           if (!msgs) return tooMany();
           return reply(200, { msgs });
@@ -414,7 +421,21 @@ async function connect(req: Request, env: Env): Promise<Response> {
     const headers = new Headers(req.headers);
     headers.set('x-user', userId);
     headers.set('x-role', role);
-    return boardStub(env, boardId!).fetch(new Request(req.url, { headers }));
+    const ask = () => boardStub(env, boardId!).fetch(new Request(req.url, { headers }));
+    let res = await ask();
+    if (res.status !== 409) return res;
+    try {
+      await relist(env, boardId!, userId);
+      res = await ask();
+    } catch (e) {
+      console.error('Passing a member on', e);
+    }
+    // Still not: the device tries again after a pause.
+    if (res.status !== 409) return res;
+    const [c, s] = Object.values(new WebSocketPair());
+    s.accept();
+    s.close(1013, 'Try again');
+    return new Response(null, { status: 101, webSocket: c, headers: { 'sec-websocket-protocol': 'boardo' } });
   }
   const [client, server] = Object.values(new WebSocketPair());
   server.accept();

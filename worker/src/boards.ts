@@ -40,6 +40,18 @@ async function tellBoard(fn: () => Promise<unknown>): Promise<void> {
   }
 }
 
+/**
+ * A board says it doesn't know someone the directory has in it (it missed being told): tell it
+ * now. Asked again afterwards, so someone taken out at that same moment doesn't stay in.
+ */
+export async function relist(env: Env, boardId: string, userId: string): Promise<void> {
+  const role = await roleIn(env, boardId, userId);
+  const user = role ? await getUser(env, userId) : null;
+  if (!role || !user) return;
+  await tellBoard(() => boardStub(env, boardId).setMember(memberRec(user, role), userId));
+  if (!(await roleIn(env, boardId, userId))) await tellBoard(() => boardStub(env, boardId).removeMember(userId, null));
+}
+
 export async function roleIn(env: Env, boardId: unknown, userId: string): Promise<Role | null> {
   if (!isId(boardId)) return null;
   const row = await env.DB.prepare('SELECT role FROM members WHERE board_id = ? AND user_id = ?')
@@ -128,7 +140,16 @@ export async function createBoard(env: Env, userId: string, body: { name?: unkno
     env.DB.prepare("INSERT INTO members (board_id, user_id, role, added_at) VALUES (?, ?, 'admin', ?)").bind(id, userId, now),
   ]);
   const board: BoardRec = { name, hue, maxUploadMB: DEFAULT_UPLOAD_MB };
-  await boardStub(env, id).init(id, board, memberRec(user, 'admin'));
+  try {
+    await tellBoard(() => boardStub(env, id).init(id, board, memberRec(user, 'admin')));
+  } catch (e) {
+    // Not made after all: no board without its content is left in anyone's list.
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM members WHERE board_id = ?').bind(id),
+      env.DB.prepare('DELETE FROM boards WHERE id = ?').bind(id),
+    ]);
+    throw e;
+  }
   return { id, name, hue, role: 'admin' as Role };
 }
 

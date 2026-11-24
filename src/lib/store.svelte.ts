@@ -22,6 +22,7 @@ import { fitImage } from './images';
 import { BoardState } from './board.svelte';
 import * as db from './db';
 import { splitRid } from './db';
+import { draftWords, type KeptDraft } from './draft';
 import { Files } from './files.svelte';
 import { arrival, type Carried, MOVED_TO, moveUrl } from './move';
 import { parsePath, pathOf, type Route, type SettingsTab, titleOf } from './route';
@@ -60,6 +61,9 @@ export type Screen =
   | { name: 'settings' };
 
 export type Theme = 'auto' | 'light' | 'dark';
+
+const keptCopies = (n: number) =>
+  n === 1 ? "1 change you hadn't saved or sent is kept in Account." : `${n} changes you hadn't saved or sent are kept in Account.`;
 
 const THEME_KEY = 'boardo:theme';
 const SCREEN_KEY = 'boardo:screen';
@@ -164,7 +168,7 @@ export class App {
         if (b) b.status = s;
       },
       signedOut: () => void this.signedOut(),
-      removed: (board) => this.boardGone(board),
+      removed: (board, kept) => this.boardGone(board, kept),
       // A board says there's something new: fetch once, even when several say so together.
       noted: () => {
         if (this.noteWait) clearTimeout(this.noteWait);
@@ -401,7 +405,11 @@ export class App {
 
   private async setBoards(list: BoardItem[]): Promise<void> {
     const ids = new Set(list.map((b) => b.id));
-    for (const b of this.boards) if (!ids.has(b.id)) await db.dropBoard(b.id);
+    for (const b of this.boards)
+      if (!ids.has(b.id)) {
+        const kept = await db.dropBoard(b.id);
+        if (kept) this.say(`You're no longer in ${b.name}. ${keptCopies(kept)}`);
+      }
     const data: Record<string, BoardState> = {};
     for (const b of list) data[b.id] = this.data[b.id] ?? new BoardState(b.id);
     this.boards = list;
@@ -417,11 +425,11 @@ export class App {
     if (this.archive && !ids.has(this.archive)) this.archive = null;
   }
 
-  private boardGone(id: string): void {
+  private boardGone(id: string, kept = 0): void {
     const b = this.boards.find((x) => x.id === id);
     if (!b) return;
     void this.setBoards(this.boards.filter((x) => x.id !== id));
-    this.say(`You're no longer in ${b.name}.`);
+    this.say(`You're no longer in ${b.name}.${kept ? ` ${keptCopies(kept)}` : ''}`);
   }
 
   /** Records that changed from the board: reload them, unless a change made here is still saving. */
@@ -894,13 +902,26 @@ export class App {
   // ---------- changes the board refused ----------
 
   /** Copies of changes the board refused, on every board, newest first, with the board's name. */
-  async undoneChanges(): Promise<(db.Refused & { board: string; boardName: string })[]> {
-    const out: (db.Refused & { board: string; boardName: string })[] = [];
-    for (const b of this.boards) for (const r of await db.getRefused(b.id)) out.push({ ...r, board: b.id, boardName: b.name });
+  async undoneChanges(): Promise<(db.Refused & { boardName: string })[]> {
+    // Drafts of cards that were deleted while they weren't open.
+    for (const d of await db.getDrafts()) {
+      const b = this.data[d.board];
+      if (b?.loaded && b.status === 'live' && !b.card.has(d.card)) await this.keepDraftWords(d.board, d.card, d.kept);
+    }
+    const out: (db.Refused & { boardName: string })[] = await db.getLost();
+    for (const b of this.boards) for (const r of await db.getRefused(b.id)) out.push({ ...r, boardName: b.name });
     return out.sort((a, b) => b.at - a.at);
   }
 
+  /** An unsaved draft whose card is gone: its words go to Account's Undone changes. */
+  async keepDraftWords(board: string, card: string, kept: KeptDraft): Promise<void> {
+    const words = draftWords(kept);
+    if (words.length) await db.keepRefused(board, words.map((w) => ({ id: db.rid(board, w.kind, card), data: w.data })));
+    await db.putDraft(board, card, null);
+  }
+
   async clearUndone(): Promise<void> {
+    await db.clearLost();
     for (const b of this.boards) await db.clearRefused(b.id);
   }
 
@@ -971,11 +992,32 @@ export class App {
   async markPart(board: string, id: string, done: boolean): Promise<void> {
     const prev = this.card(board, id);
     if (!prev || !this.user) return;
+    // A second tap in the same spot (Mark not done takes Mark done's place) isn't meant.
+    if (Date.now() - this.markedAt < 400) return;
+    this.markedAt = Date.now();
     const parts = { ...prev.done };
     if (done) parts[this.user.id] = Date.now();
     else delete parts[this.user.id];
     await this.updateCard(board, id, { done: parts });
-    if (done) this.say('Marked done', () => void this.markPart(board, id, false));
+    if (!done) return;
+    const status = prev.values.status;
+    const now = this.card(board, id)?.values.status;
+    this.say('Marked done', () => void this.unmarkPart(board, id, status, now));
+  }
+  private markedAt = 0;
+
+  /** Undo of Mark done: the part goes, and the status is what it was (unless it has changed since). */
+  private async unmarkPart(board: string, id: string, was: CardRec['values'][string] | undefined, then: unknown): Promise<void> {
+    const cur = this.card(board, id);
+    if (!cur || !this.user) return;
+    const done = { ...cur.done };
+    delete done[this.user.id];
+    const values = { ...cur.values };
+    if (values.status === then && then !== was) {
+      if (was == null) delete values.status;
+      else values.status = was;
+    }
+    await this.updateCard(board, id, { done, values });
   }
 
   /** An admin takes someone else's done mark off their part (the board refuses anyone else). */

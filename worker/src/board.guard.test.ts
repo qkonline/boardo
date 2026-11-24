@@ -51,6 +51,14 @@ beforeEach(async () => {
 });
 
 describe('who may talk to the board', () => {
+  it("doesn't call someone removed whom the directory has in it", async () => {
+    const b = await server.board('b1');
+    server.directory('b1', 'zed', 'member');
+    expect(await b.httpSync('zed', 'member', { t: 'hello', since: 0 })).toEqual([{ t: 'unlisted' }]);
+    await b.setMember(member('zed'), null);
+    expect((await b.httpSync('zed', 'member', { t: 'hello', since: 0 }))![0]).toMatchObject({ t: 'changes' });
+  });
+
   it("answers someone not in its member list as removed, whatever the Worker says", async () => {
     const b = await server.board('b1');
     expect(await b.httpSync('zed', 'admin', { t: 'hello', since: 0 })).toEqual([{ t: 'removed' }]);

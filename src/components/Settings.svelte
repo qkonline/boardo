@@ -264,12 +264,13 @@
     if (data == null) return { what: `Deleted ${kind}`, text: '' };
     if (kind === 'card') {
       const c = data as CardRec;
-      return { what: `Card: ${c.title || 'Untitled'}`, text: c.desc ? `${c.title}\n\n${c.desc}` : c.title };
+      return { what: `Card: ${c.title || (c.desc ?? '').slice(0, 60) || 'Untitled'}`, text: [c.title, c.desc].filter(Boolean).join('\n\n') };
     }
     if (kind === 'comment') {
       const c = data as CommentRec;
       return { what: `Comment: ${c.text.length > 60 ? c.text.slice(0, 60) + '…' : c.text}`, text: c.text };
     }
+    if (kind === 'file') return { what: `File: ${(data as { name: string }).name}`, text: '' };
     if (kind === 'column') return { what: `Column: ${(data as ColumnRec).name}`, text: (data as ColumnRec).name };
     if (kind === 'field') return { what: `Field: ${(data as FieldRec).name}`, text: (data as FieldRec).name };
     return { what: 'Board settings', text: '' };
@@ -306,7 +307,7 @@
   {#if undone.length}
     <section>
       <h2>Undone changes</h2>
-      <p class="note">A board didn't allow these changes, often because your role changed while you were offline, so they were undone there. Copy anything you need, then clear the list.</p>
+      <p class="note">These changes didn't reach their board: it didn't allow them, or the card or board was gone by then. Copy anything you need, then clear the list.</p>
       <ul class="card list">
         {#each undone as u (u.id + u.at)}
           {@const d = describe(u.id, u.data)}

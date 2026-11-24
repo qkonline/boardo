@@ -20,7 +20,7 @@ export function fields<T extends object>(base: T | null, mine: T, theirs: T): T 
 }
 
 /** Lists merged as sets: what either side added since the base is in, what either removed is out. */
-function sets<T>(base: T[] | null, mine: T[], theirs: T[]): T[] {
+export function sets<T>(base: T[] | null, mine: T[], theirs: T[]): T[] {
   const b = new Set(base ?? []);
   const out = theirs.filter((x) => mine.includes(x) || !b.has(x));
   for (const x of mine) if (!out.includes(x) && (!b.has(x) || theirs.includes(x))) out.push(x);
