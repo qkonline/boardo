@@ -4,6 +4,8 @@ export interface Env {
   DB: D1Database;
   BOARDS: DurableObjectNamespace<Board>;
   FILES: R2Bucket;
+  /** Nightly copies of each board's text (backup.ts); the bucket drops them after 14 days. Absent in tests. */
+  BACKUPS?: R2Bucket;
   /** The passkey site for this domain and its subdomains (kaiserkhan.com). */
   RP_ID?: string;
   /** Comma-separated origins allowed to call this Worker. */

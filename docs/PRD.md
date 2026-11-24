@@ -368,6 +368,7 @@ Every card has these fields.
 - **R11.8a** One board holds at most 100,000 records and 20 MB of text; once full, it takes only changes that make nothing bigger, and refuses the rest as any refused change (R9.5a). One person can't change a board, or Boardo's records, faster than people do.
 - **R11.8b** A board keeps at most 1 GB of files. One person can't ask for whole boards again and again (20 a minute). Where WebSockets didn't work and requests took over, the app tries a WebSocket again every three minutes and on coming back online, and goes back to them.
 - **R11.8c** An admin can download a board (Board settings, Leave or delete): a JSON file of everything on it as the device has it, with the names of its attachments, not the attachments.
+- **R11.8d** Every night a copy of each board's text is kept for 14 days, so a board deleted by mistake can be put back by whoever runs Boardo. Attachments and photos aren't in it, and neither are accounts. A deleted board's copies go within 14 days too.
 
 ### 11.3 Design and wording
 

@@ -80,7 +80,7 @@ Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](
 
 Sessions, codes, invite tokens, OAuth codes and app tokens are only ever stored as SHA-256 hashes, and compared with them in constant time where the comparison is in code.
 
-Nothing grows for ever: each time a sign-in code is sent, old `limits` rows, codes that ran out over a day ago, OAuth codes past their five minutes, invites 30 days past their expiry and sessions idle for a year go too (`prune()` in `auth.ts`, as Elastic does it; Boardo has no cron). Notes go after 60 days, challenges and handoffs once expired.
+Nothing grows for ever: each time a sign-in code is sent, old `limits` rows, codes that ran out over a day ago, OAuth codes past their five minutes, invites 30 days past their expiry and sessions idle for a year go too (`prune()` in `auth.ts`, as Elastic does it). Notes go after 60 days, challenges and handoffs once expired.
 
 ### 2.2 Board Durable Object
 
@@ -135,6 +135,12 @@ Records are `(kind, key, rev, data)`. `data: null` means deleted.
   - when a part is undone or an assignee is added to a Completed card, it sets `in_progress`;
   - for someone on the card, picking Completed by hand is their own Mark done, and moving off Completed their own Mark not done (`statusAsPart()` in `shared/rules.ts`, before `settle()`, on the board and in the app's `updateCard()`); on a shared card the status then waits for the others. For someone not on the card a status change touches no part.
 - **Time spent** is computed from `session` records, never stored on the card. A running session counts up to now. It's shown in total and per person.
+
+### 2.4 Nightly backups
+
+Since 24 November 2026 the Worker's cron (21:17 UTC) asks every board in D1 to write its records, without deleted ones, to R2 `boardo-backups` as `<day>/<board>.jsonl` (`backup.ts`, `Board.backUp()`): a first line `{boardo, id, rev, at}`, then a record to a line. The bucket has no public address, no route reads it, and its lifecycle rule deletes each copy after 14 days. A board that fails is logged and the rest go on; a run takes at most 900 boards. D1 (accounts, sessions) and file bytes aren't copied; D1 has Cloudflare's Time Travel.
+
+To put a deleted board back: add its `boards` and `members` rows to D1 (the `member` records in the copy say who), then call the board's `restore(text)` from a temporary route, removed afterwards. It only fills an empty board, and numbering carries on from the copy's. Files deleted with the board stay gone, though their names come back. A live board is put back to an earlier moment with the Durable Object's own point-in-time recovery instead.
 
 ## 3. Sync and offline
 

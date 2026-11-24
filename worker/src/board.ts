@@ -976,6 +976,41 @@ export class Board extends DurableObject<Env> {
     this.usage = null;
   }
 
+  /** Tonight's copy of the board's text: a first line about it, then a record to a line. False when there's no board. */
+  async backUp(key: string): Promise<boolean> {
+    const text = this.copy();
+    if (text == null || !this.env.BACKUPS) return false;
+    await this.env.BACKUPS.put(key, text, { httpMetadata: { contentType: 'application/x-ndjson' } });
+    return true;
+  }
+
+  /** The board as a backup holds it, or null when there's no board. Deleted records aren't in it. */
+  private copy(): string | null {
+    const id = this.boardId();
+    if (!id) return null;
+    const lines = [JSON.stringify({ boardo: 1, id, rev: this.rev(), at: Date.now() })];
+    for (const r of this.sql.exec<{ kind: string; key: string; data: string }>('SELECT kind, key, data FROM records WHERE data IS NOT NULL ORDER BY rev'))
+      lines.push(`{"kind":${JSON.stringify(r.kind)},"key":${JSON.stringify(r.key)},"data":${r.data}}`);
+    return lines.join('\n');
+  }
+
+  /**
+   * Put a deleted board back from a backup's text. Only into an empty board, never over one.
+   * No route reaches this: ARCHITECTURE.md section 2.4 says how it's used. Its numbering carries
+   * on from the backup's, so devices that still had the board ask for everything in it.
+   */
+  async restore(text: string): Promise<boolean> {
+    if (this.boardId()) return false;
+    const [head, ...recs] = text.split('\n').map((l) => JSON.parse(l));
+    if (head?.boardo !== 1 || typeof head.id !== 'string') return false;
+    this.tx(() => {
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('id', ?)", head.id);
+      this.sql.exec("INSERT OR REPLACE INTO kv (k, v) VALUES ('rev', ?)", String(head.rev));
+      for (const r of recs) this.write(r.kind, r.key, r.data);
+    });
+    return true;
+  }
+
   /** The R2 keys of every file, so a deleted board's files can go too. */
   async fileKeys(): Promise<string[]> {
     return this.all('file').flatMap((f) => [`${this.boardId()}/${f.id}`, ...(f.thumb ? [`${this.boardId()}/${f.id}.thumb`] : [])]);

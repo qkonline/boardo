@@ -72,6 +72,15 @@ migrations_dir = "migrations"
 binding = "FILES"
 bucket_name = "boardo-files"
 
+# Nightly copies of each board's text (src/backup.ts). Nothing serves this bucket, and its
+# lifecycle rule deletes each copy after 14 days.
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "boardo-backups"
+
+[triggers]
+crons = ["17 21 * * *"]
+
 # Elastic's Worker, told whose cards changed (src/notify.ts). It calls back through its own
 # binding to the ElasticLink entrypoint (src/link.ts).
 [[services]]

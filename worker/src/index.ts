@@ -45,6 +45,7 @@ import {
   verifyCode,
   verifyEmailChange,
 } from './auth';
+import { backUp } from './backup';
 import { type Env, isDev, list } from './env';
 import { links, putPhoto, remove as removeFile, removePhoto, serve as serveFile, servePhoto, upload } from './files';
 import { devOutbox } from './mail';
@@ -403,6 +404,11 @@ export default {
       console.error(e);
       return reply(500, { error: 'Something went wrong. Try again.' });
     }
+  },
+
+  /** Every night (wrangler.toml [triggers]): a copy of each board. */
+  async scheduled(event, env): Promise<void> {
+    await backUp(env, event.scheduledTime);
   },
 } satisfies ExportedHandler<Env>;
 
