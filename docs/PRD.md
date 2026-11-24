@@ -177,7 +177,7 @@ Every card has these fields.
 ### 4.7 The open card
 
 - **R4.26** Opening a card shows it in a large window in the middle of the screen on a computer, and as a tall sheet on a phone, with two tabs: **Details** and **History** (its log, grouped by day).
-- **R4.26a** On a phone the card reads its content first, in one column: the description (three lines, then Show more), when it's due, its people and status, Mark done, the comments; then the start date, time and other fields, attachments, dependencies, and Archive card last. Once the card is scrolled, its coloured band shrinks to the title on one line, and grows back at the top. A computer keeps the two columns.
+- **R4.26a** On a phone the card reads its content first, in one column: the description (three lines, then Show more), when it's due, its people and status, Mark done, the comments; then the start date, time and other fields, attachments, dependencies, and Archive card last. Once the card is scrolled, its coloured band shrinks to the title on one line, and grows back at the top. The page is in that order itself, so Tab and a screen reader follow the screen. A computer keeps the two columns.
 - **R4.27** **Nothing a person changes on a card is saved until they press Save changes.** While there are unsaved changes, a bar offers Discard and Save changes, and closing the card (or opening another one from it) asks first. Comments, attachments, Mark done and Archive happen when tapped.
 - **R4.28** Values read as plain text and become editable when tapped. Status, column, people and emoji open in small balloons over the card, so nothing moves when they open.
 - **R4.28b** A dropdown field picks its value the way Status does: a balloon with its values as coloured chips and None at the end. A people field lists the board's people with their faces, and Nobody. Neither has a Done key.
@@ -379,6 +379,8 @@ Every card has these fields.
 - **R11.12** It works well on a phone and on a computer.
 - **R11.12a** Every control has a name a screen reader can say, on a phone too where a key shows only its icon. Rows of tabs (the card's, Board settings', the emoji groups) move with the arrow keys, Home and End, and only the chosen tab is in the Tab order.
 - **R11.12b** Pressing **?** (when no text box has the keys and nothing is open) lists the keyboard shortcuts, grouped: anywhere, Boards, a card, writing. Account links to the list on computers.
+- **R11.12c** Every move by dragging a card has a keyboard way and a tap way: Alt with the arrows on a card (up and down its column, across to the next), read out, with focus staying on it; and Top, Up, Down and Bottom in the card window's column balloon, at once as a drag does.
+- **R11.12d** In a list that opens in a balloon the arrow keys, Home and End move through it, and Tab past either end closes it, back on the control that opened it. Each control in the card window is named with its row ("Due, Add a date"), and the window after its card. A board has a main landmark and Skip to cards. After Archive card, focus goes to the next card.
 - **R11.13** Nothing a person changes anywhere in Boardo is saved automatically. Changes wait for Save, Add, Update or Comment, as in Elastic (R4.27, R3.1).
 
 ## 12. Assumptions to confirm

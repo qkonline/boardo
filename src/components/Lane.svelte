@@ -16,6 +16,7 @@
     found = null,
     words = [],
     onmenu,
+    onmove,
   }: {
     col: ColumnRec;
     b: BoardState;
@@ -25,6 +26,8 @@
     found?: Map<string, Hit> | null;
     words?: string[];
     onmenu: () => void;
+    /** A card moved with Alt and an arrow: by so many places, or columns. */
+    onmove: (card: string, dx: number, dy: number) => void;
   } = $props();
 
   let adding = $state(false);
@@ -62,9 +65,18 @@
       title = '';
     }
   }
+
+  function nudge(e: KeyboardEvent) {
+    const id = (e.target as HTMLElement).dataset?.card;
+    const d = { ArrowUp: [0, -1], ArrowDown: [0, 1], ArrowLeft: [-1, 0], ArrowRight: [1, 0] }[e.key];
+    if (!id || !d || !e.altKey || e.metaKey || e.ctrlKey || e.shiftKey) return;
+    e.preventDefault();
+    onmove(id, d[0], d[1]);
+  }
 </script>
 
-<section class="lane" data-lane={col.id} aria-label={col.name}>
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions (the cards in it are buttons) -->
+<section onkeydown={nudge} class="lane" data-lane={col.id} aria-label={col.name}>
   <header class="lane-h">
     <h2>{col.name || 'Untitled column'}</h2>
     <span class="n">{cards.length}</span>

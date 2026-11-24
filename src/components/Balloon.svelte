@@ -95,7 +95,26 @@
       if (e.key === 'Escape') {
         e.stopPropagation();
         close();
+        return;
       }
+      const at = document.activeElement as HTMLElement | null;
+      if (!box || !at || !box.contains(at)) return;
+      const keys = [...box.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((x) => !x.hasAttribute('disabled') && x.offsetParent !== null);
+      // Tab past either end closes it, back on the control that opened it, rather than going on to
+      // whatever comes after it (Archive card, say) with the balloon still open.
+      if (e.key === 'Tab' && at === (e.shiftKey ? keys[0] : keys.at(-1))) {
+        e.preventDefault();
+        e.stopPropagation();
+        close();
+        root?.querySelector<HTMLElement>(FOCUSABLE)?.focus({ preventScroll: true });
+        return;
+      }
+      // Arrows move through a list of choices.
+      const step = { ArrowDown: 1, ArrowUp: -1, Home: -Infinity, End: Infinity }[e.key];
+      if (step === undefined || !at.matches('.menu .opt') || e.altKey || e.metaKey || e.ctrlKey) return;
+      const opts = keys.filter((x) => x.matches('.menu .opt'));
+      e.preventDefault();
+      opts[Math.max(0, Math.min(opts.length - 1, opts.indexOf(at) + step))]?.focus();
     };
     // Next tick, so the tap that opened it doesn't close it again.
     const t = setTimeout(() => document.addEventListener('pointerdown', away, true));

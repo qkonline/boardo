@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { flushSync, onMount } from 'svelte';
+  import { flushSync, onMount, tick } from 'svelte';
   import { sameNamed } from '../../shared/rules';
   import Bell from './Bell.svelte';
   import type { CardRec } from '../../shared/model';
@@ -110,7 +110,7 @@
   let menuFor = $state<string | null>(null);
   let addingCol = $state(false);
   let colName = $state('');
-  let scroller: HTMLDivElement | null = $state(null);
+  let scroller: HTMLElement | null = $state(null);
   // An admin's choice (R3.1a): columns as long as their cards, and the whole page scrolls.
   const tall = $derived(!!b?.board?.pageScroll);
 
@@ -132,6 +132,18 @@
   }
 
   const attachDrag = (el: HTMLElement) => drag.attach(el, () => scroller, dropped);
+
+  async function moveByKey(colId: string, card: string, dx: number, dy: number) {
+    const cols = b.columns;
+    const to = cols[cols.findIndex((c) => c.id === colId) + dx];
+    const i = b.cardsIn(colId).filter(keep).findIndex((c) => c.id === card);
+    if (!to || i < 0 || i + dy < 0) return;
+    await app.placeCard(id, card, i + dy, to.id, keep);
+    await tick();
+    const el = document.querySelector<HTMLElement>(`[data-card="${card}"]`);
+    el?.focus();
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
 </script>
 
 <svelte:window onkeydown={slash} />
@@ -265,9 +277,10 @@
             : 'Loading the board…'}
       </p>
     {:else}
-      <div class="lanes" bind:this={scroller} {@attach attachDrag}>
+      <a class="skip" href="#cards" onclick={(e) => (e.preventDefault(), document.querySelector<HTMLElement>('[data-card]')?.focus())}>Skip to cards</a>
+      <main class="lanes" id="cards" bind:this={scroller} {@attach attachDrag}>
         {#each b.columns as col (col.id)}
-          <Lane {col} {b} cards={b.cardsIn(col.id).filter(keep)} {filtered} {found} {words} onmenu={() => (menuFor = col.id)} />
+          <Lane {col} {b} cards={b.cardsIn(col.id).filter(keep)} {filtered} {found} {words} onmenu={() => (menuFor = col.id)} onmove={(card, dx, dy) => moveByKey(col.id, card, dx, dy)} />
         {/each}
         {#if b.orphans.length}
           <section class="lane-x">
@@ -307,7 +320,7 @@
             {/if}
           {/if}
         </div>
-      </div>
+      </main>
     {/if}
   </div>
   {#if menuFor}
@@ -330,6 +343,21 @@
 {/if}
 
 <style>
+  /* Off screen until it's reached by Tab. */
+  .skip {
+    position: fixed;
+    left: 12px;
+    top: -60px;
+    z-index: 30;
+    padding: 10px 14px;
+    border-radius: var(--r-ctl);
+    background: var(--raised);
+    color: var(--accent-text);
+    border: 1px solid var(--border);
+  }
+  .skip:focus {
+    top: 12px;
+  }
   /* The whole page scrolls, not each column (R3.1a); the header stays at the top. */
   .screen.tall {
     height: auto;

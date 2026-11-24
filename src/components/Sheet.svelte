@@ -19,9 +19,10 @@
   let {
     variant,
     label,
+    name,
     onclose,
     children,
-  }: { variant: 'full' | 'form' | 'small' | 'side' | 'modal'; label: string; onclose: () => void; children: Snippet } = $props();
+  }: { variant: 'full' | 'form' | 'small' | 'side' | 'modal'; label: string; name?: string; onclose: () => void; children: Snippet } = $props();
 
   let tall = $state(false);
   setContext('sheet', {
@@ -178,6 +179,7 @@
   role="dialog"
   aria-modal="true"
   aria-label={label}
+  data-sheet={name}
   tabindex="-1"
   bind:this={panel}
   onkeydown={trap}

@@ -22,6 +22,13 @@
       keys: [[['Alt ←', 'Alt →'], 'Move a board in your order']],
     },
     {
+      name: 'A card on a board',
+      keys: [
+        [['Alt ↑', 'Alt ↓'], 'Move it up or down its column'],
+        [['Alt ←', 'Alt →'], 'Move it to the next column'],
+      ],
+    },
+    {
       name: 'A card',
       keys: [
         [['Enter'], 'Save the changes, then close it'],

@@ -113,6 +113,7 @@
 {/if}
 
 <svelte:window onkeydown={shortcutsKey} />
+<span class="sr-only" aria-live="polite">{app.heard}</span>
 <PullIndicator />
 <SaveError />
 

@@ -1074,6 +1074,23 @@ export class App {
     await this.updateCard(board, id, { columnId, order });
   }
 
+  /**
+   * Put a card at a place in its column, or another's (0 is the top), counting only `among` when
+   * given (the cards a filter shows). What happened is read out.
+   */
+  async placeCard(board: string, id: string, at: number, columnId?: string, among?: (c: CardRec) => boolean): Promise<void> {
+    const b = this.data[board];
+    const card = this.card(board, id);
+    const col = b?.column.get(columnId ?? card?.columnId ?? '');
+    if (!b || !card || !col) return;
+    const list = b.cardsIn(col.id).filter((c) => c.id !== id && (!among || among(c)));
+    const i = Math.max(0, Math.min(at, list.length));
+    await this.moveCard(board, id, col.id, list[i - 1]?.id ?? null, list[i]?.id ?? null);
+    this.heard = `Moved to ${col.name}, position ${i + 1} of ${list.length + 1}`;
+  }
+  /** Read out by a screen reader, not shown. */
+  heard = $state('');
+
   async archiveCard(board: string, id: string, archived: boolean): Promise<void> {
     const prev = this.card(board, id);
     if (!prev) return;
@@ -1085,7 +1102,13 @@ export class App {
     }
     const wasOpen = this.open?.board === board && this.open.id === id;
     await this.updateCard(board, id, patch);
-    if (archived && wasOpen) this.open = null;
+    if (archived && wasOpen) {
+      // Focus goes on to the card after it, not back to the top of the page.
+      const list = this.data[board].cardsIn(prev.columnId);
+      const next = list.find((c) => c.order > prev.order) ?? list.at(-1);
+      this.open = null;
+      if (next) setTimeout(() => document.activeElement === document.body && document.querySelector<HTMLElement>(`[data-card="${next.id}"]`)?.focus({ preventScroll: true }));
+    }
     // Archiving happens at once, so it can be taken back; Undo opens the card again if it was open.
     if (archived)
       this.say('Card archived', () =>

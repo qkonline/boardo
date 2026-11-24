@@ -231,7 +231,7 @@
   async function enterKey(e: KeyboardEvent) {
     if (e.defaultPrevented || e.isComposing || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
     const t = e.target as HTMLElement;
-    const me = document.querySelector('[role=dialog][aria-label=Card]');
+    const me = document.querySelector('[data-sheet=card]');
     if (t !== document.body && !me?.contains(t)) return;
     if (document.querySelector('.balloon, .mentions')) return;
     // Escape from outside the window's own keys (focus left on the page after a balloon closed).
@@ -366,7 +366,7 @@
 
 <svelte:window onkeydown={enterKey} />
 
-<Sheet variant="modal" label="Card" onclose={close}>
+<Sheet variant="modal" name="card" label={view?.title ? `Card: ${view.title}` : 'Card'} onclose={close}>
   {#if b && view && card}
     <!-- The card's own status band, as on the board. -->
     <header
@@ -415,7 +415,7 @@
         <Icon name="right" size={12} plain />
         <Balloon label="Column" align="start">
           {#snippet trigger({ toggle, open })}
-            <button class="col-btn" aria-expanded={open} onclick={toggle}>{column?.name ?? 'No column'}<Icon name="down" size={12} plain /></button>
+            <button class="col-btn" aria-label="Column, {column?.name ?? 'No column'}" aria-expanded={open} onclick={toggle}>{column?.name ?? 'No column'}<Icon name="down" size={12} plain /></button>
           {/snippet}
           {#snippet children(done)}
             <div class="menu">
@@ -424,6 +424,18 @@
                   >{c.name}</button
                 >
               {/each}
+              {#if card && !card.archived && view.columnId === card.columnId && b.cardsIn(card.columnId).length > 1}
+                <!-- Its place in the column, for anyone who can't drag it; moves at once, as a drag does. -->
+                {@const at = b.cardsIn(card.columnId).findIndex((c) => c.id === id)}
+                {@const n = b.cardsIn(card.columnId).length}
+                <span class="menu-note">Place in {column?.name}: {at + 1} of {n}</span>
+                <div class="places">
+                  <button class="btn sm" disabled={at === 0} onclick={() => app.placeCard(board, id, 0)}>Top</button>
+                  <button class="btn sm" disabled={at === 0} onclick={() => app.placeCard(board, id, at - 1)}>Up</button>
+                  <button class="btn sm" disabled={at === n - 1} onclick={() => app.placeCard(board, id, at + 1)}>Down</button>
+                  <button class="btn sm" disabled={at === n - 1} onclick={() => app.placeCard(board, id, n - 1)}>Bottom</button>
+                </div>
+              {/if}
             </div>
           {/snippet}
         </Balloon>
@@ -464,8 +476,7 @@
           </div>
         {/if}
 
-        <div class="layout">
-          <aside class="props" aria-label="About this card">
+        {#snippet start()}
             <div class="prop p-start">
               <span class="pl"><Icon name="cal" size={16} /> Starts</span>
               {#if editing === 'start'}
@@ -485,12 +496,13 @@
                     >{/if}
                 </span>
               {:else}
-                <button class="pv val" class:empty={!view.values.start} onclick={() => (editing = 'start')}
+                <button class="pv val" aria-label="Starts, {dateShown(view.values.start) ?? 'Add a date'}" class:empty={!view.values.start} onclick={() => (editing = 'start')}
                   >{dateShown(view.values.start) ?? 'Add a date'}</button
                 >
               {/if}
             </div>
-
+        {/snippet}
+        {#snippet dueRow()}
             <div class="prop p-due" class:dated={editing !== 'end'}>
               <span class="pl"><Icon name="cal" size={16} /> Due</span>
               {#if editing === 'end'}
@@ -510,7 +522,11 @@
                     >{/if}
                 </span>
               {:else}
-                <button class="pv val" class:empty={!view.values.end} onclick={() => (editing = 'end')}>
+                <button
+                  class="pv val"
+                  aria-label="Due, {dateShown(view.values.end) ?? 'Add a date'}{due && (due.late || due.soon) && status?.role !== 'completed' ? `, ${dueChip}` : ''}"
+                  class:empty={!view.values.end}
+                  onclick={() => (editing = 'end')}>
                   {dateShown(view.values.end) ?? 'Add a date'}
                   {#if due && (due.late || due.soon) && status?.role !== 'completed'}<span class="due" class:late={due.late} class:soon={due.soon}
                       >{dueChip}</span
@@ -518,7 +534,8 @@
                 </button>
               {/if}
             </div>
-
+        {/snippet}
+        {#snippet people()}
             <!-- One person to a row, each with a way off the card; the add key below, in line. -->
             <div class="prop people-row" class:top={view.assignees.length > 0}>
               <span class="pl"><Icon name="people" size={16} /> People</span>
@@ -598,7 +615,8 @@
                 </Balloon>
               </span>
             </div>
-
+        {/snippet}
+        {#snippet timeRow()}
             <!-- The total, whether a timer runs and Elastic's mark on one line; who put in how much
                  below it, once more than one person has. -->
             <!-- Shown once time is logged on the card, or to someone who has connected Elastic. -->
@@ -635,13 +653,14 @@
               </span>
             </div>
             {/if}
-
+        {/snippet}
+        {#snippet statusRow()}
             <div class="prop p-status">
               <span class="pl"><Icon name="status" size={16} /> Status</span>
               <span class="pv">
                 <Balloon label="Status" align="start">
                   {#snippet trigger({ toggle, open })}
-                    <button class="val status-btn" class:empty={!status} aria-expanded={open} onclick={toggle}>
+                    <button class="val status-btn" aria-label="Status, {status?.label ?? 'Set a status'}" class:empty={!status} aria-expanded={open} onclick={toggle}>
                       {#if status}<StatusChip option={status} />{:else}Set a status{/if}<Icon name="down" size={14} plain />
                     </button>
                   {/snippet}
@@ -662,7 +681,8 @@
                 </Balloon>
               </span>
             </div>
-
+        {/snippet}
+        {#snippet fieldRows()}
             {#each custom as f (f.id)}
               {@const v = view.values[f.id]}
               <div class="prop p-field">
@@ -685,7 +705,7 @@
                   <span class="pv">
                     <Balloon label={f.name} align="start">
                       {#snippet trigger({ toggle, open })}
-                        <button class="val status-btn" class:empty={v == null || v === ''} aria-expanded={open} onclick={toggle}>
+                        <button class="val status-btn" aria-label="{f.name}, {opt?.label ?? (v && f.type === 'person' ? (who?.name ?? 'Someone who left') : 'Add')}" class:empty={v == null || v === ''} aria-expanded={open} onclick={toggle}>
                           {#if opt}<StatusChip option={opt} />{:else if v && f.type === 'person'}<Avatar person={who} size={20} />
                             {who?.name ?? 'Someone who left'}{:else}Add{/if}<Icon name="down" size={14} plain />
                         </button>
@@ -727,11 +747,12 @@
                     <button class="btn ghost sm" onclick={() => (editing = null)}>Done</button>
                   </span>
                 {:else}
-                  <button class="pv val" class:empty={v == null || v === ''} onclick={() => (editing = f.id)}>{shown(f, v) ?? 'Add'}</button>
+                  <button class="pv val" aria-label="{f.name}, {shown(f, v) ?? 'Add'}" class:empty={v == null || v === ''} onclick={() => (editing = f.id)}>{shown(f, v) ?? 'Add'}</button>
                 {/if}
               </div>
             {/each}
-
+        {/snippet}
+        {#snippet part()}
             {#if assigned}
               <div class="part">
                 {#if myDone}
@@ -746,7 +767,8 @@
                 {/if}
               </div>
             {/if}
-
+        {/snippet}
+        {#snippet archiveRow()}
             {#if !card.archived}
               <div class="archive">
                 {#if armedArchive}
@@ -761,9 +783,8 @@
                 {/if}
               </div>
             {/if}
-          </aside>
-
-          <div class="main">
+        {/snippet}
+        {#snippet descr()}
             <section class="sect s-desc">
               <h2><Icon name="log" size={16} /> Description</h2>
               {#if editing === 'desc'}
@@ -810,15 +831,52 @@
                 <button class="desc empty" onclick={() => (editing = 'desc')}>Add a description</button>
               {/if}
             </section>
-
+        {/snippet}
+        {#snippet files()}
             <div class="s-files"><Attachments {b} cardId={id} /></div>
-
+        {/snippet}
+        {#snippet depsRow()}
             <section class="sect s-deps">
               <Dependencies {b} cardId={id} deps={view.deps ?? []} onchange={(d) => setDraft('deps', d)} onopen={openCard} />
             </section>
-
+        {/snippet}
+        {#snippet talk()}
             <section class="sect s-comments"><Comments {b} cardId={id} {work} /></section>
-          </div>
+        {/snippet}
+        <!-- A computer shows two columns. A phone reads the content first, in one: in that order in
+             the page itself, so Tab and a screen reader follow what's on screen (R4.26a). -->
+        <div class="layout">
+          {#if desktop.current}
+            <aside class="props" aria-label="About this card">
+              {@render start()}
+              {@render dueRow()}
+              {@render people()}
+              {@render timeRow()}
+              {@render statusRow()}
+              {@render fieldRows()}
+              {@render part()}
+              {@render archiveRow()}
+            </aside>
+            <div class="main">
+              {@render descr()}
+              {@render files()}
+              {@render depsRow()}
+              {@render talk()}
+            </div>
+          {:else}
+            {@render descr()}
+            {@render dueRow()}
+            {@render people()}
+            {@render statusRow()}
+            {@render part()}
+            {@render talk()}
+            {@render start()}
+            {@render timeRow()}
+            {@render fieldRows()}
+            {@render files()}
+            {@render depsRow()}
+            {@render archiveRow()}
+          {/if}
         </div>
       </div>
     {/if}
@@ -1622,6 +1680,20 @@
     padding: 12px 12px 12px 20px;
     color: var(--muted);
   }
+  .menu-note {
+    padding: 10px 10px 2px;
+    font-size: var(--fs-13);
+    color: var(--muted);
+  }
+  .places {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 4px 6px 6px;
+  }
+  .places .btn {
+    min-height: var(--btn);
+  }
   .clashes {
     flex: none;
     max-height: 45%;
@@ -1708,57 +1780,29 @@
   /* ---------- a phone: the card's content first ---------- */
   /* One column: the description, then when it's due, who's on it and its status, Mark done, the
      comments; then the start date, time and other fields, attachments, dependencies; Archive last.
-     The two columns a computer shows are let go of (display: contents) so each part can be placed. */
+     The markup puts them in that order. */
   @media (max-width: 767px) {
     .layout {
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
-    .props,
-    .main {
-      display: contents;
-    }
     .s-desc {
-      order: 1;
       margin-bottom: 10px;
     }
-    .p-due {
-      order: 2;
-    }
-    .people-row {
-      order: 3;
-    }
-    .p-status {
-      order: 4;
-    }
-    .part {
-      order: 5;
-    }
     .s-comments {
-      order: 6;
       margin-top: 22px;
     }
     .p-start {
-      order: 7;
       margin-top: 22px;
     }
-    .p-time {
-      order: 8;
-    }
-    .p-field {
-      order: 9;
-    }
     .s-files {
-      order: 10;
       margin-top: 22px;
     }
     .s-deps {
-      order: 11;
       margin-top: 22px;
     }
     .archive {
-      order: 12;
       margin-top: 22px;
     }
     /* Three lines of the description, fading out, until Show more. */
