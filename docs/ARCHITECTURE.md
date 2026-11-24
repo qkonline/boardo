@@ -15,7 +15,8 @@ This document describes how Boardo is built and how it connects to Elastic. What
    ├─ Durable Object Board (one per board, SQLite): columns, cards, fields, comments, files,
    │    time sessions, logs; per-board rev; hibernating WebSockets for live sync
    ├─ R2 "boardo-files": attachments and thumbnails
-   └─ Resend HTTP API: sign-in codes, invites
+   ├─ R2 "boardo-backups": nightly copies of each board's text, kept 14 days (section 2.4)
+   └─ Resend HTTP API: codes, invites and notes about the account
 ```
 
 - **The app** is a static Svelte 5 + TypeScript + Vite PWA, served by the Worker at boardo.kaiserkhan.com (since 23 Oct 2026; before, from kaiserkhan.com/boardo on Hostinger). It keeps every board the person belongs to in IndexedDB, works offline and syncs live.
@@ -64,7 +65,7 @@ Boardo copies and adapts proven parts of Elastic ([github.com/qkonline/elastic](
 | Table | Columns |
 |---|---|
 | `users` | id, email UNIQUE, name, hue, created, notes_seen (when the bell was last opened, `0006_notes.sql`) |
-| `sessions` | hash PK, user_id, device, created, used |
+| `sessions` | hash PK, user_id, device, created, used, proved (when it last showed it's the account's owner, `0009_proved.sql`) |
 | `email_codes` | email PK, hash, tries, sent, expires (one code per address; signing in and signing up are the same step) |
 | `boards` | id, name, hue, created_by, created (name and hue mirror the board's own record, for the board list) |
 | `members` | board_id, user_id, role (`admin` or `member`), added_at; PK (board_id, user_id) |
@@ -385,7 +386,7 @@ All of these are in Elastic's repository.
 - Repository `qkonline/boardo` (public, MIT).
 - The app and the API are served by the Worker at boardo.kaiserkhan.com (and `boardo-api.kaiserkhan.workers.dev`, root paths); until 23 Oct 2026 the app was on Hostinger at kaiserkhan.com/boardo.
 - Resend sends from `boardo@kaiserkhan.com`. Its SPF and DKIM records go in kaiserkhan.com's DNS (Hostinger's until 23 Oct 2026, Cloudflare's since), on Resend's own names (`send.kaiserkhan.com`, `resend._domainkey`), so they don't touch the domain's existing mail.
-- Create D1 `boardo`, R2 `boardo-files` and the Worker `boardo-api`. Set the secrets.
+- Create D1 `boardo`, R2 `boardo-files` and `boardo-backups` (with its 14-day lifecycle rule) and the Worker `boardo-api`. Set the secrets.
 - Scaffold the app with Svelte, Vite, Vitest, Prettier and svelte-check. `npm run deploy` runs the tests and checks, builds and deploys the Worker with the app.
 - Confirm the free tiers still cover the plan: SQLite-backed Durable Objects, D1, R2 (10 GB) and Resend (3,000 emails a month, 100 a day).
 
