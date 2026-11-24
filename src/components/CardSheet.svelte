@@ -1234,6 +1234,14 @@
   .prop.dated .pl {
     min-height: 36px;
   }
+  /* It reaches 8px past the column on the right too, so the widest date and "Tomorrow" share a line
+     (162px for at most 158). The first line is 20px tall and centred in the 36, wrapped or not. */
+  .prop.dated .val {
+    margin-right: -8px;
+    padding-top: 8px;
+    line-height: 20px;
+    align-content: flex-start;
+  }
   .pv {
     min-width: 0;
     font-size: var(--fs-14);
@@ -1752,6 +1760,9 @@
     .btn.sm,
     .tabs button {
       min-height: 44px;
+    }
+    .prop.dated .val {
+      padding-top: 12px;
     }
     .add-person {
       min-height: 44px;
