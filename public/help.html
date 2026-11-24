@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Help · Boardo</title>
+    <link rel="icon" href="/icon.svg?v=1" type="image/svg+xml" />
+    <style>
+      :root{color-scheme:light dark;--bg:#f4f5f7;--text:#16181d;--muted:#5b6170;--line:#dadde3;--accent:#4f46e5}
+      @media (prefers-color-scheme:dark){:root{--bg:#0f1115;--text:#eceef2;--muted:#9aa1ae;--line:#343943;--accent:#a5b4fc}}
+      body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.6 system-ui,-apple-system,sans-serif}
+      main{max-width:640px;margin:0 auto;padding:40px 24px 64px}
+      h1{font-size:30px;line-height:1.15;letter-spacing:-.02em;margin:24px 0 4px}
+      h2{font-size:18px;margin:32px 0 6px}
+      p,li{text-wrap:pretty}ul{padding-left:20px}li{margin:4px 0}
+      .m{color:var(--muted);font-size:14px}a{color:var(--accent)}
+      nav{display:flex;flex-wrap:wrap;gap:20px;border-top:1px solid var(--line);margin-top:40px;padding-top:16px}
+      nav a{padding:10px 0}
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="/">Boardo</a>
+      <h1>Help</h1>
+      <p>Stuck, or something isn't working? Write to <a href="mailto:kaiser@kaiserkhan.com">kaiser@kaiserkhan.com</a>. Say what you were doing and what you saw, and don't send sign-in codes.</p>
+      <h2>Signing in</h2>
+      <ul>
+        <li><b>No code in your email?</b> Check your spam folder, and that the address is right. You can ask for another after a minute.</li>
+        <li><b>Already have a code?</b> Choose I already have a code. Each works for 10 minutes, and only the newest one works.</li>
+        <li><b>Invited to a board?</b> Sign in with the address the invite was sent to. Invites expire after 14 days: ask whoever sent yours for a new one.</li>
+        <li><b>Lost access to your email?</b> Sign in with a passkey if you've added one, then change your email in Account.</li>
+      </ul>
+      <h2>Boards</h2>
+      <ul>
+        <li><b>Offline:</b> boards you've opened keep working, and your changes go out when you're back online.</li>
+        <li><b>A change was undone?</b> A copy is in Account, under Undone changes.</li>
+        <li><b>An archived card:</b> open the board's Archived link, then Restore.</li>
+        <li><b>A copy of a board:</b> an admin can download it in Board settings, Leave or delete.</li>
+        <li><b>Deleted a board by mistake?</b> Write within 14 days. Its text can usually be put back, but not its attachments.</li>
+      </ul>
+      <nav><a href="/">Open Boardo</a><a href="/help">Help</a><a href="/privacy">Privacy</a><a href="/security">Security</a></nav>
+    </main>
+  </body>
+</html>

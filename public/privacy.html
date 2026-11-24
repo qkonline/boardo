@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy · Boardo</title>
+    <link rel="icon" href="/icon.svg?v=1" type="image/svg+xml" />
+    <style>
+      :root{color-scheme:light dark;--bg:#f4f5f7;--text:#16181d;--muted:#5b6170;--line:#dadde3;--accent:#4f46e5}
+      @media (prefers-color-scheme:dark){:root{--bg:#0f1115;--text:#eceef2;--muted:#9aa1ae;--line:#343943;--accent:#a5b4fc}}
+      body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.6 system-ui,-apple-system,sans-serif}
+      main{max-width:640px;margin:0 auto;padding:40px 24px 64px}
+      h1{font-size:30px;line-height:1.15;letter-spacing:-.02em;margin:24px 0 4px}
+      h2{font-size:18px;margin:32px 0 6px}
+      p,li{text-wrap:pretty}ul{padding-left:20px}li{margin:4px 0}
+      .m{color:var(--muted);font-size:14px}a{color:var(--accent)}
+      nav{display:flex;flex-wrap:wrap;gap:20px;border-top:1px solid var(--line);margin-top:40px;padding-top:16px}
+      nav a{padding:10px 0}
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="/">Boardo</a>
+      <h1>Privacy</h1>
+      <p class="m">Last changed 24 November 2026</p>
+      <p>Boardo is made and run by Qaisar Khan. It has no ads and no tracking, and what you put in it isn't sold.</p>
+      <h2>What's kept</h2>
+      <ul>
+        <li><b>Your account:</b> your email, name, colour and photo, and the passkeys you add (their public half only, and the device they were made on).</li>
+        <li><b>Your boards:</b> columns, cards, comments, attachments, time spent and a log of changes. Everyone on a board sees what's on it, and your name, email and photo.</li>
+        <li><b>Your updates:</b> what's in the bell, for 60 days.</li>
+        <li><b>Invites:</b> the address each was sent to, until about 30 days after it expires.</li>
+        <li><b>For signing in:</b> codes last 10 minutes and are deleted after. Counts of codes asked for, by email and by network address, are kept for a few days to stop abuse.</li>
+        <li><b>On your device:</b> the boards you're on, so they work offline. Signing out clears them.</li>
+        <li><b>Backups:</b> a nightly copy of each board's text, deleted after 14 days. Attachments and photos aren't in it. Cloudflare also keeps recovery copies of the databases for up to 30 days.</li>
+      </ul>
+      <h2>Who helps run it</h2>
+      <ul>
+        <li><b>Cloudflare</b> hosts the app and stores everything above. It sees your network address, as any host does, and keeps short-lived logs.</li>
+        <li><b>Resend</b> sends sign-in codes, invites and notes about your account, so it has the addresses and what those emails say.</li>
+        <li><b>Apple, Google, Mozilla or Microsoft</b> deliver notifications if you turn them on. The pushes are empty: they learn when one is sent, not what it says.</li>
+        <li><b>Elastic</b>, the day planner from the same maker, only if you link it: it gets the title, dates, board and status of cards assigned to you, and sends back when you work on them and finish them.</li>
+      </ul>
+      <p>The fonts and code come from this site. Nothing is loaded from anywhere else, except Cloudflare's check that you're a person if it's turned on for the sign-in page.</p>
+      <h2>Your choices</h2>
+      <ul>
+        <li><b>Take it with you:</b> an admin can download a board in Board settings, Leave or delete.</li>
+        <li><b>Delete a board:</b> an admin can, in the same place. Its text stays in backups for up to 14 days.</li>
+        <li><b>Delete your account:</b> Account, Delete account. Your account goes at once and you leave every board. Cards and comments you made stay on those boards for the others, and older notifications and backups may still have your name until they run out.</li>
+      </ul>
+      <p>A sign-in ends after a year without use. For anything else, including a copy of what's held about you or a correction, write to <a href="mailto:kaiser@kaiserkhan.com">kaiser@kaiserkhan.com</a>.</p>
+      <nav><a href="/">Open Boardo</a><a href="/help">Help</a><a href="/privacy">Privacy</a><a href="/security">Security</a></nav>
+    </main>
+  </body>
+</html>

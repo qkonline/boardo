@@ -184,6 +184,7 @@
     {/if}
     {#if error}<p class="err" role="alert">{error}</p>{/if}
     <div class="check" bind:this={checkBox}></div>
+    <p class="links"><a href="/help">Help</a><a href="/privacy">Privacy</a><a href="/security">Security</a></p>
   </div>
 </main>
 
@@ -283,6 +284,18 @@
     margin: 0;
     color: var(--muted);
     font-size: var(--fs-13);
+  }
+  .links {
+    display: flex;
+    gap: 20px;
+    margin: 8px 0 0;
+    font-size: var(--fs-13);
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    color: var(--muted);
   }
   .err {
     margin: 0;

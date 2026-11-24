@@ -121,11 +121,12 @@ async function takeCode(env: Env, key: string, hash: string): Promise<boolean> {
 
 // ---------- sessions ----------
 
-export async function newSession(env: Env, userId: string): Promise<string> {
+/** `proved`: signing in showed it's the account's owner (proved() below). */
+export async function newSession(env: Env, userId: string, proved = false): Promise<string> {
   const token = randomToken();
   const now = Date.now();
-  await env.DB.prepare('INSERT INTO sessions (hash, user_id, created, used) VALUES (?, ?, ?, ?)')
-    .bind(await sha256(token), userId, now, now)
+  await env.DB.prepare('INSERT INTO sessions (hash, user_id, created, used, proved) VALUES (?, ?, ?, ?, ?)')
+    .bind(await sha256(token), userId, now, now, proved ? now : null)
     .run();
   return token;
 }
@@ -242,6 +243,72 @@ function prune(env: Env, now: number): D1PreparedStatement[] {
   ];
 }
 
+// ---------- showing it's you ----------
+// An open app isn't enough to take an account over or delete it: changing the email and deleting
+// the account ask for a code to the email the account has, or a passkey it has had a while.
+
+/** How long a session that has shown it may do those. */
+const PROVED_MS = 20 * 60_000;
+
+/** Whether this session has just shown it's the account's owner. */
+export async function proved(env: Env, token: string | undefined): Promise<boolean> {
+  const row = await env.DB.prepare('SELECT proved FROM sessions WHERE hash = ?')
+    .bind(await sha256(token ?? ''))
+    .first<{ proved: number | null }>();
+  return row?.proved != null && Date.now() - row.proved < PROVED_MS;
+}
+
+export async function mustBeProved(env: Env, token: string | undefined): Promise<void> {
+  if (!(await proved(env, token))) throw new Refusal(403, "Confirm it's you first.");
+}
+
+/** This session has shown it. */
+export async function markProved(env: Env, token: string | undefined): Promise<void> {
+  await env.DB.prepare('UPDATE sessions SET proved = ? WHERE hash = ?').bind(Date.now(), await sha256(token ?? '')).run();
+}
+
+/** That code is kept apart from the address's sign-in code. */
+const proveKey = (email: string) => `prove|${email}`;
+
+/** Email a code to the address the account has. */
+export async function sendProof(env: Env, userId: string, ip: string): Promise<void> {
+  const user = await getUser(env, userId);
+  if (!user) throw new Refusal(401, 'Signed out');
+  const now = Date.now();
+  const key = proveKey(user.email);
+  const last = await env.DB.prepare('SELECT sent FROM email_codes WHERE email = ?').bind(key).first<{ sent: number }>();
+  if (last && now - last.sent < CODE_GAP_MS) throw new Refusal(429, 'A code is on its way. Wait a minute before asking for another.');
+  if (!(await withinLimit(env, `email:${user.email}`, PER_EMAIL, now)) || !(await withinLimit(env, `ip:${network(ip)}`, PER_IP, now)))
+    throw new Refusal(429, 'Too many codes asked for. Try again in an hour.');
+  const code = sixDigits();
+  const hash = await sha256(`${key}|${userId}|${code}`);
+  await env.DB.prepare('INSERT OR REPLACE INTO email_codes (email, hash, tries, sent, expires) VALUES (?, ?, 0, ?, ?)')
+    .bind(key, hash, now, now + CODE_MS)
+    .run();
+  try {
+    await sendMail(env, {
+      to: user.email,
+      subject: `Your Boardo code is ${code}`,
+      text: `Your Boardo code is ${code}\n\nEnter it to confirm it's you before changing your email or deleting your account. It works for 10 minutes. If you didn't ask for it, someone may be using Boardo on a device you're signed in on: sign in and choose Account, Sign out other devices.`,
+      html: `<p style="font:16px/1.5 system-ui,sans-serif">Your Boardo code is</p><p style="font:600 28px/1.2 system-ui,sans-serif;letter-spacing:4px">${code}</p><p style="font:14px/1.5 system-ui,sans-serif;color:#5b6170">Enter it to confirm it's you before changing your email or deleting your account. It works for 10 minutes. If you didn't ask for it, someone may be using Boardo on a device you're signed in on: sign in and choose Account, Sign out other devices.</p>`,
+    });
+  } catch (e) {
+    await env.DB.prepare('DELETE FROM email_codes WHERE email = ? AND hash = ?').bind(key, hash).run();
+    throw e;
+  }
+}
+
+/** Check that code. */
+export async function proveWithCode(env: Env, userId: string, body: { code?: unknown }, token: string | undefined): Promise<void> {
+  const user = await getUser(env, userId);
+  if (!user) throw new Refusal(401, 'Signed out');
+  const code = typeof body.code === 'string' ? body.code.replace(/\D/g, '') : '';
+  const key = proveKey(user.email);
+  if (code.length !== 6 || !(await takeCode(env, key, await sha256(`${key}|${userId}|${code}`))))
+    throw new Refusal(400, "That code isn't right, or it has expired.");
+  await markProved(env, token);
+}
+
 // ---------- changing one's email ----------
 
 /** The code for changing to `email` is kept apart from that address's sign-in code. */
@@ -315,8 +382,8 @@ export async function verifyEmailChange(
     await sendMail(env, {
       to: before.email,
       subject: 'Your Boardo email was changed',
-      text: `The email for your Boardo account is now ${email}, and every other device was signed out.\n\nIf you didn't do this, sign in with ${email} if you can, or reply to this email.`,
-      html: `<p style="font:16px/1.5 system-ui,sans-serif">The email for your Boardo account is now <b>${esc(email)}</b>, and every other device was signed out.</p><p style="font:14px/1.5 system-ui,sans-serif;color:#5b6170">If you didn't do this, sign in with ${esc(email)} if you can, or reply to this email.</p>`,
+      text: `The email for your Boardo account is now ${email}, and every other device was signed out.\n\nIf you didn't do this, sign in with ${email} if you can, or write to kaiser@kaiserkhan.com.`,
+      html: `<p style="font:16px/1.5 system-ui,sans-serif">The email for your Boardo account is now <b>${esc(email)}</b>, and every other device was signed out.</p><p style="font:14px/1.5 system-ui,sans-serif;color:#5b6170">If you didn't do this, sign in with ${esc(email)} if you can, or write to kaiser@kaiserkhan.com.</p>`,
     }).catch((e) => console.error('Telling the old address', e));
   return user;
 }
@@ -346,7 +413,7 @@ export async function verifyCode(
     user = { id, email, name: null, hue, photo: null };
     fresh = true;
   }
-  return { token: await newSession(env, user.id), user, fresh };
+  return { token: await newSession(env, user.id, true), user, fresh };
 }
 
 // ---------- moving to a new address ----------

@@ -360,6 +360,8 @@ Every card has these fields.
 - **R11.4** Only Boardo's own site, and Elastic for its narrow connection, may call the API. Boardo's old address may only hand its copies over, and passkeys work only on Boardo's own site. Boardo's pages can't be shown inside another site.
 - **R11.5** Files are served only to board members, through short-lived links, and non-image files always download rather than open in the browser.
 - **R11.6** A person can delete their account. They can't while they're the last admin of a board (R2.4).
+- **R11.6a** Changing one's email and deleting the account ask the person to confirm it's them first, with a passkey the account has had for two days or a code to the email it has. Having just signed in with either counts, and it lasts 20 minutes, on that device alone.
+- **R11.6b** Help, Privacy and Security pages (`/help`, `/privacy`, `/security`), linked from sign-in and Account, say how to reach whoever runs Boardo (kaiser@kaiserkhan.com), what's kept, for how long and who helps run it, and where to report a security problem (also `/.well-known/security.txt`).
 
 ### 11.2 Limits
 

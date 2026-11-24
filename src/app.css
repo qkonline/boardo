@@ -32,7 +32,7 @@
   --faint: #8a909c;
   --accent: #6366f1;
   --rose: #f43f5e;
-  --redT: #be123c;
+  --redT: #c81e1e;
   --grT: #3f6212;
   --scrim: rgba(22, 24, 29, 0.38);
   /* Status colours: the bar on a card, and the tinted chip with its text. */
@@ -101,7 +101,7 @@
     --faint: #6e7480;
     --accent: #a5b4fc;
     --rose: #fb7185;
-    --redT: #fda4af;
+    --redT: #f87171;
     --grT: #bef264;
     --scrim: rgba(0, 0, 0, 0.6);
     --s-slate: #64748b;
@@ -147,7 +147,7 @@
   --faint: #6e7480;
   --accent: #a5b4fc;
   --rose: #fb7185;
-  --redT: #fda4af;
+  --redT: #f87171;
   --grT: #bef264;
   --scrim: rgba(0, 0, 0, 0.6);
   --s-slate: #64748b;

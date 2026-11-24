@@ -44,6 +44,10 @@ import {
   updateMe,
   verifyCode,
   verifyEmailChange,
+  mustBeProved,
+  proved,
+  proveWithCode,
+  sendProof,
 } from './auth';
 import { backUp } from './backup';
 import { type Env, isDev, list } from './env';
@@ -52,7 +56,7 @@ import { devOutbox } from './mail';
 import { elasticCards, elasticOps } from './elastic';
 import { listNotes, readNotes, seenNotes, subscribe, subscribed, unsubscribe } from './inbox';
 import { ElasticLink } from './link';
-import { listPasskeys, loginFinish, loginStart, registerFinish, registerStart, removePasskey } from './passkeys';
+import { listPasskeys, loginFinish, loginStart, proveWithPasskey, registerFinish, registerStart, removePasskey } from './passkeys';
 import { approve, appUser, listApps, revokeApp, revokeSelf, token as oauthToken } from './oauth';
 
 export { Board, ElasticLink };
@@ -80,6 +84,8 @@ const WRITES = new Set([
   '/auth/passkey/add/start',
   '/auth/passkey/add/finish',
   '/auth/signout/others',
+  '/auth/prove',
+  '/auth/prove/send',
   '/me',
   '/me/email/send',
   '/me/email/verify',
@@ -270,6 +276,18 @@ export default {
         case '/me/passkeys/remove':
           await removePasskey(env, await mustUser(), body);
           return reply(204);
+        case '/auth/proved':
+          await mustUser();
+          return reply(200, { proved: await proved(env, token) });
+        case '/auth/prove/send':
+          await sendProof(env, await mustUser(), ip);
+          return reply(204);
+        case '/auth/prove': {
+          const id = await mustUser();
+          if (body.response !== undefined) await proveWithPasskey(env, origin, id, body, token);
+          else await proveWithCode(env, id, body, token);
+          return reply(204);
+        }
         case '/auth/signout':
           if (token) await signOut(env, token);
           return reply(204);
@@ -289,10 +307,16 @@ export default {
           return reply(200, { user });
         }
         case '/me/email/send':
-          await sendEmailChange(env, await mustUser(), body, ip);
+          {
+            const id = await mustUser();
+            await mustBeProved(env, token);
+            await sendEmailChange(env, id, body, ip);
+          }
           return reply(204);
         case '/me/email/verify': {
-          const user = await verifyEmailChange(env, await mustUser(), body, token);
+          const id = await mustUser();
+          await mustBeProved(env, token);
+          const user = await verifyEmailChange(env, id, body, token);
           await refreshMemberships(env, user);
           return reply(200, { user });
         }
@@ -305,6 +329,7 @@ export default {
         }
         case '/me/delete': {
           const id = await mustUser();
+          await mustBeProved(env, token);
           await leaveAll(env, id);
           await removePhoto(env, id);
           await deleteUser(env, id);

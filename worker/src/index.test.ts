@@ -110,3 +110,18 @@ describe("a board's sync, for someone not in it", () => {
     expect(reached).toEqual(['fetch']);
   });
 });
+
+describe('changing the email and deleting the account', () => {
+  it("are refused until the session has shown it's the owner", async () => {
+    for (const path of ['/me/email/send', '/me/email/verify', '/me/delete']) {
+      const res = await call(path, APP, { email: 'new@x.com', code: '123456' });
+      expect(res.status, path).toBe(403);
+    }
+    expect(await (await call('/auth/proved', APP)).json()).toEqual({ proved: false });
+    expect((await call('/boards', APP)).status).toBe(200);
+    const t = await newSession(env, 'bob', true);
+    expect(await (await call('/auth/proved', APP, {}, t)).json()).toEqual({ proved: true });
+    expect((await call('/me/delete', APP, {}, t)).status).toBe(204);
+    expect((await call('/auth/proved', APP, {}, 'nope')).status).toBe(401);
+  });
+});

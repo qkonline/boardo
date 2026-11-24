@@ -185,6 +185,7 @@ Everything is POST with a JSON body, except the sync socket and file transfers. 
 - `/notes` → `{notes, unseen}`: the latest 50 updates and how many came since the bell was last opened, unread. `/notes/seen` (the bell opened), `/notes/read {ids?}` (some, or all without `ids`).
 - `/push/subscribe {endpoint}`, `/push/unsubscribe {endpoint}`, `/push/status {endpoint}` → `{on}`: notifications in this browser. Only the browsers' own push services are taken.
 - `/auth/signout`, `/auth/signout/others` (Account, Sign out other devices: every session of the account but this one).
+- `/auth/proved`, `/auth/prove/send`, `/auth/prove {code}` or `{challengeId, response}`: showing it's the account's owner (R11.6a), kept per session in `sessions.proved` (`0009_proved.sql`) for 20 minutes. Signing in with a code sets it, and so does a passkey over two days old; a handed-over sign-in doesn't. `/me/email/send`, `/me/email/verify` and `/me/delete` answer 403 without it, and the app asks (`Prove.svelte`).
 - `/me/email/send {email}`, `/me/email/verify {email, code}`: change one's email. A code goes to the new address and only that changes it; every board's member record follows, every other device is signed out, and the old address is told. Asking is limited to 5 an hour per account. An address another account has is answered the same way, but no email goes and no code works, so this says nothing about who has an account.
 - `/me {name?, hue?}`
 - `/me/delete`: refused while the person is the last admin of a board.

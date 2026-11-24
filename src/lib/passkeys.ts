@@ -38,6 +38,13 @@ export async function passkeySignIn<T>(autofill = false): Promise<T> {
   return call<T>('/auth/passkey/login/finish', { challengeId, response });
 }
 
+/** Show it's you with a passkey, before changing the email or deleting the account. */
+export async function proveWithPasskey(): Promise<void> {
+  const { challengeId, options } = await call<{ challengeId: string; options: AuthOptions }>('/auth/passkey/login/start');
+  const response = await startAuthentication({ optionsJSON: options }).catch(passkeyError);
+  await call('/auth/prove', { challengeId, response });
+}
+
 /** Whether passkeys can be offered in the email field's suggestions. */
 export async function passkeyAutofill(): Promise<boolean> {
   try {

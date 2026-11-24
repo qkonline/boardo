@@ -15,11 +15,13 @@ import {
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from '@simplewebauthn/server';
-import { b64url, getUser, newSession, randomToken, Refusal, type User } from './auth';
+import { b64url, getUser, markProved, newSession, randomToken, Refusal, type User } from './auth';
 import { type Env, isDev, list } from './env';
 
 const CHALLENGE_MS = 5 * 60_000;
 const MAX_KEYS = 20;
+/** A passkey shows who you are once the account has had it this long (one just added doesn't). */
+export const TRUST_MS = 2 * 24 * 3600_000;
 
 function fromB64url(s: string): Uint8Array<ArrayBuffer> {
   const b = atob(s.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (s.length % 4)) % 4));
@@ -156,14 +158,40 @@ export async function loginFinish(
   origin: string,
   body: { challengeId?: unknown; response?: unknown },
 ): Promise<{ token: string; user: User; fresh: boolean }> {
+  const key = await passkeyUsed(env, origin, body);
+  const user = await getUser(env, key.user);
+  if (!user) throw new Refusal(400, "That passkey's account was deleted.");
+  return { token: await newSession(env, user.id, key.trusted), user, fresh: false };
+}
+
+/** Show it's you with a passkey, before changing the email or deleting the account (auth.ts). */
+export async function proveWithPasskey(
+  env: Env,
+  origin: string,
+  userId: string,
+  body: { challengeId?: unknown; response?: unknown },
+  token: string | undefined,
+): Promise<void> {
+  const key = await passkeyUsed(env, origin, body);
+  if (key.user !== userId) throw new Refusal(400, 'That passkey is for another account.');
+  if (!key.trusted) throw new Refusal(400, 'That passkey was added too recently to use for this. Use a code, or wait two days.');
+  await markProved(env, token);
+}
+
+/** Whose passkey answered, and whether the account has had it long enough to show who it is. */
+async function passkeyUsed(
+  env: Env,
+  origin: string,
+  body: { challengeId?: unknown; response?: unknown },
+): Promise<{ user: string; trusted: boolean }> {
   const ch = await takeChallenge(env, body.challengeId, 'login');
   const response = body.response as Parameters<typeof verifyAuthenticationResponse>[0]['response'];
   const id = response && typeof response === 'object' ? response.id : null;
   const key =
     typeof id === 'string' && id.length <= 1024
-      ? await env.DB.prepare('SELECT user_id, public_key, counter, transports FROM passkeys WHERE id = ?')
+      ? await env.DB.prepare('SELECT user_id, public_key, counter, transports, created FROM passkeys WHERE id = ?')
           .bind(id)
-          .first<{ user_id: string; public_key: string; counter: number; transports: string | null }>()
+          .first<{ user_id: string; public_key: string; counter: number; transports: string | null; created: number }>()
       : null;
   if (!key)
     throw new Refusal(
@@ -192,9 +220,7 @@ export async function loginFinish(
   await env.DB.prepare('UPDATE passkeys SET counter = ?, used = ? WHERE id = ?')
     .bind(v.authenticationInfo.newCounter, Date.now(), id)
     .run();
-  const user = await getUser(env, key.user_id);
-  if (!user) throw new Refusal(400, "That passkey's account was deleted.");
-  return { token: await newSession(env, user.id), user, fresh: false };
+  return { user: key.user_id, trusted: Date.now() - key.created > TRUST_MS };
 }
 
 export async function listPasskeys(env: Env, userId: string) {

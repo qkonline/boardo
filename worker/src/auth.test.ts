@@ -6,6 +6,9 @@ import {
   handoffStart,
   network,
   newSession,
+  proved,
+  proveWithCode,
+  sendProof,
   same,
   sendCode,
   sendEmailChange,
@@ -229,5 +232,38 @@ describe('signing out other devices', () => {
     await signOutOthers(env, 'ann', here);
     expect(await sessionUser(env, here)).toBe('ann');
     expect(await sessionUser(env, there)).toBeNull();
+  });
+});
+
+describe('showing it is you', () => {
+  it('takes a code sent to the email the account has, for that session alone and for 20 minutes', async () => {
+    db.exec("INSERT INTO users (id, email, name, created) VALUES ('ann', 'ann@x.com', 'Ann', 1), ('bob', 'bob@x.com', 'Bob', 1)");
+    const e = { ...env, DEV_MAIL: '1' };
+    const here = await newSession(env, 'ann');
+    const there = await newSession(env, 'ann');
+    expect(await proved(env, here)).toBe(false);
+    expect(await proved(env, undefined)).toBe(false);
+    await sendProof(e, 'ann', '1.1.1.1');
+    const code = lastCode('ann@x.com')!;
+    await expect(sendProof(e, 'ann', '1.1.1.1')).rejects.toThrow(/on its way/);
+    await expect(proveWithCode(e, 'ann', { code: code === '111111' ? '222222' : '111111' }, here)).rejects.toThrow(/isn't right/);
+    await expect(proveWithCode(e, 'bob', { code }, here)).rejects.toThrow(/isn't right/);
+    // The sign-in code waiting for the same address is another one.
+    await expect(proveWithCode(e, 'ann', { code: '123456' }, here)).rejects.toThrow(/isn't right/);
+    await expect(verifyCode(env, { email: 'ann@x.com', code })).rejects.toThrow(/isn't right/);
+    await proveWithCode(e, 'ann', { code }, here);
+    expect(await proved(env, here)).toBe(true);
+    expect(await proved(env, there)).toBe(false);
+    await expect(proveWithCode(e, 'ann', { code }, there)).rejects.toThrow(/isn't right/);
+    db.exec('UPDATE sessions SET proved = proved - 1260000');
+    expect(await proved(env, here)).toBe(false);
+  });
+
+  it('counts signing in with a code, not a sign-in carried over', async () => {
+    const { token } = await verifyCode(env, { email: 'ann@x.com', code: '123456' });
+    expect(await proved(env, token)).toBe(true);
+    const { code } = await handoffStart(env, (await sessionUser(env, token))!, token);
+    const over = (await handoffFinish(env, { code })) as { token: string };
+    expect(await proved(env, over.token)).toBe(false);
   });
 });

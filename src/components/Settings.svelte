@@ -1,7 +1,7 @@
 <script lang="ts">
   import Bell from './Bell.svelte';
   import type { Hue } from '../../shared/model';
-  import { call } from '../lib/api';
+  import { ApiError, call } from '../lib/api';
   import { when } from '../lib/dates';
   import type { CardRec, ColumnRec, CommentRec, FieldRec } from '../../shared/model';
   import { splitRid } from '../lib/db';
@@ -12,6 +12,7 @@
   import Avatar from './Avatar.svelte';
   import HuePicker from './HuePicker.svelte';
   import Icon from './Icon.svelte';
+  import Prove from './Prove.svelte';
 
   // svelte-ignore state_referenced_locally
   let name = $state(app.user?.name ?? '');
@@ -20,11 +21,35 @@
   let saving = $state(false);
 
   // Changing the email: a code goes to the new address, and only that changes it.
-  let emailStep = $state<'idle' | 'new' | 'code'>('idle');
+  let emailStep = $state<'idle' | 'prove' | 'new' | 'code'>('idle');
+  /** Where changing the email goes on once it's shown to be them. */
+  let afterProof: 'new' | 'code' = 'new';
   let newEmail = $state('');
   let emailCode = $state('');
   let emailBusy = $state(false);
   let emailError = $state('');
+  // The email is how the account is got back, so changing it (or deleting the account) needs more
+  // than an open app.
+  const isProved = async () => (await call<{ proved: boolean }>('/auth/proved')).proved;
+  async function startChange() {
+    emailBusy = true;
+    newEmail = emailError = '';
+    afterProof = 'new';
+    try {
+      emailStep = (await isProved()) ? 'new' : 'prove';
+    } catch (err) {
+      emailError = (err as Error).message;
+    } finally {
+      emailBusy = false;
+    }
+  }
+  /** Say what went wrong; or, when it's been too long since they showed it's them, ask again. */
+  function changeFailed(err: unknown, step: 'new' | 'code') {
+    if (err instanceof ApiError && err.status === 403) {
+      afterProof = step;
+      emailStep = 'prove';
+    } else emailError = (err as Error).message;
+  }
   async function sendChange(e: Event) {
     e.preventDefault();
     emailBusy = true;
@@ -34,7 +59,7 @@
       emailCode = '';
       emailStep = 'code';
     } catch (err) {
-      emailError = (err as Error).message;
+      changeFailed(err, 'new');
     } finally {
       emailBusy = false;
     }
@@ -48,7 +73,7 @@
       emailStep = 'idle';
       app.say(`Your email is now ${app.user?.email}.`);
     } catch (err) {
-      emailError = (err as Error).message;
+      changeFailed(err, 'code');
     } finally {
       emailBusy = false;
     }
@@ -245,11 +270,19 @@
     }
   }
 
+  async function askDelete() {
+    try {
+      armed = (await isProved()) ? 'delete' : 'prove';
+    } catch (e) {
+      app.say((e as Error).message);
+    }
+  }
   async function del() {
     try {
       await app.deleteAccount();
     } catch (e) {
       armed = null;
+      if (e instanceof ApiError && e.status === 403) return void (armed = 'prove');
       app.say((e as Error).message);
     }
   }
@@ -358,8 +391,10 @@
         {#if emailStep === 'idle'}
           <div class="email-row">
             <b class="addr">{app.user?.email}</b>
-            <button class="btn" disabled={!app.online} onclick={() => ((emailStep = 'new'), (newEmail = ''), (emailError = ''))}>Change</button>
+            <button class="btn" disabled={!app.online || emailBusy} onclick={startChange}>Change</button>
           </div>
+        {:else if emailStep === 'prove'}
+          <Prove passkeys={!!keys?.length} onok={() => (emailStep = afterProof)} oncancel={() => (emailStep = 'idle')} />
         {:else if emailStep === 'new'}
           <form class="email-form" onsubmit={sendChange}>
             <input
@@ -508,16 +543,19 @@
     {:else}
       <button class="btn" onclick={() => (armed = 'others')}>Sign out other devices</button>
     {/if}
-    {#if armed === 'delete'}
+    {#if armed === 'prove'}
+      <Prove passkeys={!!keys?.length} onok={() => (armed = 'delete')} oncancel={() => (armed = null)} />
+    {:else if armed === 'delete'}
       <p>Delete your account? You'll leave every board, and this can't be undone.</p>
       <div class="row">
         <button class="btn danger" onclick={del}>Delete my account</button>
         <button class="btn ghost" onclick={() => (armed = null)}>Keep it</button>
       </div>
     {:else}
-      <button class="btn danger" onclick={() => (armed = 'delete')}><Icon name="trash" /> Delete account</button>
+      <button class="btn danger" disabled={!app.online} onclick={askDelete}><Icon name="trash" /> Delete account</button>
     {/if}
     <p class="small keys-line"><button class="link" onclick={() => (app.sheet = 'shortcuts')}>Keyboard shortcuts</button> (or press ?)</p>
+    <p class="small links"><a href="/help" target="_blank" rel="noopener">Help</a><a href="/privacy" target="_blank" rel="noopener">Privacy</a><a href="/security" target="_blank" rel="noopener">Security</a></p>
     <p class="small">Boardo is open source: <a href="https://github.com/qkonline/boardo" target="_blank" rel="noopener">github.com/qkonline/boardo</a></p>
   </section>
 
@@ -749,6 +787,15 @@
   .small {
     color: var(--muted);
     font-size: var(--fs-13);
+  }
+  .links {
+    display: flex;
+    gap: 20px;
+  }
+  .links a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
   }
   .keys-line .link {
     padding: 0;

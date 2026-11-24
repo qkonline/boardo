@@ -37,7 +37,8 @@ function serviceWorker(): Plugin {
       );
       for (const name of pub.sort()) {
         hash.update(name).update(readFileSync(here(`./public/${name}`)));
-        files.push(name);
+        // Help, Privacy and Security are served at /help and so on, and read online.
+        if (!name.endsWith('.html')) files.push(name);
       }
       const version = hash.digest('hex').slice(0, 12);
       const source = readFileSync(here('./src/sw.js'), 'utf8')
