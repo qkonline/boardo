@@ -7,6 +7,7 @@ import type { Env } from './env';
 import { MailSpent, sendMail } from './mail';
 import { LINK, linksGone } from './notify';
 import { Refusal } from './refusal';
+import { cutSessions } from './sockets';
 
 export { Refusal };
 
@@ -147,16 +148,18 @@ export async function sessionUser(env: Env, token: unknown): Promise<string | nu
 }
 
 export async function signOut(env: Env, token: string): Promise<void> {
-  await env.DB.prepare('DELETE FROM sessions WHERE hash = ?')
+  const gone = await env.DB.prepare('DELETE FROM sessions WHERE hash = ? RETURNING user_id, hash')
     .bind(await sha256(token))
-    .run();
+    .first<{ user_id: string; hash: string }>();
+  if (gone) await cutSessions(env, gone.user_id, [gone.hash]);
 }
 
 /** Sign out every other device of this account (Account, Sign out other devices; and a new email). */
 export async function signOutOthers(env: Env, userId: string, token: string | undefined): Promise<void> {
-  await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND hash <> ?')
+  const gone = await env.DB.prepare('DELETE FROM sessions WHERE user_id = ? AND hash <> ? RETURNING hash')
     .bind(userId, token ? await sha256(token) : '')
-    .run();
+    .all<{ hash: string }>();
+  await cutSessions(env, userId, gone.results.map((r) => r.hash));
 }
 
 export async function getUser(env: Env, id: string): Promise<User | null> {
@@ -394,7 +397,10 @@ export async function handoffFinish(
     .first<{ user_id: string; session_hash: string | null }>();
   const user = row ? await getUser(env, row.user_id) : null;
   if (!user) throw gone;
-  if (row?.session_hash) await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(row.session_hash).run();
+  if (row?.session_hash) {
+    await env.DB.prepare('DELETE FROM sessions WHERE hash = ?').bind(row.session_hash).run();
+    await cutSessions(env, user.id, [row.session_hash]);
+  }
   return { token: await newSession(env, user.id), user, fresh: false };
 }
 

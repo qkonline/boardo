@@ -67,6 +67,7 @@ const keptCopies = (n: number) =>
 
 const THEME_KEY = 'boardo:theme';
 const SCREEN_KEY = 'boardo:screen';
+const OTHER_INVITE_KEY = 'boardo:other-invite';
 const PASSKEY_ASK_KEY = 'boardo:passkey-ask';
 /** An order of the boards not yet saved on the server (made offline): sent on the next refresh. */
 const ORDER_KEY = 'boardo:board-order';
@@ -184,6 +185,7 @@ export class App {
       },
     });
     whenSignedOut(() => void this.signedOut());
+    this.readOtherInvite();
     const t = readLocal(THEME_KEY);
     this.theme = t === 'light' || t === 'dark' ? t : 'auto';
   }
@@ -588,6 +590,7 @@ export class App {
     this.archive = null;
     this.sheet = null;
     this.screen = { name: 'home' };
+    this.setOtherInvite(null);
     writeLocal(SCREEN_KEY, null);
     writeLocal(ORDER_KEY, null);
   }
@@ -734,9 +737,41 @@ export class App {
         this.say(`You joined ${res.board.name}.`);
       }
     } catch (e) {
-      this.say((e as Error).message);
+      // Signed in with another address than the invite's: said on Boards until dealt with.
+      if (by.token && (e as ApiError).status === 403) {
+        const { board } = await call<{ board: { name: string } }>('/invites/peek', { token: by.token }).catch(() => ({ board: { name: 'a board' } }));
+        this.setOtherInvite({ token: by.token, board: board.name });
+        this.go({ name: 'home' });
+      } else this.say((e as Error).message);
       await this.refresh();
     }
+  }
+
+  /** An invite opened here that was sent to another address than this account's. */
+  otherInvite = $state<{ token: string; board: string } | null>(null);
+  setOtherInvite(v: { token: string; board: string } | null): void {
+    this.otherInvite = v;
+    writeLocal(OTHER_INVITE_KEY, v && JSON.stringify(v));
+  }
+  private readOtherInvite(): void {
+    try {
+      const v = JSON.parse(readLocal(OTHER_INVITE_KEY) ?? 'null');
+      if (v && typeof v.token === 'string' && typeof v.board === 'string') this.otherInvite = v;
+    } catch {
+      /* not one */
+    }
+  }
+  /** Sign out, keeping the invite for the next sign-in. Not while changes here would be lost: Account asks. */
+  async useOtherAddress(): Promise<void> {
+    const t = this.otherInvite?.token;
+    if (!t) return;
+    if (await this.unsent()) {
+      this.go({ name: 'settings' });
+      this.say("Some changes haven't reached Boardo yet. Sign out here once they have.");
+      return;
+    }
+    this.inviteToken = t;
+    await this.signOut();
   }
 
   async declineInvite(id: string): Promise<void> {

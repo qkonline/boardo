@@ -119,6 +119,21 @@
     </section>
   {/if}
 
+  {#if app.otherInvite}
+    <section class="invites" aria-label="An invite to another address">
+      <div class="invite">
+        <div class="what">
+          <b>Your invite to {app.otherInvite.board} went to another address</b>
+          <span class="label">You're signed in as {app.user?.email}. Sign in with the address the invite was emailed to, or ask for a new one to this address.</span>
+        </div>
+        <div class="acts">
+          <button class="btn" onclick={() => app.setOtherInvite(null)}>Dismiss</button>
+          <button class="key ink" onclick={() => app.useOtherAddress()}>Use the other address</button>
+        </div>
+      </div>
+    </section>
+  {/if}
+
   {#if app.invites.length}
     <section class="invites" aria-label="Invites">
       {#each app.invites as inv (inv.id)}
@@ -177,7 +192,7 @@
         <button class="tile new" onclick={() => (app.sheet = 'newBoard')}><Icon name="plus" /> Create new board</button>
       </li>
     </ul>
-  {:else if !app.invites.length}
+  {:else if !app.invites.length && !app.otherInvite}
     <div class="empty">
       <p><b>No boards yet.</b></p>
       <p>Make one for a project, then invite the people working on it. Each person only sees the boards they're in.</p>

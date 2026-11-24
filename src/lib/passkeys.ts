@@ -27,8 +27,14 @@ export async function addPasskey(): Promise<void> {
 }
 
 export async function passkeySignIn<T>(autofill = false): Promise<T> {
-  const { challengeId, options } = await call<{ challengeId: string; options: AuthOptions }>('/auth/passkey/login/start');
-  const response = await startAuthentication({ optionsJSON: options, useBrowserAutofill: autofill }).catch(passkeyError);
+  // Offered quietly, nothing that goes wrong before the person picks one is worth an error.
+  const quiet = (e: unknown): never => {
+    if (!autofill) throw e;
+    console.debug('Passkey suggestions', e);
+    throw new DOMException('Not offered', 'AbortError');
+  };
+  const { challengeId, options } = await call<{ challengeId: string; options: AuthOptions }>('/auth/passkey/login/start').catch(quiet);
+  const response = await startAuthentication({ optionsJSON: options, useBrowserAutofill: autofill }).catch(autofill ? quiet : passkeyError);
   return call<T>('/auth/passkey/login/finish', { challengeId, response });
 }
 

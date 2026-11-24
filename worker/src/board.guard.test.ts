@@ -148,3 +148,41 @@ describe('too much too fast', () => {
     expect(n).toBe(30);
   });
 });
+
+describe('a session that was ended', () => {
+  const open = async (hash: string) => {
+    const { ws, got } = socket('bob');
+    ws.serializeAttachment({ userId: 'bob', role: 'member', session: hash });
+    return { ws, got };
+  };
+  const session = (hash: string) =>
+    server.d1.db.prepare('INSERT INTO sessions (hash, user_id, created, used) VALUES (?, ?, 1, 1)').run(hash, 'bob');
+
+  it('can change nothing through a connection left open', async () => {
+    const b = await server.board('b1');
+    session('h1');
+    const { ws, got } = await open('h1');
+    const send = (key: string) => b.webSocketMessage(ws as never, JSON.stringify({ t: 'put', id: 1, recs: [{ kind: 'card', key, base: 0, data: card(key) }] }));
+    await send('k1');
+    server.d1.db.prepare('DELETE FROM sessions').run();
+    await send('k2');
+    expect(got.at(-1)).toBe('closed 4001');
+    expect((await server.records('b1', 'card')).map((c: CardRec) => c.id)).toEqual(['k1']);
+  });
+
+  it('has its connections closed, and no others', async () => {
+    const b = await server.board('b1');
+    const gone = await open('h1');
+    const kept = await open('h2');
+    await b.dropSessions('bob', ['h1']);
+    expect(gone.got).toContain('closed 4001');
+    expect(kept.got).toEqual([]);
+  });
+
+  it('keeps the session on a connection when the role changes', async () => {
+    const b = await server.board('b1');
+    const { ws } = await open('h1');
+    await b.setMember(member('bob', 'admin'), null);
+    expect(ws.deserializeAttachment()).toMatchObject({ role: 'admin', session: 'h1' });
+  });
+});

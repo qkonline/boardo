@@ -38,6 +38,7 @@ import {
   sendCode,
   sendEmailChange,
   sessionUser,
+  sha256,
   signOut,
   signOutOthers,
   updateMe,
@@ -421,6 +422,7 @@ async function connect(req: Request, env: Env): Promise<Response> {
     const headers = new Headers(req.headers);
     headers.set('x-user', userId);
     headers.set('x-role', role);
+    headers.set('x-session', await sha256(token));
     const ask = () => boardStub(env, boardId!).fetch(new Request(req.url, { headers }));
     let res = await ask();
     if (res.status !== 409) return res;

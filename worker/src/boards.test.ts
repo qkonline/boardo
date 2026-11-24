@@ -135,7 +135,7 @@ describe('invites', () => {
     db.exec(`INSERT INTO users (id, email, name, created) VALUES ('dee', 'dee@x.com', 'Dee', 1), ('eve', 'eve@x.com', 'Eve', 1)`);
     await createInvite(env, 'ann', { board: 'b1', email: 'dee@x.com' });
     const t = token();
-    await expect(acceptInvite(env, 'eve', { token: t })).rejects.toThrow(/That invite is for dee@x.com/);
+    await expect(acceptInvite(env, 'eve', { token: t })).rejects.toThrow(/another address/);
     expect(role('eve')).toBeNull();
     await acceptInvite(env, 'dee', { token: t });
     expect(role('dee')).toBe('member');

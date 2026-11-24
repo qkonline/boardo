@@ -86,6 +86,8 @@ export interface ElasticOp {
 interface Attachment {
   userId: string;
   role: Role;
+  /** The hash of the session it was opened with, asked about before each change. */
+  session?: string;
 }
 
 /** The records whose changes can change what Elastic shows. */
@@ -169,7 +171,7 @@ export class Board extends DurableObject<Env> {
     }
     const [client, server] = Object.values(new WebSocketPair());
     this.ctx.acceptWebSocket(server, [userId]);
-    server.serializeAttachment({ userId, role: lesser(role, me.role) } satisfies Attachment);
+    server.serializeAttachment({ userId, role: lesser(role, me.role), session: req.headers.get('x-session') ?? undefined } satisfies Attachment);
     return new Response(null, { status: 101, webSocket: client, headers: { 'sec-websocket-protocol': 'boardo' } });
   }
 
@@ -205,6 +207,10 @@ export class Board extends DurableObject<Env> {
   /** The replies to one message from a device: changes since a point, or a put's ack. */
   private async answer(m: Record<string, unknown>, att: Attachment, from: WebSocket | null): Promise<object[] | null> {
     const who = await this.who(att, m.t === 'put');
+    if (who === 'signedout') {
+      if (from) from.close(4001, 'Signed out');
+      return [{ t: 'signedout' }];
+    }
     if (!who) {
       if (await this.inDirectory(att.userId)) return [UNLISTED];
       if (from) from.close(4003, 'Removed from board');
@@ -227,17 +233,20 @@ export class Board extends DurableObject<Env> {
    * more than their member record's. Before a change (`ask`), the directory is asked too, so
    * someone removed there while this board wasn't told can't change anything.
    */
-  private async who(att: Attachment, ask: boolean): Promise<Attachment | null> {
+  private async who(att: Attachment, ask: boolean): Promise<Attachment | 'signedout' | null> {
     const me = this.get('member', att.userId);
     if (!me) return null;
     let role = lesser(att.role, me.role);
     const id = this.boardId();
     if (ask && id) {
       try {
-        const row = await this.env.DB.prepare('SELECT role FROM members WHERE board_id = ? AND user_id = ?')
-          .bind(id, att.userId)
-          .first<{ role: Role }>();
+        const row = await this.env.DB.prepare(
+          'SELECT m.role, (SELECT 1 FROM sessions s WHERE s.hash = ? AND s.user_id = m.user_id) AS session FROM members m WHERE m.board_id = ? AND m.user_id = ?',
+        )
+          .bind(att.session ?? '', id, att.userId)
+          .first<{ role: Role; session: number | null }>();
         if (!row) return null;
+        if (att.session && !row.session) return 'signedout';
         role = lesser(role, row.role);
       } catch (e) {
         // The directory can't be reached: the board's own list stands.
@@ -858,7 +867,7 @@ export class Board extends DurableObject<Env> {
         this.note(null, memberNote('role', m.userId, m.role, this.noteCtx(by, now)));
       }
     });
-    for (const ws of this.ctx.getWebSockets(m.userId)) ws.serializeAttachment({ userId: m.userId, role: m.role } satisfies Attachment);
+    for (const ws of this.ctx.getWebSockets(m.userId)) ws.serializeAttachment({ ...(ws.deserializeAttachment() as Attachment), userId: m.userId, role: m.role } satisfies Attachment);
     this.broadcast(out, null);
     this.sendNotes();
   }
@@ -886,6 +895,15 @@ export class Board extends DurableObject<Env> {
     for (const ws of this.ctx.getWebSockets(userId)) ws.close(4003, 'Removed from board');
     this.broadcast(out, null);
     this.sendNotes();
+  }
+
+  /** These sessions of someone's were ended: their connections close, and those devices sign out. */
+  async dropSessions(userId: string, hashes: string[]): Promise<void> {
+    const gone = new Set(hashes);
+    for (const ws of this.ctx.getWebSockets(userId)) {
+      const { session } = ws.deserializeAttachment() as Attachment;
+      if (session && gone.has(session)) ws.close(4001, 'Signed out');
+    }
   }
 
   /** The board was deleted: close every connection and drop everything. */

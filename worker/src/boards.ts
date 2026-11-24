@@ -361,7 +361,7 @@ export async function acceptInvite(env: Env, userId: string, body: { token?: unk
   else if (isId(body.id)) row = await env.DB.prepare('SELECT * FROM invites WHERE id = ?').bind(body.id).first<InviteRow>();
   if (!row || row.expires < Date.now()) throw new Refusal(404, 'That invite has expired or was cancelled. Ask for a new one.');
   if (row.email !== user.email)
-    throw new Refusal(403, `That invite is for ${row.email}. Sign in with that address to join.`);
+    throw new Refusal(403, 'That invite was sent to another address. Sign in with that one to join.');
   const already = await roleIn(env, row.board_id, userId);
   const now = Date.now();
   if (!already)
